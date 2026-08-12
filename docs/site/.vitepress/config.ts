@@ -4,8 +4,8 @@ export default defineConfig({
   title: 'bwsf',
   description: 'Manage .env files with Bitwarden CLI',
   
-  // GitHub Pages base path
-  base: '/bwsf/',
+  // Custom domain root (https://bwsf.oss.b4m.jp/)
+  base: '/',
   
   // Clean URLs (no .html extension)
   cleanUrls: true,
