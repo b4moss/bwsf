@@ -1,60 +1,63 @@
 # GitHub repository ruleset helpers.
 # Real work lives in scripts/; this Makefile is a thin wrapper.
+# Target/variable names are prefixed with ruleset- / RULESET_ so this
+# file can be vendored via git subtree without colliding with host Makefiles.
 
 SHELL := /bin/bash
-.DEFAULT_GOAL := help
+.DEFAULT_GOAL := ruleset-help
 
-ROOT_DIR := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
-SCRIPTS := $(ROOT_DIR)/scripts
+RULESET_ROOT_DIR := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
+RULESET_SCRIPTS := $(RULESET_ROOT_DIR)/scripts
 
-REPO ?=
-BRANCH ?= main
-VISIBILITY ?= public
-CREATE_FLAGS ?=
+RULESET_REPO ?=
+RULESET_BRANCH ?= main
+RULESET_VISIBILITY ?= public
+RULESET_CREATE_FLAGS ?=
 
-.PHONY: help create apply check
+.PHONY: ruleset-help ruleset-create ruleset-apply ruleset-check
 
-help:
+ruleset-help:
 	@printf '%s\n' \
 		'Targets:' \
 		'' \
-		'  make create REPO=OWNER/NAME [VISIBILITY=public] [CREATE_FLAGS="--clone"]' \
+		'  make ruleset-create RULESET_REPO=OWNER/NAME [RULESET_VISIBILITY=public] [RULESET_CREATE_FLAGS="--clone"]' \
 		'      Create a GitHub repo and apply rulesets.' \
 		'' \
-		'  make apply REPO=OWNER/NAME' \
+		'  make ruleset-apply RULESET_REPO=OWNER/NAME' \
 		'      Apply/update rulesets on an existing repo.' \
 		'' \
-		'  make check REPO=OWNER/NAME [BRANCH=main]' \
-		'      List rulesets and check which rules apply to BRANCH.' \
+		'  make ruleset-check RULESET_REPO=OWNER/NAME [RULESET_BRANCH=main]' \
+		'      List rulesets and check which rules apply to RULESET_BRANCH.' \
 		'' \
 		'Notes:' \
 		'  - GitHub Free (org): rulesets work on public repos only.' \
-		'  - Requires gh (repo admin) and jq.'
+		'  - Requires gh (repo admin) and jq.' \
+		'  - Namespaced as ruleset-* / RULESET_* for subtree-safe includes.'
 
-create:
-	@if [[ -z "$(REPO)" ]]; then \
-		echo "error: REPO=OWNER/NAME is required" >&2; \
-		echo "example: make create REPO=my-org/new-app" >&2; \
+ruleset-create:
+	@if [[ -z "$(RULESET_REPO)" ]]; then \
+		echo "error: RULESET_REPO=OWNER/NAME is required" >&2; \
+		echo "example: make ruleset-create RULESET_REPO=my-org/new-app" >&2; \
 		exit 1; \
 	fi
-	@$(SCRIPTS)/create-repo-with-rulesets.sh "$(REPO)" "--$(VISIBILITY)" $(CREATE_FLAGS)
+	@$(RULESET_SCRIPTS)/create-repo-with-rulesets.sh "$(RULESET_REPO)" "--$(RULESET_VISIBILITY)" $(RULESET_CREATE_FLAGS)
 
-apply:
-	@if [[ -z "$(REPO)" ]]; then \
-		echo "error: REPO=OWNER/NAME is required" >&2; \
-		echo "example: make apply REPO=my-org/existing-app" >&2; \
+ruleset-apply:
+	@if [[ -z "$(RULESET_REPO)" ]]; then \
+		echo "error: RULESET_REPO=OWNER/NAME is required" >&2; \
+		echo "example: make ruleset-apply RULESET_REPO=my-org/existing-app" >&2; \
 		exit 1; \
 	fi
-	@$(SCRIPTS)/apply-rulesets.sh --repo "$(REPO)"
+	@$(RULESET_SCRIPTS)/apply-rulesets.sh --repo "$(RULESET_REPO)"
 
-check:
-	@if [[ -z "$(REPO)" ]]; then \
-		echo "error: REPO=OWNER/NAME is required" >&2; \
-		echo "example: make check REPO=my-org/existing-app BRANCH=main" >&2; \
+ruleset-check:
+	@if [[ -z "$(RULESET_REPO)" ]]; then \
+		echo "error: RULESET_REPO=OWNER/NAME is required" >&2; \
+		echo "example: make ruleset-check RULESET_REPO=my-org/existing-app RULESET_BRANCH=main" >&2; \
 		exit 1; \
 	fi
 	@echo "== ruleset list =="
-	@gh ruleset list -R "$(REPO)"
+	@gh ruleset list -R "$(RULESET_REPO)"
 	@echo
-	@echo "== ruleset check $(BRANCH) =="
-	@gh ruleset check "$(BRANCH)" -R "$(REPO)"
+	@echo "== ruleset check $(RULESET_BRANCH) =="
+	@gh ruleset check "$(RULESET_BRANCH)" -R "$(RULESET_REPO)"

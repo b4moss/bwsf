@@ -4,6 +4,8 @@ GitHub リポジトリ向けの **ruleset 定義**と、作成・適用用の CL
 
 Gitea への自動同期は対象外です。Organization ruleset も無料プランでは使えないため、**リポジトリ単位**で適用します。
 
+他リポジトリへ git subtree で取り込む想定のため、Make のターゲット / 変数は `ruleset-*` / `RULESET_*` に名前空間化しています。
+
 ## 前提
 
 - [`gh`](https://cli.github.com/)（対象リポの **admin** で `gh auth login` 済み）
@@ -18,7 +20,7 @@ Gitea への自動同期は対象外です。Organization ruleset も無料プ�
 | Repository ruleset | **public のみ** |
 | private の ruleset / branch protection | Pro / Team 以上が必要 |
 
-`make create` のデフォルトは `VISIBILITY=public` です。
+`make ruleset-create` のデフォルトは `RULESET_VISIBILITY=public` です。
 
 ## 定義ファイル
 
@@ -39,7 +41,7 @@ Gitea への自動同期は対象外です。Organization ruleset も無料プ�
 ### 新規リポ作成 + ruleset 適用（推奨）
 
 ```bash
-make create REPO=OWNER/new-app
+make ruleset-create RULESET_REPO=OWNER/new-app
 # 同等:
 #   ./scripts/create-repo-with-rulesets.sh OWNER/new-app --public
 ```
@@ -47,13 +49,19 @@ make create REPO=OWNER/new-app
 オプション例:
 
 ```bash
-make create REPO=OWNER/new-app VISIBILITY=public CREATE_FLAGS="--clone --description demo"
+make ruleset-create RULESET_REPO=OWNER/new-app RULESET_VISIBILITY=public RULESET_CREATE_FLAGS="--clone --description demo"
+```
+
+subtree 配下から叩く例:
+
+```bash
+make -f path/to/repo-ruleset/Makefile ruleset-create RULESET_REPO=OWNER/new-app
 ```
 
 ### 既存リポへ後付け / 更新
 
 ```bash
-make apply REPO=OWNER/existing-app
+make ruleset-apply RULESET_REPO=OWNER/existing-app
 ```
 
 同名 ruleset があれば更新、なければ作成します。
@@ -61,7 +69,7 @@ make apply REPO=OWNER/existing-app
 ### 適用確認
 
 ```bash
-make check REPO=OWNER/existing-app BRANCH=main
+make ruleset-check RULESET_REPO=OWNER/existing-app RULESET_BRANCH=main
 ```
 
 内部では `gh ruleset list` と `gh ruleset check` を実行します。
@@ -70,8 +78,8 @@ make check REPO=OWNER/existing-app BRANCH=main
 
 1. このリポジトリを clone する（定義とスクリプトのソース）
 2. `gh auth login`（適用先リポの admin 権限があるアカウント）
-3. `make create REPO=OWNER/new-app`
-4. `make check REPO=OWNER/new-app` で確認
+3. `make ruleset-create RULESET_REPO=OWNER/new-app`
+4. `make ruleset-check RULESET_REPO=OWNER/new-app` で確認
 
 利用者の手作業は上記までです。GitHub UI での Rulesets 設定は不要です。
 
@@ -79,7 +87,3 @@ make check REPO=OWNER/existing-app BRANCH=main
 
 ruleset の作成・更新にはリポジトリ admin が必要です。  
 Secret や bot は使いません。リポを作る人が、作成と同時に自分の `gh` 認証で適用する想定です。
-
------
-
-以上
