@@ -1,12 +1,14 @@
-.PHONY: help build up down run shell clean test test-unit test-e2e fmt vet lint deps-outdated
+.PHONY: help build up down run shell clean rebuild test test-unit test-e2e test-coverage fmt vet lint deps-outdated
 
 # 変数定義
 APP_DIR := app
+SHELL := /bin/bash
+.DEFAULT_GOAL := help
 
 # デフォルトターゲット
 help: ## このヘルプメッセージを表示
 	@echo "利用可能なコマンド:"
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}'
+	@grep -hE '^[a-zA-Z0-9_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}'
 
 build: ## Dockerイメージをビルド
 	cd $(APP_DIR) && docker compose build
@@ -64,6 +66,12 @@ clean: ## コンテナ、イメージ、ボリュームを削除
 
 rebuild: clean build ## クリーンビルドを実行
 
-# サブコマンドをターゲットとして認識させないようにする
+# ========================================
+# GitHub ruleset helpers
+# ========================================
+
+include ruleset.mk
+
+# サブコマンドをターゲットとして認識させないようにする（末尾に置く）
 %:
 	@:

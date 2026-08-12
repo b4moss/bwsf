@@ -1,19 +1,33 @@
+# OS files
 Thumbs.db
 .DS_Store
 
+# Worktrees
 worktree/
 
+# App
 app/.config
 
+# Environment variables
 .env
 .env.*
 !.env.*.example
 
+# Coverage
 coverage.out
 
 # GoReleaser
 app/dist/
 
+# VitePress
 .vitepress/cache/
 .vitepress/dist/
 .vitepress/node_modules/
+
+# IDEs
+.cursor/
+.vscode/
+
+# Logs
+*.log
+*.log.*
