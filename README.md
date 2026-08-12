@@ -5,6 +5,8 @@
 
 bwsf (Bitwarden Secured Files) is a CLI tool that uses [Bitwarden](https://bitwarden.com/) to manage .env files.
 
+[Official site](https://bwsf.oss.b4m.jp/)
+
 ## 🚨🚨 BREAKING CHANGE 🚨🚨
 
 ### Changed CLI Name
