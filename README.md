@@ -1,4 +1,4 @@
-# repo-ruleset-src-repo
+# repo-ruleset
 
 GitHub リポジトリ向けの **ruleset 定義**と、作成・適用用の CLI です。
 
@@ -87,3 +87,7 @@ make ruleset-check RULESET_REPO=OWNER/existing-app RULESET_BRANCH=main
 
 ruleset の作成・更新にはリポジトリ admin が必要です。  
 Secret や bot は使いません。リポを作る人が、作成と同時に自分の `gh` 認証で適用する想定です。
+
+----
+
+以上
