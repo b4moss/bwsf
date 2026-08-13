@@ -101,15 +101,15 @@ func TestUnlockError_ImplementsError(t *testing.T) {
 // NewBwClientFromConfig / ApiBwClient のテスト
 // =============================================================================
 
-// 正常系: nil / 未設定 config では CLI (bw) アダプタが選ばれる
-func TestNewBwClientFromConfig_DefaultBW(t *testing.T) {
+// 正常系: nil / 未設定 config では API アダプタが選ばれる
+func TestNewBwClientFromConfig_DefaultAPI(t *testing.T) {
 	client, err := NewBwClientFromConfig(nil)
 	assert.NoError(t, err)
-	assert.IsType(t, &RealBwClient{}, client)
+	assert.IsType(t, &ApiBwClient{}, client)
 
 	client, err = NewBwClientFromConfig(&config.Config{})
 	assert.NoError(t, err)
-	assert.IsType(t, &RealBwClient{}, client)
+	assert.IsType(t, &ApiBwClient{}, client)
 
 	client, err = NewBwClientFromConfig(&config.Config{Backend: config.BackendBW})
 	assert.NoError(t, err)
@@ -147,7 +147,7 @@ func TestApiBwClient_VaultRequiresAuth(t *testing.T) {
 	assert.ErrorIs(t, err, ErrAPINotAuthenticated)
 
 	assert.ErrorIs(t, client.Login("e", "p", ""), ErrAPINotAuthenticated)
-	assert.Contains(t, ErrAPINotImplemented.Error(), "Issue #53")
+	assert.Contains(t, ErrAPINotImplemented.Error(), "bwsf auth")
 }
 
 // 正常系: ApiBwClient が BwClient インターフェースを実装している
