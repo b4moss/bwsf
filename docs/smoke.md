@@ -50,6 +50,6 @@ make smoke-down
 ```
 
 Host port mapping (optional browser / host tools): `https://127.0.0.1:8443`  
-From containers on the compose network: `https://vaultwarden` (port 80 inside the container, TLS-enabled).
+From containers on the compose network: `https://vaultwarden:80` (ROCKET_TLS listens on 80 inside the container, not 443).
 
 Account creation / `bw login` / running `bwsf` subcommands belong to **#110**, not this foundation.
