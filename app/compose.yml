@@ -17,7 +17,8 @@ services:
       - ./smoke/certs:/smoke-certs:ro
     environment:
       BWSF_SMOKE_CA: /smoke-certs/ca.crt
-      BWSF_SMOKE_VW_URL: https://vaultwarden
+      # Vaultwarden with ROCKET_TLS serves HTTPS on container port 80 (not 443)
+      BWSF_SMOKE_VW_URL: https://vaultwarden:80
       # Bitwarden CLI (Node) trusts the smoke CA when talking to Vaultwarden
       NODE_EXTRA_CA_CERTS: /smoke-certs/ca.crt
     working_dir: /app
