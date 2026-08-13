@@ -3,6 +3,7 @@ package core
 import (
 	"errors"
 	"fmt"
+	"path/filepath"
 	"testing"
 
 	"bwsf/src/config"
@@ -2411,4 +2412,232 @@ func TestSortFileNames(t *testing.T) {
 	assert.Equal(t, ".env.local", names[1])
 	assert.Equal(t, ".env.production", names[2])
 	assert.Equal(t, ".env.staging", names[3])
+}
+
+// =============================================================================
+// managed files / tfvars（docs/tests/core/managed_files_tfvars.md, ops_tfvars.md）
+// =============================================================================
+
+func managedBaseNames(t *testing.T, fs *mockFileSystem, dir string) []string {
+	t.Helper()
+	paths, err := findEnvFilesFromFS(fs, dir)
+	assert.NoError(t, err)
+	var names []string
+	for _, p := range paths {
+		names = append(names, filepath.Base(p))
+	}
+	return names
+}
+
+func TestFindManagedFiles_DetectsEnvAndTfvars(t *testing.T) {
+	fs := &mockFileSystem{
+		dirEntries: []DirEntry{
+			&mockDirEntry{name: ".env"},
+			&mockDirEntry{name: ".env.staging"},
+			&mockDirEntry{name: "terraform.tfvars"},
+			&mockDirEntry{name: "prod.auto.tfvars"},
+			&mockDirEntry{name: "vars.tfvars.json"},
+			&mockDirEntry{name: "prod.auto.tfvars.json"},
+			&mockDirEntry{name: "main.tf"},
+			&mockDirEntry{name: "README.md"},
+			&mockDirEntry{name: "notes.tfvars.bak"},
+			&mockDirEntry{name: "subdir", isDir: true},
+		},
+	}
+
+	names := managedBaseNames(t, fs, ".")
+	assert.Equal(t, []string{
+		".env",
+		".env.staging",
+		"prod.auto.tfvars",
+		"prod.auto.tfvars.json",
+		"terraform.tfvars",
+		"vars.tfvars.json",
+	}, names)
+}
+
+func TestFindManagedFiles_TfvarsOnly(t *testing.T) {
+	fs := &mockFileSystem{
+		dirEntries: []DirEntry{
+			&mockDirEntry{name: "terraform.tfvars"},
+		},
+	}
+	names := managedBaseNames(t, fs, ".")
+	assert.Equal(t, []string{"terraform.tfvars"}, names)
+}
+
+func TestFindManagedFiles_ExcludesExampleAndUnrelated(t *testing.T) {
+	fs := &mockFileSystem{
+		dirEntries: []DirEntry{
+			&mockDirEntry{name: ".env.example"},
+			&mockDirEntry{name: ".env.staging.example"},
+			&mockDirEntry{name: "terraform.tfvars.example"},
+			&mockDirEntry{name: "foo.tfvars.json.example"},
+			&mockDirEntry{name: "main.tf"},
+			&mockDirEntry{name: "notes.tfvars.bak"},
+		},
+	}
+	names := managedBaseNames(t, fs, ".")
+	assert.Empty(t, names)
+}
+
+func TestFindManagedFiles_TfvarsOnlySortAlphabetical(t *testing.T) {
+	fs := &mockFileSystem{
+		dirEntries: []DirEntry{
+			&mockDirEntry{name: "z.tfvars"},
+			&mockDirEntry{name: "a.tfvars"},
+			&mockDirEntry{name: "m.tfvars.json"},
+		},
+	}
+	names := managedBaseNames(t, fs, ".")
+	assert.Equal(t, []string{"a.tfvars", "m.tfvars.json", "z.tfvars"}, names)
+}
+
+func TestFindManagedFiles_ReadDirError(t *testing.T) {
+	fs := &mockFileSystem{readDirErr: errors.New("permission denied")}
+	_, err := findEnvFilesFromFS(fs, ".")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to read directory")
+}
+
+func TestGetPushedEnvFiles_IncludesTfvars(t *testing.T) {
+	fs := &mockFileSystem{
+		dirEntries: []DirEntry{
+			&mockDirEntry{name: ".env"},
+			&mockDirEntry{name: "terraform.tfvars"},
+			&mockDirEntry{name: "terraform.tfvars.example"},
+		},
+	}
+	names, err := GetPushedEnvFiles(".", fs)
+	assert.NoError(t, err)
+	assert.Equal(t, []string{".env", "terraform.tfvars"}, names)
+}
+
+func TestPushEnvCore_TfvarsOnly(t *testing.T) {
+	bw := &mockBwClient{folderID: "folder-123"}
+	fs := &mockFileSystem{
+		dirEntries: []DirEntry{
+			&mockDirEntry{name: "terraform.tfvars"},
+		},
+		readContentMap: map[string][]byte{
+			"terraform.tfvars": []byte("region = \"ap-northeast-1\"\n"),
+		},
+	}
+	logger := &mockLogger{}
+
+	err := PushEnvCore(".", "my-project", fs, bw, &config.Config{}, func() (string, error) {
+		return "pwd", nil
+	}, logger)
+	assert.NoError(t, err)
+	assert.Contains(t, bw.calls, "CreateNoteItem(folder-123,my-project)")
+}
+
+func TestPushEnvCore_EnvAndTfvarsTogether(t *testing.T) {
+	bw := &mockBwClient{
+		folderID:   "folder-123",
+		itemByName: &FullItem{ID: "item-1", Name: "my-project", Notes: "{}"},
+	}
+	fs := &mockFileSystem{
+		dirEntries: []DirEntry{
+			&mockDirEntry{name: ".env"},
+			&mockDirEntry{name: "terraform.tfvars"},
+			&mockDirEntry{name: "secret.tfvars.json"},
+		},
+		readContentMap: map[string][]byte{
+			".env":               []byte("KEY=value\n"),
+			"terraform.tfvars":   []byte("a = 1\n"),
+			"secret.tfvars.json": []byte("{\"b\":2}\n"),
+		},
+	}
+	logger := &mockLogger{}
+
+	err := PushEnvCore(".", "my-project", fs, bw, &config.Config{}, func() (string, error) {
+		return "pwd", nil
+	}, logger)
+	assert.NoError(t, err)
+	assert.Contains(t, bw.calls, "UpdateNoteItem(item-1)")
+}
+
+func TestPullEnvCore_RestoresTfvars(t *testing.T) {
+	notes := `{"terraform.tfvars":{"lines":["region = \"ap-northeast-1\""]},".env":{"lines":["KEY=value"]}}`
+	bw := &mockBwClient{
+		folderID:   "folder-123",
+		itemByName: &FullItem{ID: "item-1", Name: "my-project", Notes: notes},
+	}
+	fs := &mockFileSystem{
+		statInfoMap: map[string]FileInfo{
+			".env":             &mockFileInfo{notExist: true},
+			"terraform.tfvars": &mockFileInfo{notExist: true},
+		},
+		writtenFiles: map[string][]byte{},
+	}
+	logger := &mockLogger{}
+
+	err := PullEnvCore(".", "my-project", fs, bw, &config.Config{}, func() (string, error) {
+		return "pwd", nil
+	}, func(path string) (bool, error) { return true, nil }, logger)
+	assert.NoError(t, err)
+	assert.Equal(t, "KEY=value", string(fs.writtenFiles[".env"]))
+	assert.Equal(t, `region = "ap-northeast-1"`, string(fs.writtenFiles["terraform.tfvars"]))
+}
+
+func TestCleanEnvCore_RemovesMatchingTfvars(t *testing.T) {
+	notes := multiEnvNotes(map[string][]string{
+		"terraform.tfvars": {`region = "ap-northeast-1"`},
+	})
+	bw := &mockBwClient{
+		folderID:   "folder-123",
+		itemByName: &FullItem{ID: "item-1", Name: "my-project", Notes: notes},
+	}
+	fs := &mockFileSystem{
+		dirEntries: []DirEntry{&mockDirEntry{name: "terraform.tfvars"}},
+		readContentMap: map[string][]byte{
+			"terraform.tfvars": []byte("region = \"ap-northeast-1\""),
+		},
+	}
+	logger := &mockLogger{}
+
+	err := CleanEnvCore(".", "my-project", fs, bw, &config.Config{}, func() (string, error) {
+		return "pwd", nil
+	}, func([]string) (CleanMismatchAction, error) {
+		t.Fatal("should not prompt")
+		return CleanActionAbort, nil
+	}, logger)
+	assert.NoError(t, err)
+	assert.Contains(t, fs.calls, "Remove(terraform.tfvars)")
+}
+
+func TestCleanEnvCore_MismatchOnTfvarsOnly(t *testing.T) {
+	notes := multiEnvNotes(map[string][]string{
+		"terraform.tfvars": {`region = "remote"`},
+	})
+	bw := &mockBwClient{
+		folderID:   "folder-123",
+		itemByName: &FullItem{ID: "item-1", Name: "my-project", Notes: notes},
+	}
+	fs := &mockFileSystem{
+		dirEntries: []DirEntry{&mockDirEntry{name: "terraform.tfvars"}},
+		readContentMap: map[string][]byte{
+			"terraform.tfvars": []byte("region = \"local\""),
+		},
+	}
+	logger := &mockLogger{}
+	var got []string
+
+	err := CleanEnvCore(".", "my-project", fs, bw, &config.Config{}, func() (string, error) {
+		return "pwd", nil
+	}, func(mismatched []string) (CleanMismatchAction, error) {
+		got = append([]string{}, mismatched...)
+		return CleanActionAbort, nil
+	}, logger)
+	assert.ErrorIs(t, err, ErrCleanAborted)
+	assert.Contains(t, got, "terraform.tfvars")
+	assert.Empty(t, fs.removedFiles)
+}
+
+func TestIsExampleFile_TfvarsExamples(t *testing.T) {
+	assert.True(t, isExampleFile("terraform.tfvars.example"))
+	assert.True(t, isExampleFile("foo.tfvars.json.example"))
+	assert.False(t, isExampleFile("terraform.tfvars"))
+	assert.False(t, isExampleFile("vars.tfvars.json"))
 }
