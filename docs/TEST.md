@@ -469,6 +469,23 @@
 - 異常系
   - `SetupBitwardenCore` がエラーを返す場合に、その内容がエラーとして表示され、`os.Exit(1)` が呼ばれることを確認する。
 
+### runClean
+
+- 処理:
+  - `--from` フラグをパースして対象ディレクトリを取得する。
+  - `os.Getwd()` から `projectName` を決定する。
+  - 具象 `BwClient` / `FileSystem` / `Logger` を生成する。
+  - 差分時の単一選択 UI (`SelectCleanMismatchAction`) を `CleanEnvCore` へ渡す。
+  - `CleanEnvCore` の戻り値が `ErrCleanAborted` の場合は情報メッセージを出して終了コード 0。
+  - その他のエラーはメッセージ表示＋`os.Exit(1)`、成功時は成功メッセージを表示する。
+
+#### テストシナリオ
+
+- 正常系
+  - `clean` コマンドが root に登録され、`--from` フラグのデフォルトが `"."` であることを確認する。
+- 異常系
+  - （コア層で担保）リモート未整備や Abort 時にローカル削除が行われないことを確認する。
+
 ---
 
 ## 6. 既存ユーティリティの仕様（インフラ実装側）
