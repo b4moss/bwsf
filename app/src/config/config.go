@@ -5,14 +5,16 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 type Config struct {
-	HostType          string `json:"host_type"`                    // "cloud" or "selfhosted"
-	SelfhostedURL     string `json:"selfhosted_url"`               // URL for self-hosted instance
-	Email             string `json:"email"`                        // Email address
-	Backend           string `json:"backend,omitempty"`            // "bw" (CLI) or "api"; default "bw" when unset
-	DeviceIdentifier  string `json:"device_identifier,omitempty"`  // Stable device id for Identity (api backend)
+	HostType         string `json:"host_type"`                   // "cloud" or "selfhosted"
+	SelfhostedURL    string `json:"selfhosted_url"`              // URL for self-hosted instance
+	Email            string `json:"email"`                       // Email address
+	FolderName       string `json:"folder_name,omitempty"`       // Bitwarden folder for .env notes
+	Backend          string `json:"backend,omitempty"`           // "bw" (CLI) or "api"; default "bw" when unset
+	DeviceIdentifier string `json:"device_identifier,omitempty"` // Stable device id for Identity (api backend)
 }
 
 const (
@@ -23,6 +25,9 @@ const (
 	BackendBW = "bw"
 	// BackendAPI uses the Bitwarden API adapter (not fully implemented yet).
 	BackendAPI = "api"
+
+	// DefaultFolderName is the Bitwarden folder used when folder_name is unset.
+	DefaultFolderName = "dotenvs"
 )
 
 // GetBackend returns the configured backend, defaulting to "bw" when unset (backward compatible).
@@ -36,6 +41,26 @@ func (c *Config) GetBackend() string {
 // IsValidBackend reports whether backend is a supported value ("bw" or "api").
 func IsValidBackend(backend string) bool {
 	return backend == BackendBW || backend == BackendAPI
+}
+
+// ResolveFolderName returns the configured folder name, or DefaultFolderName when empty.
+func ResolveFolderName(cfg *Config) string {
+	if cfg == nil {
+		return DefaultFolderName
+	}
+	name := strings.TrimSpace(cfg.FolderName)
+	if name == "" {
+		return DefaultFolderName
+	}
+	return name
+}
+
+// ValidateFolderName rejects empty or whitespace-only folder names.
+func ValidateFolderName(name string) error {
+	if strings.TrimSpace(name) == "" {
+		return fmt.Errorf("folder name must not be empty")
+	}
+	return nil
 }
 
 // GetConfigPath returns the full path to the config file

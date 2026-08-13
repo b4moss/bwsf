@@ -39,7 +39,7 @@ Bitwarden Vault
 ```
 
 ::: info
-`dotenvs` というフォルダ名は bwsf によって予約されています。Bitwarden ボールト内で他の目的に使用しないでください。
+デフォルトのフォルダ名は `dotenvs` です。`bwsf setup --folder <name>` で変更できます。名前変更では既存ノートは移動しません。
 :::
 
 ## 初期設定

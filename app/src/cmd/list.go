@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"bwsf/src/config"
 	"bwsf/src/core"
 	"bwsf/src/infra"
 	"bwsf/src/utils"
@@ -12,8 +13,8 @@ import (
 
 var listCmd = &cobra.Command{
 	Use:   "list",
-	Short: "List items in the dotenvs folder",
-	Long:  "List all items in the dotenvs folder from Bitwarden",
+	Short: "List items in the configured Bitwarden folder",
+	Long:  "List all items in the configured Bitwarden folder (default: dotenvs)",
 	Run:   runList,
 }
 
@@ -44,7 +45,8 @@ func runList(cmd *cobra.Command, args []string) {
 
 	// Output item names (one per line)
 	if len(items) == 0 {
-		fmt.Println("No items found in dotenvs folder")
+		folderName := config.ResolveFolderName(cfg)
+		fmt.Printf("No items found in %s folder\n", folderName)
 		return
 	}
 

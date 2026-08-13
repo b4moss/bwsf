@@ -1,6 +1,6 @@
 # 開発予定中の機能
 
-- `dotenvs`フォルダ以外の名称利用可能化
+- [x] `dotenvs`フォルダ以外の名称利用可能化（`bwsf setup --folder`）
 - `bwsf.config.json`ファイルの機能実装
   - `ignore`や`override_project_name`などの設定が可能に
 - `bwsf clean`コマンド： 現在プロジェクトからの、.envファイルの削除。

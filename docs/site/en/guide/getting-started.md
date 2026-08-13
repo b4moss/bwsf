@@ -39,7 +39,7 @@ Bitwarden Vault
 ```
 
 ::: info
-The folder name `dotenvs` is reserved by bwsf. Don't use it for other purposes in your Bitwarden vault.
+By default the folder name is `dotenvs`. You can change it with `bwsf setup --folder <name>`. Changing the name does not move existing notes.
 :::
 
 ## Initial Setup

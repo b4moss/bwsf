@@ -9,6 +9,8 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+
+	"bwsf/src/config"
 )
 
 // ErrBitwardenLocked is returned when Bitwarden CLI is locked
@@ -26,8 +28,27 @@ type Item struct {
 	Name string `json:"name"`
 }
 
-// GetDotenvsFolderID retrieves the folder ID for the "dotenvs" folder
+// resolveConfiguredFolderName loads folder_name from config (default: "dotenvs").
+func resolveConfiguredFolderName() string {
+	cfg, err := config.LoadConfig()
+	if err != nil {
+		return config.DefaultFolderName
+	}
+	return config.ResolveFolderName(cfg)
+}
+
+// GetDotenvsFolderID retrieves the folder ID for the configured Bitwarden folder
+// (folder_name in config, default "dotenvs"). Signature kept for BwClient compatibility.
 func GetDotenvsFolderID() (string, error) {
+	return GetFolderID(resolveConfiguredFolderName())
+}
+
+// GetFolderID retrieves the folder ID for the given Bitwarden folder name.
+func GetFolderID(folderName string) (string, error) {
+	if folderName == "" {
+		folderName = config.DefaultFolderName
+	}
+
 	// Check if bw command exists
 	_, err := exec.LookPath("bw")
 	if err != nil {
@@ -70,25 +91,28 @@ func GetDotenvsFolderID() (string, error) {
 		return "", fmt.Errorf("failed to parse folders JSON (output: %s): %w", outputStr, err)
 	}
 
-	// Find "dotenvs" folder
 	for _, folder := range folders {
-		if folder.Name == "dotenvs" {
+		if folder.Name == folderName {
 			return folder.ID, nil
 		}
 	}
 
-	// Folder not found
-	return "", fmt.Errorf("dotenvs folder not found")
+	return "", fmt.Errorf("%s folder not found", folderName)
 }
 
-// ErrDotenvsFolderNotFound is returned when dotenvs folder does not exist
+// ErrDotenvsFolderNotFound is returned when the configured folder does not exist
 var ErrDotenvsFolderNotFound = errors.New("dotenvs folder not found")
 
-// DotenvsFolderExists checks if the "dotenvs" folder exists in Bitwarden
+// DotenvsFolderExists checks if the configured folder exists in Bitwarden.
 func DotenvsFolderExists() (bool, error) {
-	_, err := GetDotenvsFolderID()
+	return FolderExists(resolveConfiguredFolderName())
+}
+
+// FolderExists checks if the given folder exists in Bitwarden.
+func FolderExists(folderName string) (bool, error) {
+	_, err := GetFolderID(folderName)
 	if err != nil {
-		if strings.Contains(err.Error(), "dotenvs folder not found") {
+		if strings.Contains(err.Error(), "folder not found") {
 			return false, nil
 		}
 		return false, err
@@ -96,8 +120,17 @@ func DotenvsFolderExists() (bool, error) {
 	return true, nil
 }
 
-// CreateDotenvsFolder creates the "dotenvs" folder in Bitwarden
+// CreateDotenvsFolder creates the configured folder in Bitwarden.
 func CreateDotenvsFolder() error {
+	return CreateFolder(resolveConfiguredFolderName())
+}
+
+// CreateFolder creates a Bitwarden folder with the given name.
+func CreateFolder(folderName string) error {
+	if folderName == "" {
+		folderName = config.DefaultFolderName
+	}
+
 	// Check if bw command exists
 	_, err := exec.LookPath("bw")
 	if err != nil {
@@ -105,12 +138,12 @@ func CreateDotenvsFolder() error {
 	}
 
 	// Start spinner
-	StartSpinner("Creating dotenvs folder...")
+	StartSpinner(fmt.Sprintf("Creating %s folder...", folderName))
 	defer StopSpinner()
 
 	// Create folder JSON object
 	folderData := map[string]string{
-		"name": "dotenvs",
+		"name": folderName,
 	}
 	jsonData, err := json.Marshal(folderData)
 	if err != nil {
@@ -461,4 +494,3 @@ func BwUnlock(masterPassword string) (bool, string) {
 	errorMsg := fmt.Sprintf("unlock command completed but status check shows still locked (stdout: %q, stderr: %q)", outputStr, stderrStr)
 	return false, errorMsg
 }
-

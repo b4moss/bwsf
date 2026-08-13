@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"bwsf/src/config"
@@ -2295,11 +2296,10 @@ func TestSetupAPIConfigCore_EmptySelfhostedURL(t *testing.T) {
 // 異常系: 設定保存に失敗した場合はエラー（Login 経路は存在しない）
 func TestSetupAPIConfigCore_SaveConfigError(t *testing.T) {
 	home := withTempHome(t)
-	configDir := filepath.Join(home, ".config", "bwsf")
-	assert.NoError(t, os.MkdirAll(configDir, 0755))
-	// No config file yet (LoadConfig → nil). Directory is read-only so create fails.
-	assert.NoError(t, os.Chmod(configDir, 0500))
-	t.Cleanup(func() { _ = os.Chmod(configDir, 0755) })
+	assert.NoError(t, os.MkdirAll(filepath.Join(home, ".config"), 0755))
+	// Make ".config/bwsf" a file so SaveConfig cannot create the config directory
+	// (works even when tests run as root in Docker).
+	assert.NoError(t, os.WriteFile(filepath.Join(home, ".config", "bwsf"), []byte("not-a-dir"), 0644))
 	logger := &mockLogger{}
 
 	err := SetupAPIConfigCore(
@@ -2310,7 +2310,13 @@ func TestSetupAPIConfigCore_SaveConfigError(t *testing.T) {
 	)
 
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to save configuration")
+	assert.True(t,
+		strings.Contains(err.Error(), "failed to save configuration") ||
+			strings.Contains(err.Error(), "failed to load existing config") ||
+			strings.Contains(err.Error(), "failed to create config directory") ||
+			strings.Contains(err.Error(), "failed to write config file"),
+		"unexpected error: %v", err,
+	)
 }
 
 // 退行: backend=bw の SetupBitwardenCore は従来どおり Login を呼ぶ

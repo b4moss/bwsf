@@ -31,11 +31,11 @@ This pulls the .env files for the current project stored in Bitwarden and saves 
 
 ## Multi-User Sharing via Bitwarden
 
-On the Bitwarden side, files are saved in a folder called `dotenvs`. (This is a reserved word.)
+On the Bitwarden side, files are saved in a configurable folder (default: `dotenvs`).
 
 When you run `bwsf` in your project root, the name of that root folder becomes the project name.
 
-By sharing the `dotenvs` folder with other users on Bitwarden, you can share .env files among multiple team members.
+By sharing that folder with other users on Bitwarden, you can share .env files among multiple team members.
 
 For more details, please refer to the [Bitwarden documentation](https://bitwarden.com/resources/).
 
