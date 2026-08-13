@@ -8,6 +8,9 @@ worktree/
 # App
 app/.config
 
+# Smoke runs (issue #110)
+.smoke-tmp/
+
 # Environment variables
 .env
 .env.*

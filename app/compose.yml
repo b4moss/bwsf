@@ -13,11 +13,37 @@ services:
       - go-mod-cache:/go/pkg/mod
       # .configディレクトリを永続化
       - ./.config:/root/.config
+      # Smoke TLS trust material (Vaultwarden self-signed CA)
+      - ./smoke/certs:/smoke-certs:ro
+    environment:
+      BWSF_SMOKE_CA: /smoke-certs/ca.crt
+      # Vaultwarden with ROCKET_TLS serves HTTPS on container port 80 (not 443)
+      BWSF_SMOKE_VW_URL: https://vaultwarden:80
+      # Bitwarden CLI (Node) trusts the smoke CA when talking to Vaultwarden
+      NODE_EXTRA_CA_CERTS: /smoke-certs/ca.crt
     working_dir: /app
     stdin_open: true
     tty: true
     restart: unless-stopped
     command: go run src/main.go
 
+  vaultwarden:
+    profiles: ["smoke"]
+    image: vaultwarden/server:latest
+    container_name: bwsf-vaultwarden-smoke
+    environment:
+      # Match client URL (TLS on container port 80)
+      DOMAIN: https://vaultwarden:80
+      SIGNUPS_ALLOWED: "true"
+      # HTTPS via self-signed certs under ./smoke/certs
+      ROCKET_TLS: '{certs="/ssl/vaultwarden.crt",key="/ssl/vaultwarden.key"}'
+    volumes:
+      - ./smoke/certs:/ssl:ro
+      - vw-smoke-data:/data
+    ports:
+      - "127.0.0.1:8443:80"
+    restart: unless-stopped
+
 volumes:
   go-mod-cache:
+  vw-smoke-data:
