@@ -14,13 +14,13 @@ Development / CI helpers for **real-server** checks against Vaultwarden.
 | `make test` | No | All of the above (`go test ./...`; does **not** include smoke) |
 | `make smoke-up` / `smoke-down` | Vaultwarden | Start / stop smoke profile |
 | `make smoke-ready` | Vaultwarden | HTTPS reachability from the golang container |
-| `make smoke` | Vaultwarden | Full command walk (#110; stub until then) |
+| `make smoke` | Vaultwarden | Real command walk (`setup` → `push` → `pull` → `list`) |
 
-CI: PR runs unit + mock e2e only. `Smoke Ready` workflow is `workflow_dispatch` / nightly and is **not** required on PRs.
+CI: PR runs unit + mock e2e only. `Smoke` workflow is `workflow_dispatch` / nightly and is **not** required on PRs.
 
 ## HTTPS / certificates
 
-Vaultwarden is started with **self-signed TLS** (no `-k` / insecure skip by default).
+Vaultwarden is started with **self-signed TLS** (no `-k` / insecure skip by default for `bw` / `bwsf`).
 
 | Path | Role |
 |------|------|
@@ -40,16 +40,53 @@ Regenerate:
 ./scripts/generate-smoke-certs.sh
 ```
 
-## Local usage
-
-```bash
-make build          # once (image includes curl)
-make smoke-up       # Vaultwarden on compose profile "smoke"
-make smoke-ready    # wait until https://vaultwarden/alive succeeds
-make smoke-down
-```
-
 Host port mapping (optional browser / host tools): `https://127.0.0.1:8443`  
 From containers on the compose network: `https://vaultwarden:80` (ROCKET_TLS listens on 80 inside the container, not 443).
 
-Account creation / `bw login` / running `bwsf` subcommands belong to **#110**, not this foundation.
+## `make smoke` (#110)
+
+Runs inside the golang container against Vaultwarden:
+
+1. Ensures VW is up / HTTPS ready  
+2. Creates `.smoke-tmp/<run-id>/` with isolated `HOME` and project dir (`bwsf-smoke`)  
+3. Registers a fixed smoke user (idempotent)  
+4. Runs non-interactive `bwsf setup` then `push` / `pull` / `list`  
+
+```bash
+make build
+make smoke                      # full sequence
+make smoke CMD=setup
+make smoke CMD=push
+make smoke TARGET=vaultwarden BACKEND=bw
+```
+
+| Variable | Default | Notes |
+|----------|---------|-------|
+| `CMD` | `all` | `setup` / `push` / `pull` / `list` / `all` |
+| `TARGET` | `vaultwarden` | OSS reserved for later |
+| `BACKEND` | `bw` | `api` reserved (errors for now) |
+| `BWSF_SMOKE_EMAIL` | `smoke@bwsf.local` | Fixed smoke account |
+| `BWSF_SMOKE_PASSWORD` | `SmokePassw0rd!` | Smoke-only weak secret (not production) |
+| `BWSF_SMOKE_KEEP_TMP` | `0` | Set `1` to keep tmp on success |
+
+### tmp policy
+
+| Result | Behavior |
+|--------|----------|
+| Success | Delete `.smoke-tmp/<run-id>/` (unless `BWSF_SMOKE_KEEP_TMP=1`) |
+| Failure | Keep the directory and print its path for inspection |
+
+`.smoke-tmp/` is gitignored.
+
+### Non-interactive setup
+
+```bash
+bwsf setup \
+  --host-type selfhosted \
+  --url https://vaultwarden:80 \
+  --email smoke@bwsf.local \
+  --password 'SmokePassw0rd!' \
+  --yes
+```
+
+Unlock prompts elsewhere honor `BWSF_PASSWORD` when set (used by the smoke runner).
