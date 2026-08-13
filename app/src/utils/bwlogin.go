@@ -2,6 +2,7 @@ package utils
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 )
@@ -58,32 +59,57 @@ func BwLogin(email, password, serverURL string) (bool, string) {
 		}
 	}
 
-	// Build login command arguments
-	args := []string{"login", email, password}
+	// Prefer --raw so Docker / non-interactive runs get a session key.
+	args := []string{"login", email, password, "--raw"}
 
-	// Execute bw login command
 	cmd := exec.Command("bw", args...)
 	output, err := cmd.CombinedOutput()
+	outputStr := strings.TrimSpace(string(output))
 
 	if err != nil {
-		// Extract error message from output
-		errorMsg := strings.TrimSpace(string(output))
+		errorMsg := outputStr
 		if errorMsg == "" {
 			errorMsg = err.Error()
+		}
+		// Already logged in: try to unlock for a session instead of failing hard.
+		if strings.Contains(strings.ToLower(errorMsg), "already logged in") {
+			if session, unlockErr := unlockRaw(password); unlockErr == nil && session != "" {
+				os.Setenv("BW_SESSION", session)
+				return true, ""
+			}
 		}
 		return false, errorMsg
 	}
 
-	// Check if login was successful
-	outputStr := strings.TrimSpace(string(output))
-	if strings.Contains(outputStr, "You are logged in") ||
-		strings.Contains(outputStr, "You're logged in") ||
-		strings.Contains(outputStr, "logged in!") {
+	// --raw returns the session key on success
+	if outputStr != "" &&
+		!strings.Contains(outputStr, " ") &&
+		!strings.Contains(strings.ToLower(outputStr), "error") {
+		os.Setenv("BW_SESSION", outputStr)
 		return true, ""
 	}
 
-	// If output doesn't contain success message, treat as failure
+	if strings.Contains(outputStr, "You are logged in") ||
+		strings.Contains(outputStr, "You're logged in") ||
+		strings.Contains(outputStr, "logged in!") {
+		if session, unlockErr := unlockRaw(password); unlockErr == nil && session != "" {
+			os.Setenv("BW_SESSION", session)
+		}
+		return true, ""
+	}
+
 	return false, outputStr
+}
+
+func unlockRaw(password string) (string, error) {
+	cmd := exec.Command("bw", "unlock", "--raw", "--passwordenv", "BW_PASSWORD")
+	cmd.Env = append(os.Environ(), "BW_PASSWORD="+password)
+	out, err := cmd.CombinedOutput()
+	session := strings.TrimSpace(string(out))
+	if err != nil {
+		return "", fmt.Errorf("%s", session)
+	}
+	return session, nil
 }
 
 // CheckBwCommand checks if bw command is installed

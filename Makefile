@@ -5,10 +5,13 @@ APP_DIR := app
 SHELL := /bin/bash
 .DEFAULT_GOAL := help
 
-# Smoke / real-server targets (Vaultwarden). CMD/TARGET/BACKEND are reserved for #110.
-CMD ?=
+# Smoke / real-server targets (Vaultwarden). CMD/TARGET/BACKEND は #110 で使用。
+CMD ?= all
 TARGET ?= vaultwarden
 BACKEND ?= bw
+BWSF_SMOKE_EMAIL ?=
+BWSF_SMOKE_PASSWORD ?=
+BWSF_SMOKE_KEEP_TMP ?=
 
 # デフォルトターゲット
 help: ## このヘルプメッセージを表示
@@ -60,11 +63,15 @@ smoke-down: ## スモーク用サービスを停止
 smoke-ready: ## テスト用コンテナから VW HTTPS 疎通を確認
 	cd $(APP_DIR) && docker compose --profile smoke run --rm --no-deps golang sh /project-root/scripts/smoke-ready.sh
 
-smoke: ## 実コマンド通しスモーク（#110 で実装。現時点はスタブ）
-	@echo "make smoke is not implemented yet (see #110)." >&2
-	@echo "Reserved vars: CMD=$(CMD) TARGET=$(TARGET) BACKEND=$(BACKEND)" >&2
-	@echo "Use: make smoke-up && make smoke-ready && make smoke-down" >&2
-	@exit 1
+smoke: smoke-up smoke-ready ## Vaultwarden に対し bwsf 主要コマンドをスモーク（CMD/TARGET/BACKEND 可）
+	cd $(APP_DIR) && docker compose --profile smoke run --rm --no-deps \
+		-e CMD="$(CMD)" \
+		-e TARGET="$(TARGET)" \
+		-e BACKEND="$(BACKEND)" \
+		-e BWSF_SMOKE_EMAIL="$(BWSF_SMOKE_EMAIL)" \
+		-e BWSF_SMOKE_PASSWORD="$(BWSF_SMOKE_PASSWORD)" \
+		-e BWSF_SMOKE_KEEP_TMP="$(BWSF_SMOKE_KEEP_TMP)" \
+		golang sh /project-root/scripts/run-smoke.sh
 
 # ========================================
 # コード品質

@@ -32,7 +32,8 @@ services:
     image: vaultwarden/server:latest
     container_name: bwsf-vaultwarden-smoke
     environment:
-      DOMAIN: https://vaultwarden
+      # Match client URL (TLS on container port 80)
+      DOMAIN: https://vaultwarden:80
       SIGNUPS_ALLOWED: "true"
       # HTTPS via self-signed certs under ./smoke/certs
       ROCKET_TLS: '{certs="/ssl/vaultwarden.crt",key="/ssl/vaultwarden.key"}'

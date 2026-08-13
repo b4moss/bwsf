@@ -154,11 +154,11 @@ We use the following Make commands for testing:
 | `make lint` | Run formatter and static analysis |
 | `make smoke-up` / `smoke-down` | Start / stop Vaultwarden (Compose profile `smoke`) |
 | `make smoke-ready` | Check HTTPS reachability to Vaultwarden from the test container |
-| `make smoke` | Real command smoke against Vaultwarden (**#110**; stub for now) |
+| `make smoke` | Real command smoke (`setup`/`push`/`pull`/`list`; optional `CMD=` / `TARGET=` / `BACKEND=`) |
 
 Always run `make test` and `make lint` before submitting a PR.
 
-For the Vaultwarden smoke foundation (certs, HTTPS, optional CI), see [`docs/smoke.md`](docs/smoke.md).
+For Vaultwarden smoke (certs, HTTPS, `make smoke`, tmp policy), see [`docs/smoke.md`](docs/smoke.md).
 
 ## Questions?
 
