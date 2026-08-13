@@ -160,8 +160,8 @@ func WithUnlockRetry(
 	return fmt.Errorf("failed to unlock Bitwarden CLI: %w", unlockErr)
 }
 
-// PushEnvCore は .env ファイルを Bitwarden にプッシュするコアロジックです。
-// 複数の .env* ファイルを自動検出し、.example ファイルは除外します。
+// PushEnvCore は管理対象ファイル（.env* / *.tfvars / *.tfvars.json）を Bitwarden にプッシュします。
+// .example を含む名前のファイルは除外します。
 func PushEnvCore(
 	fromDir, projectName string,
 	fs FileSystem,
@@ -170,14 +170,13 @@ func PushEnvCore(
 	promptPassword func() (string, error),
 	logger Logger,
 ) error {
-	// .env* ファイルを検出
 	envFiles, err := findEnvFilesFromFS(fs, fromDir)
 	if err != nil {
-		return fmt.Errorf("failed to find .env files: %w", err)
+		return fmt.Errorf("failed to find managed files: %w", err)
 	}
 
 	if len(envFiles) == 0 {
-		return fmt.Errorf("no .env files found in %s", fromDir)
+		return fmt.Errorf("no managed files found in %s", fromDir)
 	}
 
 	// 各ファイルを読み込んで MultiEnvData に格納
@@ -240,7 +239,7 @@ func PushEnvCore(
 	return nil
 }
 
-// GetPushedEnvFiles は push 対象の .env ファイル名一覧を返します（表示用）
+// GetPushedEnvFiles は push 対象の管理対象ファイル名一覧を返します（表示用）
 func GetPushedEnvFiles(
 	fromDir string,
 	fs FileSystem,
@@ -258,7 +257,8 @@ func GetPushedEnvFiles(
 	return names, nil
 }
 
-// findEnvFilesFromFS は FileSystem インターフェースを使って .env* ファイルを検出します。
+// findEnvFilesFromFS は FileSystem 経由で管理対象ファイルを検出します。
+// 対象: .env* / *.tfvars / *.tfvars.json（名前に .example を含むものは除外）
 func findEnvFilesFromFS(fs FileSystem, dirPath string) ([]string, error) {
 	entries, err := fs.ReadDir(dirPath)
 	if err != nil {
@@ -272,13 +272,7 @@ func findEnvFilesFromFS(fs FileSystem, dirPath string) ([]string, error) {
 		}
 
 		name := entry.Name()
-		// Check if file starts with ".env"
-		if !strings.HasPrefix(name, ".env") {
-			continue
-		}
-
-		// Skip .example files
-		if isExampleFile(name) {
+		if !isManagedFileName(name) {
 			continue
 		}
 
@@ -289,6 +283,20 @@ func findEnvFilesFromFS(fs FileSystem, dirPath string) ([]string, error) {
 	sortEnvFiles(envFiles)
 
 	return envFiles, nil
+}
+
+// isManagedFileName reports whether a basename is a bwsf-managed file.
+func isManagedFileName(filename string) bool {
+	if isExampleFile(filename) {
+		return false
+	}
+	if strings.HasPrefix(filename, ".env") {
+		return true
+	}
+	if strings.HasSuffix(filename, ".tfvars.json") || strings.HasSuffix(filename, ".tfvars") {
+		return true
+	}
+	return false
 }
 
 // isExampleFile checks if a filename contains ".example" anywhere in it
@@ -409,7 +417,7 @@ func PullEnvCore(
 	return nil
 }
 
-// CleanEnvCore は bwsf 管理対象のローカル .env* を、リモートバックアップを確認したうえで削除します。
+// CleanEnvCore は管理対象のローカルファイルを、リモートバックアップを確認したうえで削除します。
 func CleanEnvCore(
 	targetDir, projectName string,
 	fs FileSystem,
@@ -421,10 +429,10 @@ func CleanEnvCore(
 ) error {
 	envFiles, err := findEnvFilesFromFS(fs, targetDir)
 	if err != nil {
-		return fmt.Errorf("failed to find .env files: %w", err)
+		return fmt.Errorf("failed to find managed files: %w", err)
 	}
 	if len(envFiles) == 0 {
-		return fmt.Errorf("no .env files found in %s", targetDir)
+		return fmt.Errorf("no managed files found in %s", targetDir)
 	}
 
 	localData := make(MultiEnvData)

@@ -3,7 +3,7 @@
 [![Test](https://github.com/b4m-oss/bwsf/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/b4m-oss/bwsf/actions/workflows/test.yml)
 [![Release](https://img.shields.io/github/v/release/b4m-oss/bwsf)](https://github.com/b4m-oss/bwsf/releases/latest)
 
-bwsf（Bitwarden Secured Files）は、[Bitwarden](https://bitwarden.com/)を使用して.envファイルを管理するCLIツールです。
+bwsf（Bitwarden Secured Files）は、[Bitwarden](https://bitwarden.com/)を使用して `.env*` および Terraform の `*.tfvars` / `*.tfvars.json` を管理するCLIツールです。
 [Official site](https://bwsf.oss.b4m.jp/)
 
 [English version is here.](./README.md)
@@ -47,10 +47,11 @@ bwsfコマンドは、Bitwardenで管理されているdotenvファイルをサ�
 
 | コマンド | |
 |----|----|
-| bwsf push | .envファイルをBitwardenホストにプッシュ |
-| bwsf pull | Bitwardenホストから.envファイルをプル |
-| bwsf list | Bitwardenホストに保存されている.envファイルの一覧を表示 |
-| bwsf clean | リモートバックアップを確認したうえでローカルの.envファイルを削除 |
+| bwsf config show | 現在のローカル設定を表示 |
+| bwsf push | 管理対象ファイル（`.env*` / `*.tfvars` / `*.tfvars.json`）をBitwardenホストにプッシュ |
+| bwsf pull | Bitwardenホストから管理対象ファイルをプル |
+| bwsf list | Bitwardenホストに保存されているプロジェクトの一覧を表示 |
+| bwsf clean | リモートバックアップを確認したうえでローカルの管理対象ファイルを削除 |
 
 ## 動機
 
