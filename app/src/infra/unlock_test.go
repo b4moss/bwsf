@@ -47,8 +47,10 @@ func TestApiBwClient_Unlock_SuccessAndClearSession(t *testing.T) {
 	assert.True(t, client.IsUnlocked())
 	assert.Contains(t, crypto.Calls, "UnlockWithPassword")
 
-	_, err = client.ListItemsInFolder("f")
-	assert.ErrorIs(t, err, ErrAPINotImplemented)
+	crypto.Folders = []VaultFolder{{ID: "f1", Name: "dotenvs"}}
+	id, err := client.GetDotenvsFolderID()
+	require.NoError(t, err)
+	assert.Equal(t, "f1", id)
 
 	client.ClearSession()
 	assert.False(t, client.IsAuthenticated())
