@@ -5,6 +5,7 @@
 | Command | Description |
 |---|---|
 | `bwsf setup` | Configure Bitwarden connection |
+| `bwsf config show` | Show current local configuration |
 | `bwsf push` | Push managed files (`.env*`, `*.tfvars`, `*.tfvars.json`) to Bitwarden |
 | `bwsf pull` | Pull managed files from Bitwarden |
 | `bwsf list` | List all stored projects |
@@ -30,6 +31,16 @@ This interactive command will prompt you for:
 - **Server URL**: Your Bitwarden server URL (leave blank for Bitwarden Cloud)
 - **Email**: Your Bitwarden account email
 - **Master Password**: Your Bitwarden master password
+
+## bwsf config show
+
+Show the current local configuration from `~/.config/bwsf/config.json`.
+
+```bash
+bwsf config show
+```
+
+Prints host type, self-hosted URL, email, and the effective folder name. Does not call Bitwarden. If no config file exists, the command exits with an error and suggests running `bwsf setup`.
 
 ## bwsf push
 

@@ -47,6 +47,7 @@ bwsfコマンドは、Bitwardenで管理されているdotenvファイルをサ�
 
 | コマンド | |
 |----|----|
+| bwsf config show | 現在のローカル設定を表示 |
 | bwsf push | 管理対象ファイル（`.env*` / `*.tfvars` / `*.tfvars.json`）をBitwardenホストにプッシュ |
 | bwsf pull | Bitwardenホストから管理対象ファイルをプル |
 | bwsf list | Bitwardenホストに保存されているプロジェクトの一覧を表示 |

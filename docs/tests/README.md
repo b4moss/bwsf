@@ -10,6 +10,7 @@
 | パス | 対象 |
 |------|------|
 | [`core/`](./core/) | コア層（管理対象ファイル検出、push/pull/list/clean） |
+| [`cmd/`](./cmd/) | CLI コマンド層（cobra 登録・ユーザー向け出力契約） |
 
 ## Issue #102 / v0.15.0 — `*.tfvars` 対応
 
@@ -19,3 +20,11 @@
 | [`core/ops_tfvars.md`](./core/ops_tfvars.md) | push / pull / list / clean での tfvars 往復・退行 |
 
 合意正本: [#102](https://github.com/b4moss/bwsf/issues/102)（Q1〜Q3）
+
+## Issue #125 / v0.15.0 — `bwsf config show`
+
+| 文書 | 内容 |
+|------|------|
+| [`cmd/config_show.md`](./cmd/config_show.md) | `config` / `config show` の登録・表示項目・未設定時エラー |
+
+方針正本: 同文書の前提 C1〜C6（[#125](https://github.com/b4moss/bwsf/issues/125)）

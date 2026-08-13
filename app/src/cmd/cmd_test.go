@@ -206,3 +206,40 @@ func TestCleanCmd_Description(t *testing.T) {
 	assert.NotEmpty(t, cleanCmd.Short)
 	assert.NotEmpty(t, cleanCmd.Long)
 }
+
+// =============================================================================
+// config / config show（docs/tests/cmd/config_show.md）
+// =============================================================================
+
+func TestConfigCmd_Registered(t *testing.T) {
+	assert.NotNil(t, configCmd)
+	assert.Equal(t, "config", configCmd.Use)
+
+	found := false
+	for _, c := range rootCmd.Commands() {
+		if c.Use == "config" {
+			found = true
+			break
+		}
+	}
+	assert.True(t, found, "config command should be registered")
+}
+
+func TestConfigShowCmd_Registered(t *testing.T) {
+	assert.NotNil(t, configShowCmd)
+	assert.Equal(t, "show", configShowCmd.Use)
+
+	found := false
+	for _, c := range configCmd.Commands() {
+		if c.Use == "show" {
+			found = true
+			break
+		}
+	}
+	assert.True(t, found, "config show command should be registered")
+}
+
+func TestConfigCmd_Description(t *testing.T) {
+	assert.NotEmpty(t, configCmd.Short)
+	assert.NotEmpty(t, configShowCmd.Short)
+}
