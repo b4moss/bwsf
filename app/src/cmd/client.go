@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"errors"
 	"os"
 
 	"bwsf/src/config"
@@ -8,6 +9,28 @@ import (
 	"bwsf/src/infra"
 	"bwsf/src/utils"
 )
+
+type sessionClearer interface {
+	ClearSession()
+}
+
+func clearAPISession(bw core.BwClient) {
+	if c, ok := bw.(sessionClearer); ok {
+		c.ClearSession()
+	}
+}
+
+func reportCommandError(err error) {
+	if err == nil {
+		return
+	}
+	if core.IsNotAuthenticatedError(err) || errors.Is(err, infra.ErrAPINotAuthenticated) {
+		utils.Errorln("[ERROR]", err)
+		utils.Infoln("[INFO] Run: bwsf auth")
+		return
+	}
+	utils.Errorln("[ERROR]", err)
+}
 
 // loadConfigOrEmpty loads ~/.config/bwsf/config.json, or returns an empty config when missing.
 func loadConfigOrEmpty() *config.Config {
