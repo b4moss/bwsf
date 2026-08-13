@@ -52,6 +52,18 @@ func (fs *MockFileSystem) WriteFile(path string, data []byte, perm uint32) error
 	return nil
 }
 
+// Remove はファイルを削除します。
+func (fs *MockFileSystem) Remove(path string) error {
+	fs.mu.Lock()
+	defer fs.mu.Unlock()
+
+	if _, ok := fs.files[path]; !ok {
+		return fmt.Errorf("file not found: %s", path)
+	}
+	delete(fs.files, path)
+	return nil
+}
+
 // Stat はファイル情報を取得します。
 func (fs *MockFileSystem) Stat(path string) (core.FileInfo, error) {
 	fs.mu.RLock()
@@ -152,7 +164,7 @@ func (fi *mockFileInfo) IsNotExist() bool {
 
 // MockLogger はテスト用のモック Logger 実装です。
 type MockLogger struct {
-	mu       sync.Mutex
+	mu        sync.Mutex
 	InfoLogs  []string
 	ErrorLogs []string
 }
@@ -189,9 +201,9 @@ type MockBwClient struct {
 	mu sync.RWMutex
 
 	// ストレージ
-	folders map[string]string          // folderName -> folderID
-	items   map[string]*core.FullItem  // itemID -> FullItem
-	itemsByFolder map[string][]string  // folderID -> []itemID
+	folders       map[string]string         // folderName -> folderID
+	items         map[string]*core.FullItem // itemID -> FullItem
+	itemsByFolder map[string][]string       // folderID -> []itemID
 
 	// 認証状態
 	isLoggedIn bool
@@ -468,4 +480,3 @@ func (m *MockBwClient) Reset() {
 	m.password = ""
 	m.serverURL = ""
 }
-

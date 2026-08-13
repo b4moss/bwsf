@@ -50,6 +50,7 @@ bwsfコマンドは、Bitwardenで管理されているdotenvファイルをサ�
 | bwsf push | .envファイルをBitwardenホストにプッシュ |
 | bwsf pull | Bitwardenホストから.envファイルをプル |
 | bwsf list | Bitwardenホストに保存されている.envファイルの一覧を表示 |
+| bwsf clean | リモートバックアップを確認したうえでローカルの.envファイルを削除 |
 
 ## 動機
 

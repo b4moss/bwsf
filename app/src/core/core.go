@@ -2,12 +2,17 @@ package core
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"path/filepath"
+	"reflect"
 	"strings"
 
 	"bwsf/src/config"
 )
+
+// ErrCleanAborted は差分あり時にユーザーが Abort を選んだことを表します。
+var ErrCleanAborted = errors.New("clean aborted by user")
 
 // BwClient は Bitwarden CLI とのやり取りを抽象化するインターフェースです。
 type BwClient interface {
@@ -28,10 +33,23 @@ type FileSystem interface {
 	OpenEnvFile(path string) ([]byte, error)
 	ReadFile(path string) ([]byte, error)
 	WriteFile(path string, data []byte, perm uint32) error
+	Remove(path string) error
 	Stat(path string) (FileInfo, error)
 	MkdirAll(path string, perm uint32) error
 	ReadDir(path string) ([]DirEntry, error)
 }
+
+// CleanMismatchAction はローカル/リモート差分時のユーザー選択です。
+type CleanMismatchAction int
+
+const (
+	// CleanActionAbort は削除を中止します（安全側の既定）。
+	CleanActionAbort CleanMismatchAction = iota
+	// CleanActionOverwriteRemoteThenClean はリモートをローカルで上書きしてからローカルを削除します。
+	CleanActionOverwriteRemoteThenClean
+	// CleanActionRemoveLocal はリモートを更新せずローカルのみ削除します（危険）。
+	CleanActionRemoveLocal
+)
 
 // DirEntry はディレクトリエントリを表します。
 type DirEntry interface {
@@ -389,6 +407,125 @@ func PullEnvCore(
 	}
 
 	return nil
+}
+
+// CleanEnvCore は bwsf 管理対象のローカル .env* を、リモートバックアップを確認したうえで削除します。
+func CleanEnvCore(
+	targetDir, projectName string,
+	fs FileSystem,
+	bw BwClient,
+	cfg *config.Config,
+	promptPassword func() (string, error),
+	selectMismatchAction func(mismatchedFiles []string) (CleanMismatchAction, error),
+	logger Logger,
+) error {
+	envFiles, err := findEnvFilesFromFS(fs, targetDir)
+	if err != nil {
+		return fmt.Errorf("failed to find .env files: %w", err)
+	}
+	if len(envFiles) == 0 {
+		return fmt.Errorf("no .env files found in %s", targetDir)
+	}
+
+	localData := make(MultiEnvData)
+	for _, envPath := range envFiles {
+		content, readErr := fs.ReadFile(envPath)
+		if readErr != nil {
+			return fmt.Errorf("failed to read %s: %w", envPath, readErr)
+		}
+		localData[filepath.Base(envPath)] = *parseEnvContent(content)
+	}
+
+	var folderID string
+	err = WithUnlockRetry(bw, cfg, promptPassword, logger, func() error {
+		var innerErr error
+		folderID, innerErr = bw.GetDotenvsFolderID()
+		return innerErr
+	})
+	if err != nil {
+		return fmt.Errorf("failed to get dotenvs folder: %w", err)
+	}
+
+	var item *FullItem
+	err = WithUnlockRetry(bw, cfg, promptPassword, logger, func() error {
+		var innerErr error
+		item, innerErr = bw.GetItemByName(folderID, projectName)
+		return innerErr
+	})
+	if err != nil {
+		return fmt.Errorf("failed to get item: %w", err)
+	}
+	if item == nil {
+		return fmt.Errorf("item '%s' not found in dotenvs folder; aborting clean", projectName)
+	}
+
+	remoteData, err := restoreMultiEnvFromJSON(item.Notes)
+	if err != nil {
+		envContent, legacyErr := restoreEnvFileFromJSON(item.Notes)
+		if legacyErr != nil {
+			return fmt.Errorf("failed to restore remote env data: %w", err)
+		}
+		remoteData = MultiEnvData{
+			".env": EnvData{Lines: strings.Split(envContent, "\n")},
+		}
+	}
+	if len(remoteData) == 0 {
+		return fmt.Errorf("item '%s' has no env files on remote; aborting clean", projectName)
+	}
+
+	mismatched := diffMultiEnvData(localData, remoteData)
+	if len(mismatched) == 0 {
+		return removeLocalEnvFiles(fs, envFiles)
+	}
+
+	action, err := selectMismatchAction(mismatched)
+	if err != nil {
+		return fmt.Errorf("failed to select clean action: %w", err)
+	}
+
+	switch action {
+	case CleanActionAbort:
+		return ErrCleanAborted
+	case CleanActionOverwriteRemoteThenClean:
+		if err := PushEnvCore(targetDir, projectName, fs, bw, cfg, promptPassword, logger); err != nil {
+			return fmt.Errorf("failed to overwrite remote before clean: %w", err)
+		}
+		return removeLocalEnvFiles(fs, envFiles)
+	case CleanActionRemoveLocal:
+		return removeLocalEnvFiles(fs, envFiles)
+	default:
+		return fmt.Errorf("unknown clean action: %v", action)
+	}
+}
+
+func removeLocalEnvFiles(fs FileSystem, envFiles []string) error {
+	for _, envPath := range envFiles {
+		if err := fs.Remove(envPath); err != nil {
+			return fmt.Errorf("failed to remove %s: %w", envPath, err)
+		}
+	}
+	return nil
+}
+
+func diffMultiEnvData(local, remote MultiEnvData) []string {
+	keys := make(map[string]struct{})
+	for k := range local {
+		keys[k] = struct{}{}
+	}
+	for k := range remote {
+		keys[k] = struct{}{}
+	}
+
+	var mismatched []string
+	for k := range keys {
+		l, lok := local[k]
+		r, rok := remote[k]
+		if !lok || !rok || !reflect.DeepEqual(l.Lines, r.Lines) {
+			mismatched = append(mismatched, k)
+		}
+	}
+	sortFileNames(mismatched)
+	return mismatched
 }
 
 // GetPulledEnvFiles は pull 対象の .env ファイル名一覧を返します（表示用）
