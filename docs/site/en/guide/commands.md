@@ -5,10 +5,10 @@
 | Command | Description |
 |---|---|
 | `bwsf setup` | Configure Bitwarden connection |
-| `bwsf push` | Push .env files to Bitwarden |
-| `bwsf pull` | Pull .env files from Bitwarden |
+| `bwsf push` | Push managed files (`.env*`, `*.tfvars`, `*.tfvars.json`) to Bitwarden |
+| `bwsf pull` | Pull managed files from Bitwarden |
 | `bwsf list` | List all stored projects |
-| `bwsf clean` | Remove local .env files after verifying Bitwarden backup |
+| `bwsf clean` | Remove local managed files after verifying Bitwarden backup |
 
 ## bwsf setup
 

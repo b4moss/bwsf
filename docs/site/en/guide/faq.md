@@ -64,11 +64,9 @@ The development team **does not officially recommend this**.
 
 ## Q: Does it support Terraform's `tfvars` files?
 
-Unfortunately, it does not at this time.
+Yes. From v0.15.0, bwsf manages files ending in `.tfvars` or `.tfvars.json` the same way as `.env*` files (push / pull / list / clean).
 
-It has been added to the development backlog.
-
-Please look forward to it. Or contributions are welcome!
+Names that contain `.example` are excluded, just like `.env.example`.
 
 ## Q: How do I log out from Bitwarden?
 

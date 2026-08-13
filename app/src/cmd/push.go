@@ -64,17 +64,17 @@ func runPush(cmd *cobra.Command, args []string) {
 	// Get list of env files to be pushed
 	envFiles, err := core.GetPushedEnvFiles(fromDir, fs)
 	if err != nil {
-		utils.Errorln("[ERROR] Failed to find .env files:", err)
+		utils.Errorln("[ERROR] Failed to find managed files:", err)
 		os.Exit(1)
 	}
 
 	if len(envFiles) == 0 {
-		utils.Errorln("[ERROR] No .env files found")
+		utils.Errorln("[ERROR] No managed files found")
 		os.Exit(1)
 	}
 
 	// Display files to be pushed
-	utils.Infoln("[INFO] Found", len(envFiles), "env file(s) to push:")
+	utils.Infoln("[INFO] Found", len(envFiles), "managed file(s) to push:")
 	for _, f := range envFiles {
 		utils.Infoln("  -", f)
 	}
@@ -94,5 +94,5 @@ func runPush(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	utils.Successln("[INFO] ✅", len(envFiles), "env file(s) pushed successfully!")
+	utils.Successln("[INFO] ✅", len(envFiles), "managed file(s) pushed successfully!")
 }

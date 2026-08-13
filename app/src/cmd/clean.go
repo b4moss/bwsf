@@ -14,13 +14,13 @@ import (
 
 var cleanCmd = &cobra.Command{
 	Use:   "clean",
-	Short: "Remove local .env files after verifying Bitwarden backup",
-	Long:  "Remove bwsf-managed local .env* files after confirming the remote Bitwarden note item has matching (or explicitly handled) contents",
+	Short: "Remove local managed files after verifying Bitwarden backup",
+	Long:  "Remove bwsf-managed local files (.env*, *.tfvars, *.tfvars.json) after confirming the remote Bitwarden note item has matching (or explicitly handled) contents",
 	Run:   runClean,
 }
 
 func init() {
-	cleanCmd.Flags().String("from", ".", "Directory containing .env files to clean")
+	cleanCmd.Flags().String("from", ".", "Directory containing managed files to clean")
 	rootCmd.AddCommand(cleanCmd)
 }
 
@@ -59,15 +59,15 @@ func runClean(cmd *cobra.Command, args []string) {
 
 	envFiles, err := core.GetPushedEnvFiles(fromDir, fs)
 	if err != nil {
-		utils.Errorln("[ERROR] Failed to find .env files:", err)
+		utils.Errorln("[ERROR] Failed to find managed files:", err)
 		os.Exit(1)
 	}
 	if len(envFiles) == 0 {
-		utils.Errorln("[ERROR] No .env files found")
+		utils.Errorln("[ERROR] No managed files found")
 		os.Exit(1)
 	}
 
-	utils.Infoln("[INFO] Found", len(envFiles), "env file(s) to clean:")
+	utils.Infoln("[INFO] Found", len(envFiles), "managed file(s) to clean:")
 	for _, f := range envFiles {
 		utils.Infoln("  -", f)
 	}
@@ -106,5 +106,5 @@ func runClean(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	utils.Successln("[INFO] ✅", len(envFiles), "env file(s) cleaned successfully!")
+	utils.Successln("[INFO] ✅", len(envFiles), "managed file(s) cleaned successfully!")
 }
