@@ -555,7 +555,7 @@ func TestPushEnvCore_EnvFileNotFound(t *testing.T) {
 	)
 
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "no .env files found")
+	assert.Contains(t, err.Error(), "no managed files found")
 }
 
 // 異常系: GetDotenvsFolderID がエラーを返す
@@ -1917,7 +1917,7 @@ func TestPushEnvCore_NoEnvFiles(t *testing.T) {
 	)
 
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "no .env files found")
+	assert.Contains(t, err.Error(), "no managed files found")
 }
 
 // =============================================================================
