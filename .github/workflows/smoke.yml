@@ -1,0 +1,30 @@
+name: Smoke Ready
+
+# Optional / non-blocking: verifies Vaultwarden HTTPS reachability only.
+# Full command smoke (make smoke) is tracked in #110.
+on:
+  workflow_dispatch:
+  schedule:
+    # Nightly 03:00 UTC
+    - cron: "0 3 * * *"
+
+jobs:
+  smoke-ready:
+    name: Vaultwarden HTTPS ready
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build golang image (curl + CA mount)
+        run: make build
+
+      - name: Start Vaultwarden
+        run: make smoke-up
+
+      - name: Check HTTPS reachability
+        run: make smoke-ready
+
+      - name: Stop smoke services
+        if: always()
+        run: make smoke-down
