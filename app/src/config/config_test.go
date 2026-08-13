@@ -64,7 +64,7 @@ func TestLoadConfig_Success(t *testing.T) {
 	assert.Equal(t, "https://bw.example.com", cfg.SelfhostedURL)
 	assert.Equal(t, "test@example.com", cfg.Email)
 	assert.Equal(t, "", cfg.Backend)
-	assert.Equal(t, BackendBW, cfg.GetBackend())
+	assert.Equal(t, BackendAPI, cfg.GetBackend())
 }
 
 // 異常系: JSON が壊れている場合はエラー
@@ -177,11 +177,11 @@ func TestSaveConfig_Overwrite(t *testing.T) {
 // Backend フィールドのテスト
 // =============================================================================
 
-// 正常系: backend 未設定時は GetBackend が "bw" を返す
-func TestGetBackend_DefaultBW(t *testing.T) {
-	assert.Equal(t, BackendBW, (*Config)(nil).GetBackend())
-	assert.Equal(t, BackendBW, (&Config{}).GetBackend())
-	assert.Equal(t, BackendBW, (&Config{Backend: ""}).GetBackend())
+// 正常系: backend 未設定時は GetBackend が "api" を返す
+func TestGetBackend_DefaultAPI(t *testing.T) {
+	assert.Equal(t, BackendAPI, (*Config)(nil).GetBackend())
+	assert.Equal(t, BackendAPI, (&Config{}).GetBackend())
+	assert.Equal(t, BackendAPI, (&Config{Backend: ""}).GetBackend())
 }
 
 // 正常系: backend が明示されている場合はその値を返す
@@ -222,7 +222,7 @@ func TestLoadSaveConfig_WithBackend(t *testing.T) {
 	assert.Contains(t, string(content), `"backend": "api"`)
 }
 
-// 正常系: backend 未指定の JSON でも読み込め、デフォルトは bw
+// 正常系: backend 未指定の JSON でも読み込め、デフォルトは api
 func TestLoadConfig_BackendOmitted(t *testing.T) {
 	origHome := os.Getenv("HOME")
 	tmpDir := t.TempDir()
@@ -237,7 +237,7 @@ func TestLoadConfig_BackendOmitted(t *testing.T) {
 	cfg, err := LoadConfig()
 	assert.NoError(t, err)
 	assert.Equal(t, "", cfg.Backend)
-	assert.Equal(t, BackendBW, cfg.GetBackend())
+	assert.Equal(t, BackendAPI, cfg.GetBackend())
 }
 
 
