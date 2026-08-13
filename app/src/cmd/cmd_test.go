@@ -101,6 +101,49 @@ func TestPushCmd_FromFlag(t *testing.T) {
 	assert.Equal(t, ".", flag.DefValue)
 }
 
+// 正常系: setup に非対話用フラグがある
+func TestSetupCmd_NonInteractiveFlags(t *testing.T) {
+	for _, name := range []string{"host-type", "url", "email", "password", "yes"} {
+		assert.NotNil(t, setupCmd.Flags().Lookup(name), "missing flag --%s", name)
+	}
+}
+
+// 異常系: 非対話フラグが一部だけのときはバリデーションエラー
+func TestValidateSetupNonInteractiveFlags_Partial(t *testing.T) {
+	setupHostType = "selfhosted"
+	setupURL = ""
+	setupEmail = ""
+	setupPassword = ""
+	t.Cleanup(func() {
+		setupHostType = ""
+		setupURL = ""
+		setupEmail = ""
+		setupPassword = ""
+		setupYes = false
+	})
+
+	err := validateSetupNonInteractiveFlags()
+	assert.Error(t, err)
+}
+
+// 正常系: selfhosted 非対話の必須フラグが揃えば OK
+func TestValidateSetupNonInteractiveFlags_SelfhostedOK(t *testing.T) {
+	setupHostType = "selfhosted"
+	setupURL = "https://vaultwarden:80"
+	setupEmail = "smoke@bwsf.local"
+	setupPassword = "SmokePassw0rd!"
+	t.Cleanup(func() {
+		setupHostType = ""
+		setupURL = ""
+		setupEmail = ""
+		setupPassword = ""
+		setupYes = false
+	})
+
+	err := validateSetupNonInteractiveFlags()
+	assert.NoError(t, err)
+}
+
 // 正常系: pull コマンドに --output フラグがある
 func TestPullCmd_OutputFlag(t *testing.T) {
 	flag := pullCmd.Flags().Lookup("output")
