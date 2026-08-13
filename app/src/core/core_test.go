@@ -2294,12 +2294,12 @@ func TestSetupAPIConfigCore_EmptySelfhostedURL(t *testing.T) {
 
 // 異常系: 設定保存に失敗した場合はエラー（Login 経路は存在しない）
 func TestSetupAPIConfigCore_SaveConfigError(t *testing.T) {
-	home := withTempHome(t)
-	configDir := filepath.Join(home, ".config", "bwsf")
-	assert.NoError(t, os.MkdirAll(configDir, 0755))
-	// No config file yet (LoadConfig → nil). Directory is read-only so create fails.
-	assert.NoError(t, os.Chmod(configDir, 0500))
-	t.Cleanup(func() { _ = os.Chmod(configDir, 0755) })
+	withTempHome(t)
+	// chmod-based read-only dirs are ignored when running as root (Docker / Codespaces).
+	restore := config.OverrideSaveConfigIO(nil, func(string, []byte, os.FileMode) error {
+		return errors.New("disk full")
+	})
+	t.Cleanup(restore)
 	logger := &mockLogger{}
 
 	err := SetupAPIConfigCore(
