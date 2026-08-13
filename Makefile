@@ -1,9 +1,17 @@
-.PHONY: help build up down run shell clean rebuild test test-unit test-e2e test-coverage fmt vet lint deps-outdated
+.PHONY: help build up down run shell clean rebuild test test-unit test-e2e test-coverage fmt vet lint deps-outdated smoke-up smoke-down smoke-ready smoke
 
 # 変数定義
 APP_DIR := app
 SHELL := /bin/bash
 .DEFAULT_GOAL := help
+
+# Smoke / real-server targets (Vaultwarden). CMD/TARGET/BACKEND は #110 で使用。
+CMD ?= all
+TARGET ?= vaultwarden
+BACKEND ?= bw
+BWSF_SMOKE_EMAIL ?=
+BWSF_SMOKE_PASSWORD ?=
+BWSF_SMOKE_KEEP_TMP ?=
 
 # デフォルトターゲット
 help: ## このヘルプメッセージを表示
@@ -26,21 +34,44 @@ shell: ## コンテナ内でシェルを起動
 	cd $(APP_DIR) && docker compose run --rm golang sh
 
 # ========================================
-# テスト
+# テスト（サーバ不要）
 # ========================================
 
-test: ## 全てのテストを実行
+test: ## サーバ不要の全テスト（unit + mock e2e。スモークは含まない）
 	cd $(APP_DIR) && docker compose run --rm golang go test ./...
 
-test-unit: ## ユニットテストのみ実行
+test-unit: ## ユニット／結合テストのみ（サーバ不要）
 	cd $(APP_DIR) && docker compose run --rm golang go test ./src/cmd/... ./src/config/... ./src/core/... ./src/infra/... ./src/utils/...
 
-test-e2e: ## E2Eテストを実行（モックベース）
+test-e2e: ## モック E2E（サーバ不要。実 Vaultwarden は make smoke*）
 	cd $(APP_DIR) && docker compose run --rm golang go test -v ./src/e2e/...
 
-test-coverage: ## カバレッジレポートを生成
+test-coverage: ## カバレッジレポートを生成（サーバ不要）
 	cd $(APP_DIR) && docker compose run --rm golang go test -coverprofile=coverage.out ./...
 	cd $(APP_DIR) && docker compose run --rm golang go tool cover -html=coverage.out -o coverage.html
+
+# ========================================
+# スモーク土台（実 Vaultwarden / #109）
+# ========================================
+
+smoke-up: ## Vaultwarden（smoke profile）を起動
+	cd $(APP_DIR) && docker compose --profile smoke up -d vaultwarden
+
+smoke-down: ## スモーク用サービスを停止
+	cd $(APP_DIR) && docker compose --profile smoke down
+
+smoke-ready: ## テスト用コンテナから VW HTTPS 疎通を確認
+	cd $(APP_DIR) && docker compose --profile smoke run --rm --no-deps golang sh /project-root/scripts/smoke-ready.sh
+
+smoke: smoke-up smoke-ready ## Vaultwarden に対し bwsf 主要コマンドをスモーク（CMD/TARGET/BACKEND 可）
+	cd $(APP_DIR) && docker compose --profile smoke run --rm --no-deps \
+		-e CMD="$(CMD)" \
+		-e TARGET="$(TARGET)" \
+		-e BACKEND="$(BACKEND)" \
+		-e BWSF_SMOKE_EMAIL="$(BWSF_SMOKE_EMAIL)" \
+		-e BWSF_SMOKE_PASSWORD="$(BWSF_SMOKE_PASSWORD)" \
+		-e BWSF_SMOKE_KEEP_TMP="$(BWSF_SMOKE_KEEP_TMP)" \
+		golang sh /project-root/scripts/run-smoke.sh
 
 # ========================================
 # コード品質
@@ -61,8 +92,8 @@ deps-outdated: ## 古い依存パッケージを確認
 # クリーンアップ
 # ========================================
 
-clean: ## コンテナ、イメージ、ボリュームを削除
-	cd $(APP_DIR) && docker compose down -v --rmi local
+clean: ## コンテナ、イメージ、ボリュームを削除（smoke profile 含む）
+	cd $(APP_DIR) && docker compose --profile smoke down -v --rmi local
 
 rebuild: clean build ## クリーンビルドを実行
 

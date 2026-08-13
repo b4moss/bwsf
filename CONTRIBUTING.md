@@ -17,6 +17,20 @@ Before you begin, ensure you have the following installed:
 
 ### Development Setup
 
+#### Option A: GitHub Codespaces / Dev Container (recommended)
+
+1. Open the repository in **Codespaces**, or VS Code → “Reopen in Container”
+2. Wait for `.devcontainer/post-create.sh` (installs `bw`, downloads Go modules)
+3. Run server-free tests:
+
+```bash
+make test
+```
+
+Details: [`.devcontainer/README.md`](./.devcontainer/README.md). Vaultwarden smoke remains on-demand (`make smoke*`); see [`docs/smoke.md`](./docs/smoke.md).
+
+#### Option B: Local Docker Compose
+
 1. Fork the repository on GitHub
 2. Clone your fork:
 
@@ -147,13 +161,18 @@ We use the following Make commands for testing:
 
 | Command | Description |
 |---------|-------------|
-| `make test` | Run all tests |
-| `make test-unit` | Run unit tests only |
-| `make test-e2e` | Run E2E tests (mock-based) |
-| `make test-coverage` | Generate coverage report |
+| `make test` | All **server-free** tests (`go test ./...`; does not include smoke) |
+| `make test-unit` | Unit / integration tests only (no Docker server) |
+| `make test-e2e` | Mock E2E tests (`./src/e2e/...`; no real Vaultwarden) |
+| `make test-coverage` | Generate coverage report (server-free) |
 | `make lint` | Run formatter and static analysis |
+| `make smoke-up` / `smoke-down` | Start / stop Vaultwarden (Compose profile `smoke`) |
+| `make smoke-ready` | Check HTTPS reachability to Vaultwarden from the test container |
+| `make smoke` | Real command smoke (`setup`/`push`/`pull`/`list`; optional `CMD=` / `TARGET=` / `BACKEND=`) |
 
 Always run `make test` and `make lint` before submitting a PR.
+
+For Vaultwarden smoke (certs, HTTPS, `make smoke`, tmp policy), see [`docs/smoke.md`](docs/smoke.md).
 
 ## Questions?
 

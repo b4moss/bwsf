@@ -14,6 +14,11 @@ import (
 )
 
 var setupFolder string
+var setupHostType string
+var setupURL string
+var setupEmail string
+var setupPassword string
+var setupYes bool
 
 var setupCmd = &cobra.Command{
 	Use:   "setup",
@@ -24,6 +29,11 @@ var setupCmd = &cobra.Command{
 
 func init() {
 	setupCmd.Flags().StringVar(&setupFolder, "folder", "", "Bitwarden folder name for .env notes (default: dotenvs)")
+	setupCmd.Flags().StringVar(&setupHostType, "host-type", "", "Host type: cloud or selfhosted (non-interactive)")
+	setupCmd.Flags().StringVar(&setupURL, "url", "", "Self-hosted server URL (required when --host-type=selfhosted)")
+	setupCmd.Flags().StringVar(&setupEmail, "email", "", "Account email (non-interactive)")
+	setupCmd.Flags().StringVar(&setupPassword, "password", "", "Master password (non-interactive)")
+	setupCmd.Flags().BoolVar(&setupYes, "yes", false, "Assume yes for confirmations (e.g. create folder)")
 	rootCmd.AddCommand(setupCmd)
 }
 
@@ -32,6 +42,11 @@ func runSetup(cmd *cobra.Command, args []string) {
 	installed, _ := utils.CheckBwCommand()
 	if !installed {
 		utils.Errorln("[ERROR] ❌ bw command is not installed...")
+		os.Exit(1)
+	}
+
+	if err := validateSetupNonInteractiveFlags(); err != nil {
+		utils.Errorln("[ERROR]", err)
 		os.Exit(1)
 	}
 
@@ -72,9 +87,20 @@ func runSetup(cmd *cobra.Command, args []string) {
 	fs := infra.NewFileSystem()
 	logger := infra.NewLogger()
 
-	// confirmCreateFolder wrapper
+	selectHostType := utils.SelectHostType
+	inputURL := utils.InputURL
+	inputEmail := utils.InputEmail
+	inputPassword := utils.InputPassword
 	confirmCreateFolder := func() (bool, error) {
 		return utils.ConfirmYesNo(fmt.Sprintf("%s folder not found. Create it? (y/N): ", folderName))
+	}
+
+	if nonInteractiveSetup() {
+		selectHostType = func() (string, error) { return setupHostType, nil }
+		inputURL = func() (string, error) { return setupURL, nil }
+		inputEmail = func() (string, error) { return setupEmail, nil }
+		inputPassword = func() (string, error) { return setupPassword, nil }
+		confirmCreateFolder = func() (bool, error) { return setupYes, nil }
 	}
 
 	// Call core logic
@@ -82,10 +108,10 @@ func runSetup(cmd *cobra.Command, args []string) {
 		fs,
 		bw,
 		logger,
-		utils.SelectHostType,
-		utils.InputURL,
-		utils.InputEmail,
-		utils.InputPassword,
+		selectHostType,
+		inputURL,
+		inputEmail,
+		inputPassword,
 		confirmCreateFolder,
 	)
 	if err != nil {
@@ -95,4 +121,24 @@ func runSetup(cmd *cobra.Command, args []string) {
 
 	// Success message
 	utils.Successln("[INFO] ✅ Sign in to Bitwarden was successful!")
+}
+
+func nonInteractiveSetup() bool {
+	return setupHostType != "" || setupURL != "" || setupEmail != "" || setupPassword != ""
+}
+
+func validateSetupNonInteractiveFlags() error {
+	if !nonInteractiveSetup() {
+		return nil
+	}
+	if setupHostType == "" || setupEmail == "" || setupPassword == "" {
+		return fmt.Errorf("non-interactive setup requires --host-type, --email, and --password")
+	}
+	if setupHostType != "cloud" && setupHostType != "selfhosted" {
+		return fmt.Errorf("--host-type must be cloud or selfhosted")
+	}
+	if setupHostType == "selfhosted" && strings.TrimSpace(setupURL) == "" {
+		return fmt.Errorf("--url is required when --host-type=selfhosted")
+	}
+	return nil
 }

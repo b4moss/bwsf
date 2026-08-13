@@ -63,8 +63,13 @@ func InputEmail() (string, error) {
 	return email, nil
 }
 
-// InputPassword prompts user to enter password (hidden input)
+// InputPassword prompts user to enter password (hidden input).
+// When BWSF_PASSWORD is set, it is returned without prompting (smoke / automation).
 func InputPassword() (string, error) {
+	if p := strings.TrimSpace(os.Getenv("BWSF_PASSWORD")); p != "" {
+		return p, nil
+	}
+
 	Question("Enter password: ")
 
 	// Read password without echoing to terminal
