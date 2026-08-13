@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -13,7 +14,7 @@ import (
 	"github.com/google/uuid"
 )
 
-// ErrAPINotImplemented is returned by API vault methods until Issue #53 Step 4.
+// ErrAPINotImplemented is retained for older call sites; Step 4 vault methods no longer return it.
 var ErrAPINotImplemented = errors.New(
 	"API vault operations are not implemented yet (Issue #53 Step 4). " +
 		"Authenticate with `bwsf auth` first. " +
@@ -35,9 +36,18 @@ var ErrAPIUnlockNotImplemented = errors.New(
 	"API vault unlock (master password / crypto keys) is not implemented yet (Issue #53 Step 3)",
 )
 
+// ErrAPIFolderNotFound means the configured folder name does not exist (active).
+var ErrAPIFolderNotFound = errors.New("configured Bitwarden folder not found")
+
+// ErrAPIDuplicateFolder means multiple active folders share the configured name.
+var ErrAPIDuplicateFolder = errors.New("multiple Bitwarden folders with the same name")
+
+// ErrAPIDuplicateNote means multiple active Secure Notes share the requested name.
+var ErrAPIDuplicateNote = errors.New("multiple secure notes with the same name")
+
 // ApiBwClient is the Bitwarden API backend adapter.
 // Step 3: Personal API Key + Identity token + master-password unlock (SDK).
-// Vault CRUD remains stubbed until Step 4.
+// Step 4: folder / Secure Note CRUD via CryptoSession.
 type ApiBwClient struct {
 	cfg      *config.Config
 	store    SecretStore
@@ -230,60 +240,194 @@ func (c *ApiBwClient) requireUnlocked() error {
 	return nil
 }
 
-func (c *ApiBwClient) GetDotenvsFolderID() (string, error) {
+func (c *ApiBwClient) syncVault(ctx context.Context) error {
 	if err := c.requireUnlocked(); err != nil {
+		return err
+	}
+	c.mu.Lock()
+	crypto := c.crypto
+	c.mu.Unlock()
+	if crypto == nil {
+		return ErrAPINotUnlocked
+	}
+	return crypto.Sync(ctx)
+}
+
+func (c *ApiBwClient) configuredFolderName() string {
+	return config.ResolveFolderName(c.cfg)
+}
+
+func (c *ApiBwClient) findConfiguredFolders(ctx context.Context) ([]VaultFolder, error) {
+	if err := c.syncVault(ctx); err != nil {
+		return nil, err
+	}
+	c.mu.Lock()
+	crypto := c.crypto
+	c.mu.Unlock()
+	folders, err := crypto.ListFolders(ctx)
+	if err != nil {
+		return nil, err
+	}
+	want := c.configuredFolderName()
+	var matched []VaultFolder
+	for _, f := range folders {
+		if strings.TrimSpace(f.Name) == want {
+			matched = append(matched, f)
+		}
+	}
+	return matched, nil
+}
+
+func (c *ApiBwClient) GetDotenvsFolderID() (string, error) {
+	matched, err := c.findConfiguredFolders(context.Background())
+	if err != nil {
 		return "", err
 	}
-	return "", ErrAPINotImplemented
+	switch len(matched) {
+	case 0:
+		return "", ErrAPIFolderNotFound
+	case 1:
+		return matched[0].ID, nil
+	default:
+		return "", ErrAPIDuplicateFolder
+	}
 }
 
 func (c *ApiBwClient) DotenvsFolderExists() (bool, error) {
-	if err := c.requireUnlocked(); err != nil {
+	matched, err := c.findConfiguredFolders(context.Background())
+	if err != nil {
 		return false, err
 	}
-	return false, ErrAPINotImplemented
+	switch len(matched) {
+	case 0:
+		return false, nil
+	case 1:
+		return true, nil
+	default:
+		return false, ErrAPIDuplicateFolder
+	}
 }
 
 func (c *ApiBwClient) CreateDotenvsFolder() error {
-	if err := c.requireUnlocked(); err != nil {
+	ctx := context.Background()
+	matched, err := c.findConfiguredFolders(ctx)
+	if err != nil {
 		return err
 	}
-	return ErrAPINotImplemented
+	if len(matched) > 0 {
+		return fmt.Errorf("folder %q already exists", c.configuredFolderName())
+	}
+	c.mu.Lock()
+	crypto := c.crypto
+	c.mu.Unlock()
+	_, err = crypto.CreateFolder(ctx, c.configuredFolderName())
+	return err
 }
 
 func (c *ApiBwClient) ListItemsInFolder(folderID string) ([]core.Item, error) {
-	if err := c.requireUnlocked(); err != nil {
+	ctx := context.Background()
+	if err := c.syncVault(ctx); err != nil {
 		return nil, err
 	}
-	return nil, ErrAPINotImplemented
+	c.mu.Lock()
+	crypto := c.crypto
+	c.mu.Unlock()
+	items, err := crypto.ListItems(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var out []core.Item
+	for _, item := range items {
+		if item.Deleted || item.Type != "secure_note" {
+			continue
+		}
+		if item.FolderID != folderID {
+			continue
+		}
+		out = append(out, core.Item{ID: item.ID, Name: item.Name})
+	}
+	return out, nil
 }
 
 func (c *ApiBwClient) GetItemByName(folderID, name string) (*core.FullItem, error) {
-	if err := c.requireUnlocked(); err != nil {
+	ctx := context.Background()
+	if err := c.syncVault(ctx); err != nil {
 		return nil, err
 	}
-	return nil, ErrAPINotImplemented
+	c.mu.Lock()
+	crypto := c.crypto
+	c.mu.Unlock()
+	items, err := crypto.ListItems(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var matched []VaultItem
+	for _, item := range items {
+		if item.Deleted || item.Type != "secure_note" {
+			continue
+		}
+		if item.FolderID != folderID || item.Name != name {
+			continue
+		}
+		matched = append(matched, item)
+	}
+	switch len(matched) {
+	case 0:
+		return nil, nil
+	case 1:
+		return &core.FullItem{ID: matched[0].ID, Name: matched[0].Name, Notes: matched[0].Notes}, nil
+	default:
+		return nil, ErrAPIDuplicateNote
+	}
 }
 
 func (c *ApiBwClient) GetItemByID(id string) (*core.FullItem, error) {
-	if err := c.requireUnlocked(); err != nil {
+	ctx := context.Background()
+	if err := c.syncVault(ctx); err != nil {
 		return nil, err
 	}
-	return nil, ErrAPINotImplemented
+	c.mu.Lock()
+	crypto := c.crypto
+	c.mu.Unlock()
+	item, err := crypto.GetItem(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if item == nil || item.Deleted || item.Type != "secure_note" {
+		return nil, fmt.Errorf("secure note %q not found", id)
+	}
+	return &core.FullItem{ID: item.ID, Name: item.Name, Notes: item.Notes}, nil
 }
 
 func (c *ApiBwClient) CreateNoteItem(folderID, name, notes string) error {
-	if err := c.requireUnlocked(); err != nil {
+	ctx := context.Background()
+	if err := c.syncVault(ctx); err != nil {
 		return err
 	}
-	return ErrAPINotImplemented
+	c.mu.Lock()
+	crypto := c.crypto
+	c.mu.Unlock()
+	_, err := crypto.CreateSecureNote(ctx, folderID, name, notes)
+	return err
 }
 
 func (c *ApiBwClient) UpdateNoteItem(id, notes string) error {
-	if err := c.requireUnlocked(); err != nil {
+	ctx := context.Background()
+	if err := c.syncVault(ctx); err != nil {
 		return err
 	}
-	return ErrAPINotImplemented
+	c.mu.Lock()
+	crypto := c.crypto
+	c.mu.Unlock()
+	existing, err := crypto.GetItem(ctx, id)
+	if err != nil {
+		return err
+	}
+	if existing == nil || existing.Deleted || existing.Type != "secure_note" {
+		return fmt.Errorf("secure note %q not found", id)
+	}
+	_, err = crypto.UpdateSecureNote(ctx, id, existing.FolderID, existing.Name, notes)
+	return err
 }
 
 // Login for the API backend authenticates with a stored Personal API Key.
