@@ -43,6 +43,7 @@ func runPush(cmd *cobra.Command, args []string) {
 
 	// Create dependencies
 	bw := newBwClientFromConfig(cfg)
+	defer clearAPISession(bw)
 	fs := infra.NewFileSystem()
 	logger := infra.NewLogger()
 
@@ -75,7 +76,7 @@ func runPush(cmd *cobra.Command, args []string) {
 		logger,
 	)
 	if err != nil {
-		utils.Errorln("[ERROR]", err)
+		reportCommandError(err)
 		os.Exit(1)
 	}
 

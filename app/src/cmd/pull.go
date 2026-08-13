@@ -44,13 +44,14 @@ func runPull(cmd *cobra.Command, args []string) {
 
 	// Create dependencies
 	bw := newBwClientFromConfig(cfg)
+	defer clearAPISession(bw)
 	fs := infra.NewFileSystem()
 	logger := infra.NewLogger()
 
 	// Get list of env files to be pulled
 	envFiles, err := core.GetPulledEnvFiles(projectName, bw, cfg, utils.InputPassword, logger)
 	if err != nil {
-		utils.Errorln("[ERROR] Failed to get env files info:", err)
+		reportCommandError(err)
 		os.Exit(1)
 	}
 
@@ -82,7 +83,7 @@ func runPull(cmd *cobra.Command, args []string) {
 		logger,
 	)
 	if err != nil {
-		utils.Errorln("[ERROR]", err)
+		reportCommandError(err)
 		os.Exit(1)
 	}
 
