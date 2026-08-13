@@ -81,7 +81,7 @@ func SaveConfig(config *Config) error {
 
 	// Create config directory if it doesn't exist
 	configDirPath := filepath.Dir(configPath)
-	if err := os.MkdirAll(configDirPath, 0755); err != nil {
+	if err := mkdirAll(configDirPath, 0755); err != nil {
 		return fmt.Errorf("failed to create config directory: %w", err)
 	}
 
@@ -90,9 +90,33 @@ func SaveConfig(config *Config) error {
 		return fmt.Errorf("failed to marshal config: %w", err)
 	}
 
-	if err := os.WriteFile(configPath, data, 0600); err != nil {
+	if err := writeFile(configPath, data, 0600); err != nil {
 		return fmt.Errorf("failed to write config file: %w", err)
 	}
 
 	return nil
+}
+
+// OS helpers used by SaveConfig (overridable in tests; root ignores chmod tricks).
+var (
+	mkdirAll  = os.MkdirAll
+	writeFile = os.WriteFile
+)
+
+// OverrideSaveConfigIO swaps SaveConfig filesystem helpers for tests. Call the
+// returned function to restore the previous implementations.
+func OverrideSaveConfigIO(
+	mkdirAllFn func(string, os.FileMode) error,
+	writeFileFn func(string, []byte, os.FileMode) error,
+) func() {
+	prevMkdir, prevWrite := mkdirAll, writeFile
+	if mkdirAllFn != nil {
+		mkdirAll = mkdirAllFn
+	}
+	if writeFileFn != nil {
+		writeFile = writeFileFn
+	}
+	return func() {
+		mkdirAll, writeFile = prevMkdir, prevWrite
+	}
 }
