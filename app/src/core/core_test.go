@@ -2340,3 +2340,178 @@ func TestSetupBitwardenCore_StillCallsLogin(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Contains(t, bw.calls, "Login(bw@example.com,)")
 }
+
+// =============================================================================
+// EnsureConfiguredFolderCore / api vault ops（docs/tests/cmd/setup_api_folder.md,
+// docs/tests/core/vault_ops_api.md）
+// =============================================================================
+
+func TestEnsureConfiguredFolderCore_AlreadyExists(t *testing.T) {
+	bw := &mockBwClient{folderExists: true}
+	logger := &mockLogger{}
+	err := EnsureConfiguredFolderCore(
+		bw,
+		&config.Config{},
+		logger,
+		func() (string, error) { return "", errors.New("no prompt") },
+		func() (bool, error) { return true, errors.New("no confirm") },
+	)
+	assert.NoError(t, err)
+	assert.Contains(t, bw.calls, "DotenvsFolderExists")
+	assert.NotContains(t, bw.calls, "CreateDotenvsFolder")
+}
+
+func TestEnsureConfiguredFolderCore_CreateOnYes(t *testing.T) {
+	bw := &mockBwClient{folderExists: false}
+	logger := &mockLogger{}
+	err := EnsureConfiguredFolderCore(
+		bw,
+		&config.Config{FolderName: "dotenvs"},
+		logger,
+		func() (string, error) { return "mp", nil },
+		func() (bool, error) { return true, nil },
+	)
+	assert.NoError(t, err)
+	assert.Contains(t, bw.calls, "CreateDotenvsFolder")
+}
+
+func TestEnsureConfiguredFolderCore_SkipOnNo(t *testing.T) {
+	bw := &mockBwClient{folderExists: false}
+	logger := &mockLogger{}
+	err := EnsureConfiguredFolderCore(
+		bw,
+		&config.Config{},
+		logger,
+		func() (string, error) { return "mp", nil },
+		func() (bool, error) { return false, nil },
+	)
+	assert.NoError(t, err)
+	assert.NotContains(t, bw.calls, "CreateDotenvsFolder")
+}
+
+func TestEnsureConfiguredFolderCore_CreateError(t *testing.T) {
+	bw := &mockBwClient{
+		folderExists:    false,
+		createFolderErr: errors.New("create failed"),
+	}
+	logger := &mockLogger{}
+	err := EnsureConfiguredFolderCore(
+		bw,
+		&config.Config{},
+		logger,
+		func() (string, error) { return "mp", nil },
+		func() (bool, error) { return true, nil },
+	)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to create")
+}
+
+func TestEnsureConfiguredFolderCore_NotAuthenticated(t *testing.T) {
+	bw := &mockBwClient{
+		folderExistsErr: errors.New("API backend is not authenticated. Run `bwsf auth`"),
+	}
+	logger := &mockLogger{}
+	err := EnsureConfiguredFolderCore(
+		bw,
+		&config.Config{},
+		logger,
+		func() (string, error) { return "mp", nil },
+		func() (bool, error) { return true, nil },
+	)
+	assert.Error(t, err)
+	assert.True(t, IsNotAuthenticatedError(err))
+	assert.NotContains(t, bw.calls, "CreateDotenvsFolder")
+}
+
+func TestPushEnvCore_FolderNotFoundDoesNotCreate(t *testing.T) {
+	bw := &mockBwClient{folderIDErr: errors.New("configured Bitwarden folder not found")}
+	fs := &mockFileSystem{
+		dirEntries: []DirEntry{
+			&mockDirEntry{name: ".env", isDir: false},
+		},
+		readContentMap: map[string][]byte{
+			".env": []byte("A=1\n"),
+		},
+	}
+	logger := &mockLogger{}
+
+	err := PushEnvCore(".", "my-project", fs, bw, &config.Config{}, func() (string, error) {
+		return "", errors.New("no unlock")
+	}, logger)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to get dotenvs folder")
+	assert.NotContains(t, bw.calls, "CreateDotenvsFolder")
+}
+
+func TestPushEnvCore_DuplicateNoteStops(t *testing.T) {
+	bw := &mockBwClient{
+		folderID:      "folder-123",
+		itemByNameErr: errors.New("multiple secure notes with the same name"),
+	}
+	fs := &mockFileSystem{
+		dirEntries: []DirEntry{
+			&mockDirEntry{name: ".env", isDir: false},
+		},
+		readContentMap: map[string][]byte{
+			".env": []byte("A=1\n"),
+		},
+	}
+	logger := &mockLogger{}
+
+	err := PushEnvCore(".", "my-project", fs, bw, &config.Config{}, func() (string, error) {
+		return "mp", nil
+	}, logger)
+	assert.Error(t, err)
+	assert.NotContains(t, strings.Join(bw.calls, ","), "CreateNoteItem")
+	assert.NotContains(t, strings.Join(bw.calls, ","), "UpdateNoteItem")
+}
+
+func TestWithUnlockRetry_DoesNotRetryDuplicateNote(t *testing.T) {
+	bw := &mockBwClient{}
+	logger := &mockLogger{}
+	calls := 0
+	err := WithUnlockRetry(bw, &config.Config{}, func() (string, error) {
+		t.Fatal("should not prompt")
+		return "", nil
+	}, logger, func() error {
+		calls++
+		return errors.New("multiple secure notes with the same name")
+	})
+	assert.Error(t, err)
+	assert.Equal(t, 1, calls)
+}
+
+func TestWithUnlockRetry_DoesNotRetryFolderNotFound(t *testing.T) {
+	bw := &mockBwClient{}
+	logger := &mockLogger{}
+	calls := 0
+	err := WithUnlockRetry(bw, &config.Config{}, func() (string, error) {
+		t.Fatal("should not prompt")
+		return "", nil
+	}, logger, func() error {
+		calls++
+		return errors.New("configured Bitwarden folder not found")
+	})
+	assert.Error(t, err)
+	assert.Equal(t, 1, calls)
+}
+
+func TestPullEnvCore_FolderNotFoundDoesNotCreate(t *testing.T) {
+	bw := &mockBwClient{folderIDErr: errors.New("configured Bitwarden folder not found")}
+	fs := &mockFileSystem{}
+	logger := &mockLogger{}
+
+	err := PullEnvCore(
+		".",
+		"my-project",
+		fs,
+		bw,
+		&config.Config{},
+		func() (string, error) { return "mp", nil },
+		func(path string) (bool, error) { return true, nil },
+		logger,
+	)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to get dotenvs folder")
+	assert.NotContains(t, bw.calls, "CreateDotenvsFolder")
+}
