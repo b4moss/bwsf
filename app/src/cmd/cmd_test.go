@@ -245,8 +245,8 @@ func TestAuthCmd_Description(t *testing.T) {
 // backend コマンドのロジックテスト
 // =============================================================================
 
-// 正常系: 設定なしでは currentBackend が bw を返す
-func TestCurrentBackend_DefaultBW(t *testing.T) {
+// 正常系: 設定なしでは currentBackend が api を返す
+func TestCurrentBackend_DefaultAPI(t *testing.T) {
 	origHome := os.Getenv("HOME")
 	tmpDir := t.TempDir()
 	os.Setenv("HOME", tmpDir)
@@ -254,7 +254,7 @@ func TestCurrentBackend_DefaultBW(t *testing.T) {
 
 	backend, err := currentBackend()
 	assert.NoError(t, err)
-	assert.Equal(t, config.BackendBW, backend)
+	assert.Equal(t, config.BackendAPI, backend)
 }
 
 // 正常系: setBackend で api に更新できる
