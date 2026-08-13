@@ -14,11 +14,11 @@ import (
 	"github.com/google/uuid"
 )
 
-// ErrAPINotImplemented is retained for older call sites; Step 4 vault methods no longer return it.
+// ErrAPINotImplemented is retained for older call sites; vault methods no longer return it.
 var ErrAPINotImplemented = errors.New(
-	"API vault operations are not implemented yet (Issue #53 Step 4). " +
-		"Authenticate with `bwsf auth` first. " +
-		"Use `bwsf backend --set bw` to switch back to the Bitwarden CLI backend",
+	"API vault operation is unavailable. " +
+		"Authenticate with `bwsf auth` and unlock with your master password when prompted. " +
+		"Use `bwsf backend --set bw` only if you intentionally use the Bitwarden CLI backend",
 )
 
 // ErrAPINotAuthenticated means Identity login has not succeeded in this process.
@@ -31,9 +31,9 @@ var ErrAPINotUnlocked = errors.New(
 	"API vault is locked. Enter your master password to unlock decryption keys",
 )
 
-// ErrAPIUnlockNotImplemented is kept for older call sites; Unlock is implemented in Step 3.
+// ErrAPIUnlockNotImplemented is retained for older call sites; Unlock is implemented.
 var ErrAPIUnlockNotImplemented = errors.New(
-	"API vault unlock (master password / crypto keys) is not implemented yet (Issue #53 Step 3)",
+	"API vault unlock is unavailable; enter your master password when prompted",
 )
 
 // ErrAPIFolderNotFound means the configured folder name does not exist (active).
@@ -46,8 +46,10 @@ var ErrAPIDuplicateFolder = errors.New("multiple Bitwarden folders with the same
 var ErrAPIDuplicateNote = errors.New("multiple secure notes with the same name")
 
 // ApiBwClient is the Bitwarden API backend adapter.
-// Step 3: Personal API Key + Identity token + master-password unlock (SDK).
-// Step 4: folder / Secure Note CRUD via CryptoSession.
+// Step 2+: Personal API Key + Identity token.
+// Step 3+: master-password unlock (SDK).
+// Step 4+: folder / Secure Note CRUD via CryptoSession.
+// Step 5: default backend is api; bw adapter remains optional.
 type ApiBwClient struct {
 	cfg      *config.Config
 	store    SecretStore
