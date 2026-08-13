@@ -5,10 +5,10 @@
 | コマンド | 説明 |
 |---|---|
 | `bwsf setup` | Bitwarden 接続の設定 |
-| `bwsf push` | .env ファイルを Bitwarden にプッシュ |
-| `bwsf pull` | .env ファイルを Bitwarden からプル |
+| `bwsf push` | 管理対象ファイル（`.env*` / `*.tfvars` / `*.tfvars.json`）を Bitwarden にプッシュ |
+| `bwsf pull` | 管理対象ファイルを Bitwarden からプル |
 | `bwsf list` | 保存されている全プロジェクトを一覧表示 |
-| `bwsf clean` | リモートバックアップ確認後にローカル .env を削除 |
+| `bwsf clean` | リモートバックアップ確認後にローカルの管理対象ファイルを削除 |
 
 ## bwsf setup
 

@@ -3,7 +3,7 @@
 [![Test](https://github.com/b4m-oss/bwsf/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/b4m-oss/bwsf/actions/workflows/test.yml)
 [![Release](https://img.shields.io/github/v/release/b4m-oss/bwsf)](https://github.com/b4m-oss/bwsf/releases/latest)
 
-bwsf (Bitwarden Secured Files) is a CLI tool that uses [Bitwarden](https://bitwarden.com/) to manage .env files.
+bwsf (Bitwarden Secured Files) is a CLI tool that uses [Bitwarden](https://bitwarden.com/) to manage `.env*` files and Terraform `*.tfvars` / `*.tfvars.json`.
 
 [Official site](https://bwsf.oss.b4m.jp/)
 
@@ -46,10 +46,10 @@ Simple usage below:
 
 | command | |
 |----|----|
-| bwsf push | .env files push to your Bitwarden host |
-| bwsf pull | .env files pull from your Bitwarden host |
-| bwsf list | Show list stored .env files at your Bitwarden host |
-| bwsf clean | Remove local .env files after verifying Bitwarden backup |
+| bwsf push | managed files (`.env*`, `*.tfvars`, `*.tfvars.json`) push to your Bitwarden host |
+| bwsf pull | managed files pull from your Bitwarden host |
+| bwsf list | Show list stored projects at your Bitwarden host |
+| bwsf clean | Remove local managed files after verifying Bitwarden backup |
 
 ## Motivation
 
