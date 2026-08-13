@@ -3,7 +3,8 @@
 # Intended to run inside the golang compose service (or any container with the CA mounted).
 set -eu
 
-URL="${BWSF_SMOKE_VW_URL:-https://vaultwarden}"
+# ROCKET_TLS serves HTTPS on container port 80 (compose maps host 8443 -> 80)
+URL="${BWSF_SMOKE_VW_URL:-https://vaultwarden:80}"
 CA="${BWSF_SMOKE_CA:-/smoke-certs/ca.crt}"
 RETRIES="${BWSF_SMOKE_READY_RETRIES:-60}"
 SLEEP_SECS="${BWSF_SMOKE_READY_SLEEP:-2}"
