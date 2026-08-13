@@ -17,6 +17,20 @@ Before you begin, ensure you have the following installed:
 
 ### Development Setup
 
+#### Option A: GitHub Codespaces / Dev Container (recommended)
+
+1. Open the repository in **Codespaces**, or VS Code → “Reopen in Container”
+2. Wait for `.devcontainer/post-create.sh` (installs `bw`, downloads Go modules)
+3. Run server-free tests:
+
+```bash
+make test
+```
+
+Details: [`.devcontainer/README.md`](./.devcontainer/README.md). Vaultwarden smoke remains on-demand (`make smoke*`); see [`docs/smoke.md`](./docs/smoke.md).
+
+#### Option B: Local Docker Compose
+
 1. Fork the repository on GitHub
 2. Clone your fork:
 
