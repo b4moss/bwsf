@@ -39,4 +39,9 @@ Step 4 の実装計画正本: [Issue #53 Step 4 実装計画](https://github.com
 - `clean` の api 対応
 - 組織ボルト / SSO
 - `BACKEND=api` の `make smoke` 本実装
-- default=`api` や `bw` 削除（Step 5）
+
+## Issue #53 Step 5
+
+仕上げ（default=`api`、docs、spike 削除、`bw` は残置）。**新規テスト仕様書は起こさない。**
+
+実装計画正本: [Issue #53 Step 5 実装計画](https://github.com/b4moss/bwsf/issues/53#issuecomment-5278247151)
