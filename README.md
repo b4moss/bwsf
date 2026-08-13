@@ -40,16 +40,17 @@ We will not provide migration system.
 
 ## Overview
 
-bwsf commands supports your dotenv files are manged in your Bitwarden.
+bwsf manages project files in Bitwarden: `.env*`, `*.tfvars`, and `*.tfvars.json` (names containing `.example` are excluded).
 
 Simple usage below:
 
 | command | |
 |----|----|
+| bwsf setup | Configure Bitwarden host and account |
 | bwsf config show | Show current local configuration |
-| bwsf push | managed files (`.env*`, `*.tfvars`, `*.tfvars.json`) push to your Bitwarden host |
-| bwsf pull | managed files pull from your Bitwarden host |
-| bwsf list | Show list stored projects at your Bitwarden host |
+| bwsf push | Push managed files to your Bitwarden host |
+| bwsf pull | Pull managed files from your Bitwarden host |
+| bwsf list | List stored projects at your Bitwarden host |
 | bwsf clean | Remove local managed files after verifying Bitwarden backup |
 
 ## Motivation
@@ -98,39 +99,57 @@ bwsf setup
 
 Set up your Bitwarden host and your account information.
 
-By default, `.env` notes are stored in a Bitwarden folder named `dotenvs`. To use a different folder name:
+By default, notes are stored in a Bitwarden folder named `dotenvs`. To use a different folder name:
 
 ```shell
 bwsf setup --folder my-envs
 ```
 
-The folder name is saved in `~/.config/bwsf/config.json` and used by push / pull / list. Changing the folder name does **not** move existing notes; move them manually in Bitwarden if needed.
+The folder name is saved in `~/.config/bwsf/config.json` and used by push / pull / list / clean. Changing the folder name does **not** move existing notes; move them manually in Bitwarden if needed.
 
-### Pull .env file from Bitwarden host
+Check saved values with:
+
+```shell
+bwsf config show
+```
+
+### Pull managed files from Bitwarden host
 
 ```shell
 cd /path/to/your_project
 bwsf pull
 ```
 
-bwsf searchs your .env data in Bitwarden host with the current directory's name.
-If it exists, pull data as .env file at current directory.
-If already .env files current directory, bwsf asks overwrite them or not.
-The data is stored as Bitwarden's Note item.
+bwsf searches Bitwarden for a Note matching the current directory name.
+If it exists, managed files are written to the current directory.
+If a target file already exists locally, bwsf asks whether to overwrite it (per file).
 
-### Push .env file to Bitwarden host
+### Push managed files to Bitwarden host
 
-bwsf pushs your .env data at the current directory to your Bitwarden host.
-If it exists same name Bitwarden's Note item in the configured folder (default: `dotenvs`), bwsf asks overwrite it or not.
+```shell
+cd /path/to/your_project
+bwsf push
+```
 
-### List up .env datas in Bitwarden host
+bwsf pushes managed files from the current directory to your Bitwarden host.
+If a Note with the same project name already exists in the configured folder (default: `dotenvs`), bwsf **updates it without an overwrite prompt**.
+
+### List projects in Bitwarden host
 
 ```shell
 bwsf list
 ```
 
-List up your .env datas from Bitwarden host.
-They will showed up project names list on stdout.
+Prints project names from Bitwarden, one per line on stdout.
+
+### Clean local managed files
+
+```shell
+cd /path/to/your_project
+bwsf clean
+```
+
+Removes local managed files after verifying the remote Bitwarden backup.
 
 ## Uninstall
 
@@ -163,7 +182,7 @@ You can input your self hosted URL when initial setup.
 <details>
 <summary>Q. How does my .env file store at Bitwarden host?</summary>
 
-Your .env files are converted to JSON syntax. bwsf creates Bitwarden Note item, put into Note section to JSON.
+Your managed files are converted to JSON syntax. bwsf creates a Bitwarden Note item and puts that JSON in the Note section.
 
 </details>
 
@@ -185,7 +204,7 @@ But, secure information (ex. password) is never stored.
 ### Start up to dev
 
 ```
-git clone https://github.com/b4m-oss/bwsf.git
+git clone https://github.com/b4moss/bwsf.git
 cd bwsf
 make run
 ```

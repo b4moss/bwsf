@@ -57,4 +57,4 @@ We may update this Cookie Policy from time to time. We will notify you of any ch
 
 ## Contact Us
 
-If you have any questions about our Cookie Policy, please contact us through our [GitHub repository](https://github.com/b4m-oss/bwenv).
+If you have any questions about our Cookie Policy, please contact us through our [GitHub repository](https://github.com/b4moss/bwsf).

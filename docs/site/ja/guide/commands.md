@@ -11,6 +11,8 @@
 | `bwsf list` | 保存されている全プロジェクトを一覧表示 |
 | `bwsf clean` | リモートバックアップ確認後にローカルの管理対象ファイルを削除 |
 
+管理対象は、名前が `.env` で始まるファイル、または末尾が `.tfvars` / `.tfvars.json` のファイルです。名前に `.example` を含むものは除外されます。
+
 ## bwsf setup
 
 Bitwarden 接続の設定を行います。
@@ -25,12 +27,26 @@ bwsf setup
 bwsf setup --folder my-envs
 ```
 
-フォルダ名は `~/.config/bwsf/config.json` に保存され、push / pull / list で使われます。名前変更では既存ノートは自動移動されません。
+フォルダ名は `~/.config/bwsf/config.json` に保存され、push / pull / list / clean で使われます。名前変更では既存ノートは自動移動されません。
 
-この対話式コマンドでは以下の入力を求められます：
+### 対話入力
+
 - **サーバー URL**: Bitwarden サーバー URL（Bitwarden Cloud の場合は空欄）
 - **メールアドレス**: Bitwarden アカウントのメールアドレス
 - **マスターパスワード**: Bitwarden のマスターパスワード
+
+### 非対話フラグ
+
+自動化（スモークテストなど）向け:
+
+| フラグ | 説明 |
+|---|---|
+| `--host-type` | `cloud` または `selfhosted` |
+| `--url` | セルフホストのサーバー URL（`--host-type=selfhosted` のとき必須） |
+| `--email` | アカウントのメール |
+| `--password` | マスターパスワード |
+| `--yes` | 確認をすべて yes とみなす（フォルダ作成など） |
+| `--folder` | Bitwarden フォルダ名（デフォルト: `dotenvs`） |
 
 ## bwsf config show
 
@@ -44,7 +60,7 @@ bwsf config show
 
 ## bwsf push
 
-現在のディレクトリから `.env` ファイルを Bitwarden 保管庫 にプッシュします。
+現在のディレクトリから管理対象ファイルを Bitwarden 保管庫にプッシュします。
 
 ```bash
 cd /path/to/your_project
@@ -55,13 +71,13 @@ bwsf push
 
 | オプション | 説明 |
 |---|---|
-| `--from <dir>` | ソースディレクトリを指定（デフォルト: 現在のディレクトリ） |
+| `--from <dir>` | 管理対象ファイルがあるディレクトリ（デフォルト: 現在のディレクトリ） |
 
 ### 動作
 
 1. 現在のディレクトリ名をプロジェクト名として使用
-2. ディレクトリ内の `.env*` ファイルを検索
-3. 同名のプロジェクトが Bitwarden に存在する場合、上書きを確認
+2. 管理対象ファイルを検出（`.env*` / `*.tfvars` / `*.tfvars.json`。名前に `.example` を含むものは除外）
+3. 同名プロジェクトの Note が既にある場合は **上書き確認なしで更新**
 4. 設定フォルダ（デフォルト: `dotenvs`）にノートアイテムとして保存
 
 ### 使用例
@@ -77,7 +93,7 @@ bwsf push --from ./config
 
 ## bwsf pull
 
-Bitwarden ボールトから `.env` ファイルを現在のディレクトリにプルします。
+Bitwarden ボールトから管理対象ファイルを現在のディレクトリにプルします。
 
 ```bash
 cd /path/to/your_project
@@ -88,14 +104,14 @@ bwsf pull
 
 | オプション | 説明 |
 |---|---|
-| `--output <dir>` | 出力ディレクトリを指定（デフォルト: 現在のディレクトリ） |
+| `--output <dir>` | 出力ディレクトリ（デフォルト: 現在のディレクトリ） |
 
 ### 動作
 
 1. 現在のディレクトリ名をプロジェクト名として使用
 2. 設定フォルダ（デフォルト: `dotenvs`）内で一致するプロジェクトを検索
-3. ローカルに `.env` ファイルが既に存在する場合、上書きを確認
-4. `.env` ファイルをダウンロードして作成
+3. ローカルに同名ファイルが既にある場合、ファイル単位で上書きを確認
+4. Note から管理対象ファイルを書き出す
 
 ### 使用例
 
@@ -116,18 +132,25 @@ Bitwarden ボールトに保存されている全プロジェクトを一覧表�
 bwsf list
 ```
 
-### 出力例
+### 出力
+
+標準出力にプロジェクト名を 1 行ずつ表示します。設定フォルダにアイテムが無い場合:
 
 ```
-Projects in Bitwarden:
-  • my-web-app
-  • api-server
-  • mobile-app
+No items found in dotenvs folder
+```
+
+アイテムがある場合の例:
+
+```
+my-web-app
+api-server
+mobile-app
 ```
 
 ## bwsf clean
 
-Bitwarden 側のバックアップを確認したうえで、ローカルの管理対象 `.env*` を削除します。
+Bitwarden 側のバックアップを確認したうえで、ローカルの管理対象ファイルを削除します。
 
 ```bash
 cd /path/to/your_project
@@ -138,7 +161,7 @@ bwsf clean
 
 | オプション | 説明 |
 |---|---|
-| `--from <dir>` | 削除対象ディレクトリを指定（デフォルト: カレントディレクトリ） |
+| `--from <dir>` | 削除対象の管理対象ファイルがあるディレクトリ（デフォルト: カレントディレクトリ） |
 
 ### 挙動
 
@@ -152,8 +175,9 @@ bwsf clean
 ### 新規プロジェクトのセットアップ
 
 ```bash
-# .env ファイルを作成
+# 管理対象ファイルを作成
 echo "API_KEY=secret123" > .env
+echo 'region = "ap-northeast-1"' > terraform.tfvars
 
 # Bitwarden にプッシュ
 bwsf push
@@ -166,7 +190,7 @@ bwsf push
 git clone https://github.com/yourorg/my-web-app.git
 cd my-web-app
 
-# Bitwarden から .env をプル
+# Bitwarden から管理対象ファイルをプル
 bwsf pull
 ```
 
@@ -178,12 +202,9 @@ echo "API_URL=http://localhost:3000" > .env
 echo "API_URL=https://staging.example.com" > .env.staging
 echo "API_URL=https://api.example.com" > .env.production
 
-# すべてのファイルをプッシュ
+# すべての管理対象ファイルをプッシュ
 bwsf push
 
 # 別のマシンで全ファイルをプル
 bwsf pull
 ```
-
-
-

@@ -2,7 +2,7 @@ import { defineConfig } from 'vitepress'
 
 export default defineConfig({
   title: 'bwsf',
-  description: 'Manage .env files with Bitwarden CLI',
+  description: 'Manage .env* and Terraform tfvars with Bitwarden CLI',
   
   // Custom domain root (https://bwsf.oss.b4m.jp/)
   base: '/',
@@ -32,8 +32,8 @@ export default defineConfig({
           {
             text: 'Links',
             items: [
-              { text: 'GitHub', link: 'https://github.com/b4m-oss/bwenv' },
-              { text: 'Changelog', link: 'https://github.com/b4m-oss/bwenv/releases' },
+              { text: 'GitHub', link: 'https://github.com/b4moss/bwsf' },
+              { text: 'Changelog', link: 'https://github.com/b4moss/bwsf/releases' },
               { text: 'Our Company', link: 'https://b4m.co.jp/' },
             ]
           }
@@ -78,7 +78,7 @@ export default defineConfig({
           copyright: 'Copyright © b4m-oss, Bicycle for Mind LLC.'
         },
         editLink: {
-          pattern: 'https://github.com/b4m-oss/bwenv/edit/main/docs/site/:path',
+          pattern: 'https://github.com/b4moss/bwsf/edit/main/docs/site/:path',
           text: 'Edit this page on GitHub'
         }
       }
@@ -94,8 +94,8 @@ export default defineConfig({
           {
             text: 'リンク',
             items: [
-              { text: 'GitHub', link: 'https://github.com/b4m-oss/bwenv' },
-              { text: '変更履歴', link: 'https://github.com/b4m-oss/bwenv/releases' },
+              { text: 'GitHub', link: 'https://github.com/b4moss/bwsf' },
+              { text: '変更履歴', link: 'https://github.com/b4moss/bwsf/releases' },
               { text: '合同会社 知的・自転車', link: 'https://b4m.co.jp/' },
             ]
           }
@@ -140,7 +140,7 @@ export default defineConfig({
           copyright: 'Copyright © b4m-oss, 合同会社 知的・自転車'
         },
         editLink: {
-          pattern: 'https://github.com/b4m-oss/bwenv/edit/main/docs/site/:path',
+          pattern: 'https://github.com/b4moss/bwsf/edit/main/docs/site/:path',
           text: 'GitHubでこのページを編集'
         },
         docFooter: {
@@ -167,7 +167,7 @@ export default defineConfig({
     
     // Social links
     socialLinks: [
-      { icon: 'github', link: 'https://github.com/b4m-oss/bwenv' }
+      { icon: 'github', link: 'https://github.com/b4moss/bwsf' }
     ],
     
     // Search

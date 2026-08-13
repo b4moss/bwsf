@@ -8,7 +8,7 @@ body:
       value: |
         ⚠️ **This template is intended for maintainers only.**
 
-        If you are a community member with a feature idea, please share it in our [Discussions (Ideas)](https://github.com/b4m-oss/bwenv/discussions/categories/ideas) instead.
+        If you are a community member with a feature idea, please share it in our [Discussions (Ideas)](https://github.com/b4moss/bwsf/discussions/categories/ideas) instead.
         Issues created by non-maintainers using this template may be converted to discussions.
 
   - type: textarea

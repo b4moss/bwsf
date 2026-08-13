@@ -1,5 +1,5 @@
 name: Bug Report
-description: Report a bug to help us improve bwenv
+description: Report a bug to help us improve bwsf
 title: "[Bug]: "
 labels: ["bug"]
 body:
@@ -24,7 +24,7 @@ body:
       label: Steps to Reproduce
       description: Steps to reproduce the behavior.
       placeholder: |
-        1. Run `bwenv ...`
+        1. Run `bwsf ...`
         2. ...
         3. See error
     validations:
@@ -49,10 +49,10 @@ body:
       required: true
 
   - type: input
-    id: bwenv-version
+    id: bwsf-version
     attributes:
-      label: bwenv Version
-      description: Run `bwenv -v` to get the version
+      label: bwsf Version
+      description: Run `bwsf -v` to get the version
       placeholder: "e.g., 0.10.0"
     validations:
       required: true

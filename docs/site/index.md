@@ -4,7 +4,7 @@ title: bwsf
 
 hero:
   name: bwsf
-  text: Secure .env Management
+  text: Secure File Sync
   tagline: Choose your language / 言語を選択
   actions:
     - theme: brand
