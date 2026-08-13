@@ -8,12 +8,9 @@ import (
 )
 
 // NewBwClientFromConfig selects a BwClient implementation based on cfg.Backend.
-// When cfg is nil or Backend is unset, the Bitwarden CLI (`bw`) adapter is used.
+// When cfg is nil or Backend is unset, the API adapter is used (default backend).
 func NewBwClientFromConfig(cfg *config.Config) (core.BwClient, error) {
-	backend := config.BackendBW
-	if cfg != nil {
-		backend = cfg.GetBackend()
-	}
+	backend := cfg.GetBackend()
 
 	switch backend {
 	case config.BackendBW:

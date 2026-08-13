@@ -25,8 +25,8 @@ var authCmd = &cobra.Command{
 	Long: `Store a Bitwarden Personal API Key in the OS secret store (macOS Keychain /
 Linux secret service) and obtain an Identity access token.
 
-Only used when backend is "api" (see bwsf backend --set api).
-Vault unlock and CRUD are not handled here (later Issue #53 steps).`,
+Used when backend is "api" (the default; see also bwsf backend --set api).
+After auth, push/pull/list prompt for your master password to unlock the vault.`,
 	Run: runAuth,
 }
 
@@ -89,7 +89,7 @@ func runAuth(cmd *cobra.Command, args []string) {
 
 	utils.Successln("[INFO] ✅ Authenticated with Personal API Key (token stored in memory for this process)")
 	utils.Infoln("[INFO] Personal API Key is stored in the OS secret store (Keychain / secret service)")
-	utils.Infoln("[INFO] Vault CRUD via API is not implemented yet (Issue #53 Step 4)")
+	utils.Infoln("[INFO] Next: run push/pull/list; you will be prompted for your master password to unlock the vault")
 }
 
 func ensureHostConfigForAPI(cfg *config.Config) error {
