@@ -5,6 +5,7 @@
 | コマンド | 説明 |
 |---|---|
 | `bwsf setup` | Bitwarden 接続の設定 |
+| `bwsf config show` | 現在のローカル設定を表示 |
 | `bwsf push` | 管理対象ファイル（`.env*` / `*.tfvars` / `*.tfvars.json`）を Bitwarden にプッシュ |
 | `bwsf pull` | 管理対象ファイルを Bitwarden からプル |
 | `bwsf list` | 保存されている全プロジェクトを一覧表示 |
@@ -30,6 +31,16 @@ bwsf setup --folder my-envs
 - **サーバー URL**: Bitwarden サーバー URL（Bitwarden Cloud の場合は空欄）
 - **メールアドレス**: Bitwarden アカウントのメールアドレス
 - **マスターパスワード**: Bitwarden のマスターパスワード
+
+## bwsf config show
+
+`~/.config/bwsf/config.json` にある現在のローカル設定を表示します。
+
+```bash
+bwsf config show
+```
+
+ホスト種別、セルフホスト URL、メール、実効フォルダ名を表示します。Bitwarden にはアクセスしません。設定ファイルが無い場合はエラー終了し、`bwsf setup` を案内します。
 
 ## bwsf push
 

@@ -46,6 +46,7 @@ Simple usage below:
 
 | command | |
 |----|----|
+| bwsf config show | Show current local configuration |
 | bwsf push | managed files (`.env*`, `*.tfvars`, `*.tfvars.json`) push to your Bitwarden host |
 | bwsf pull | managed files pull from your Bitwarden host |
 | bwsf list | Show list stored projects at your Bitwarden host |
