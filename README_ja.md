@@ -61,11 +61,25 @@ bwsfコマンドは、Bitwardenで管理されているdotenvファイルをサ�
 
 ## 要件
 
-**`bw`** コマンドがマシンにインストールされている必要があります。
+### デフォルトバックエンド（`api`）
 
-[bwコマンドのインストール方法については、こちらのドキュメントをお読みください。](https://bitwarden.com/help/cli/#download-and-install)
+デフォルトの **API** バックエンドでは Bitwarden CLI（`bw`）のインストールは不要です。
 
-** Homebrew **: インストールに必要です。
+必要なもの:
+
+- Bitwarden アカウント（Cloud またはセルフホスト / Vaultwarden）
+- **Personal API Key**（アカウント設定 → セキュリティ → キー）
+- OS の秘密保管（**macOS Keychain** / **Linux secret service**）へのアクセス
+
+### 任意バックエンド（`bw`）
+
+`bwsf backend --set bw` に切り替える場合は **`bw`** CLI が必要です。
+
+[bw のインストール](https://bitwarden.com/help/cli/#download-and-install)
+
+### Homebrew
+
+bwsf 本体のインストールに Homebrew を使います。
 
 ### 対応OS
 
@@ -134,28 +148,37 @@ Bitwardenホストから.envデータの一覧を取得します。
 
 ```shell
 bwsf backend
-bwsf backend --set bw
 bwsf backend --set api
+bwsf backend --set bw
 ```
 
-デフォルトは `bw`（Bitwarden CLI）です。`api` バックエンドは実験的です。
+デフォルトは **`api`**（Personal API Key + プロセス内 unlock）です。`bw` バックエンドは移行・好みのために残しています。
 
-### API バックエンド認証（Personal API Key）
+### API バックエンド（推奨）
 
-`backend=api` のときは、マスターパスワードではなく Bitwarden の **Personal API Key** で認証します。
+Bitwarden CLI なしの典型的な流れ:
 
 ```shell
-bwsf backend --set api
-bwsf auth
+bwsf setup                 # ホスト種別 / URL / email（＋任意で folder）
+bwsf auth                  # Personal API Key を保存し Identity トークン取得
+bwsf push                  # マスターパスワードで unlock して同期
+bwsf pull
+bwsf list
 ```
 
 `bwsf auth` は `client_id` / `client_secret` の入力を求め、OS の秘密保管（**macOS Keychain** / **Linux secret service**）に保存し、Identity のアクセストークンを取得します（トークンはプロセスのメモリ上のみ）。削除は `bwsf auth --clear` です。
 
 Personal API Key は Bitwarden Web 保管庫の アカウント設定 → セキュリティ → キー から作成できます。
 
-API 経由のボルト unlock（マスターパスワード → メモリ上の復号鍵）は実装済みです（Step 3）。鍵は各コマンド終了時に破棄されます。push/pull/list の保管庫 CRUD はまだ stub です（Step 4）。日常の同期は当面 `backend=bw` を使ってください。
+`push` / `pull` / `list` のたびに **マスターパスワード** の入力を求め、メモリ上でボルト鍵を復元し、コマンド終了時に鍵・トークンを破棄します。
 
-補足: unlock は現状、Community SDK のパスワード login 経路（config の email + マスターパスワード）で鍵を復元します。Identity の Personal API Key トークンとは別管理です（Scenario C）。
+補足: unlock は Community SDK のパスワード login 経路（config の email + マスターパスワード）で鍵を復元します。Identity の Personal API Key トークンとは別管理です。
+
+以前、`backend` 未設定が `bw` を意味していた環境では、明示的に設定してください:
+
+```shell
+bwsf backend --set bw
+```
 
 ## アンインストール
 
