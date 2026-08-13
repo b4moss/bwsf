@@ -4,6 +4,10 @@ on:
   pull_request:
     paths:
       - 'app/**'
+  push:
+    branches: [main]
+    paths:
+      - 'app/**'
 
 jobs:
   unit-test:

@@ -17,6 +17,14 @@ Configure your Bitwarden connection settings.
 bwsf setup
 ```
 
+Optional: use a custom Bitwarden folder instead of `dotenvs`:
+
+```bash
+bwsf setup --folder my-envs
+```
+
+The folder name is stored in `~/.config/bwsf/config.json` and used by push / pull / list. Renaming does **not** migrate existing notes.
+
 This interactive command will prompt you for:
 - **Server URL**: Your Bitwarden server URL (leave blank for Bitwarden Cloud)
 - **Email**: Your Bitwarden account email
@@ -42,7 +50,7 @@ bwsf push
 1. Uses the current directory name as the project name
 2. Searches for `.env*` files in the directory
 3. If a project with the same name exists in Bitwarden, prompts to overwrite
-4. Stores the files as a Note item in the `dotenvs` folder
+4. Stores the files as a Note item in the configured folder (default: `dotenvs`)
 
 ### Example
 
@@ -73,7 +81,7 @@ bwsf pull
 ### Behavior
 
 1. Uses the current directory name as the project name
-2. Searches for a matching project in the `dotenvs` folder
+2. Searches for a matching project in the configured folder (default: `dotenvs`)
 3. If `.env` files already exist locally, prompts to overwrite
 4. Downloads and creates the `.env` files
 

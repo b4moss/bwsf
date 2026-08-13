@@ -147,13 +147,18 @@ We use the following Make commands for testing:
 
 | Command | Description |
 |---------|-------------|
-| `make test` | Run all tests |
-| `make test-unit` | Run unit tests only |
-| `make test-e2e` | Run E2E tests (mock-based) |
-| `make test-coverage` | Generate coverage report |
+| `make test` | All **server-free** tests (`go test ./...`; does not include smoke) |
+| `make test-unit` | Unit / integration tests only (no Docker server) |
+| `make test-e2e` | Mock E2E tests (`./src/e2e/...`; no real Vaultwarden) |
+| `make test-coverage` | Generate coverage report (server-free) |
 | `make lint` | Run formatter and static analysis |
+| `make smoke-up` / `smoke-down` | Start / stop Vaultwarden (Compose profile `smoke`) |
+| `make smoke-ready` | Check HTTPS reachability to Vaultwarden from the test container |
+| `make smoke` | Real command smoke (`setup`/`push`/`pull`/`list`; optional `CMD=` / `TARGET=` / `BACKEND=`) |
 
 Always run `make test` and `make lint` before submitting a PR.
+
+For Vaultwarden smoke (certs, HTTPS, `make smoke`, tmp policy), see [`docs/smoke.md`](docs/smoke.md).
 
 ## Questions?
 

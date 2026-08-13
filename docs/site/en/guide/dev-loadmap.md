@@ -1,6 +1,6 @@
 # Features in Development
 
-- Ability to use folder names other than `dotenvs`
+- [x] Ability to use folder names other than `dotenvs` (`bwsf setup --folder`)
 - Implementation of `bwsf.config.json` file functionality
   - Settings such as `ignore` and `override_project_name` will be available
 - `bwsf clean` command: Delete .env files from the current project

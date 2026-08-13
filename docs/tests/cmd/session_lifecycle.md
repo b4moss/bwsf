@@ -28,7 +28,7 @@
 
 - 認証切れ: `bwsf auth` を案内し、MP プロンプトに進まない（または再試行ヘルパがプロンプトしない）。
 - 未 unlock: MP プロンプトへ進む。
-- Step 4 stub（`ErrAPINotImplemented`）: Step 3 では「未実装」として表示し、unlock 成功後でも CRUD は失敗してよい。
+- Step 4 stub（`ErrAPINotImplemented`）: Step 3 時点では「未実装」として表示してよい。**Step 4 完了後は vault CRUD が実装され、この誘導は使わない**（[`../infra/apiclient_vault.md`](../infra/apiclient_vault.md)）。
 
 #### テスト：正常系
 

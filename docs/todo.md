@@ -1,7 +1,7 @@
 # Todo
 
 # v0.11.0
-- [ ] dotenvsディレクトリの別名設定
+- [x] dotenvsディレクトリの別名設定
 
 # until v1.0.0
 

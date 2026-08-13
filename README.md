@@ -1,6 +1,11 @@
 # bwsf
 
+[![Test](https://github.com/b4m-oss/bwsf/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/b4m-oss/bwsf/actions/workflows/test.yml)
+[![Release](https://img.shields.io/github/v/release/b4m-oss/bwsf)](https://github.com/b4m-oss/bwsf/releases/latest)
+
 bwsf (Bitwarden Secured Files) is a CLI tool that uses [Bitwarden](https://bitwarden.com/) to manage .env files.
+
+[Official site](https://bwsf.oss.b4m.jp/)
 
 ## 🚨🚨 BREAKING CHANGE 🚨🚨
 
@@ -93,6 +98,14 @@ bwsf setup
 
 Set up your Bitwarden host and your account information.
 
+By default, `.env` notes are stored in a Bitwarden folder named `dotenvs`. To use a different folder name:
+
+```shell
+bwsf setup --folder my-envs
+```
+
+The folder name is saved in `~/.config/bwsf/config.json` and used by push / pull / list. Changing the folder name does **not** move existing notes; move them manually in Bitwarden if needed.
+
 ### Pull .env file from Bitwarden host
 
 ```shell
@@ -108,7 +121,7 @@ The data is stored as Bitwarden's Note item.
 ### Push .env file to Bitwarden host
 
 bwsf pushs your .env data at the current directory to your Bitwarden host.
-If it exists same name Bitwarden's Note item in dotenvs folder, bwsf asks overwrite it or not.
+If it exists same name Bitwarden's Note item in the configured folder (default: `dotenvs`), bwsf asks overwrite it or not.
 
 ### List up .env datas in Bitwarden host
 

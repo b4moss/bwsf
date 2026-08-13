@@ -9,8 +9,8 @@
 
 | パス | 対象 |
 |------|------|
-| [`infra/`](./infra/) | インフラ層（`ApiBwClient`、Identity、SecretStore 等） |
-| [`core/`](./core/) | コア層（再試行・エラー判定等） |
+| [`infra/`](./infra/) | インフラ層（`ApiBwClient`、Identity、SecretStore、保管庫 CRUD 等） |
+| [`core/`](./core/) | コア層（再試行・push/pull/list 接続等） |
 | [`cmd/`](./cmd/) | CLI 層（setup / auth / セッション寿命） |
 
 ## Issue #53 Step 3
@@ -23,3 +23,20 @@
 | [`cmd/session_lifecycle.md`](./cmd/session_lifecycle.md) | コマンド終了時のセッション破棄 |
 
 Step 3 の実装計画正本: [Issue #53 Step 3 実装計画](https://github.com/b4moss/bwsf/issues/53#issuecomment-5276317436)
+
+## Issue #53 Step 4
+
+| 文書 | 内容 |
+|------|------|
+| [`infra/apiclient_vault.md`](./infra/apiclient_vault.md) | sync / folder / Secure Note CRUD（`ErrAPINotImplemented` 撤去） |
+| [`cmd/setup_api_folder.md`](./cmd/setup_api_folder.md) | api setup からの設定フォルダ作成 |
+| [`core/vault_ops_api.md`](./core/vault_ops_api.md) | push / pull / list を api adapter に接続したときの伝播・退行 |
+
+Step 4 の実装計画正本: [Issue #53 Step 4 実装計画](https://github.com/b4moss/bwsf/issues/53#issuecomment-5277440346)
+
+### Step 4 で扱わない（仕様書にも本実装テストを置かない）
+
+- `clean` の api 対応
+- 組織ボルト / SSO
+- `BACKEND=api` の `make smoke` 本実装
+- default=`api` や `bw` 削除（Step 5）

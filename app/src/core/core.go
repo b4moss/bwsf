@@ -551,18 +551,21 @@ func collectHostEmailConfig(
 	return hostType, selfhostedURL, email, nil
 }
 
-// preserveSetupFields copies fields that setup must not wipe (backend, device id).
+// preserveSetupFields copies fields that setup must not wipe (backend, device id, folder).
 func preserveSetupFields(newConfig, existing *config.Config) {
 	if existing == nil {
 		return
 	}
 	newConfig.Backend = existing.Backend
 	newConfig.DeviceIdentifier = existing.DeviceIdentifier
+	if newConfig.FolderName == "" {
+		newConfig.FolderName = existing.FolderName
+	}
 }
 
 // SetupAPIConfigCore configures host/email for the API backend without Login.
-// Authentication is performed separately via `bwsf auth`. Folder creation is
-// skipped until Issue #53 Step 4 implements API vault operations.
+// Authentication is performed separately via `bwsf auth`.
+// Folder creation is handled by EnsureConfiguredFolderCore after auth/unlock is available.
 func SetupAPIConfigCore(
 	logger Logger,
 	selectHostType func() (string, error),
@@ -602,6 +605,52 @@ func SetupAPIConfigCore(
 	return nil
 }
 
+// EnsureConfiguredFolderCore checks the configured Bitwarden folder and optionally creates it.
+// Does not auto-create from push/pull/list; intended for setup flows (bw and api).
+func EnsureConfiguredFolderCore(
+	bw BwClient,
+	cfg *config.Config,
+	logger Logger,
+	promptPassword func() (string, error),
+	confirmCreateFolder func() (bool, error),
+) error {
+	if bw == nil {
+		return fmt.Errorf("bitwarden client is required")
+	}
+	resolvedFolder := config.ResolveFolderName(cfg)
+
+	var exists bool
+	err := WithUnlockRetry(bw, cfg, promptPassword, logger, func() error {
+		var innerErr error
+		exists, innerErr = bw.DotenvsFolderExists()
+		return innerErr
+	})
+	if err != nil {
+		return fmt.Errorf("failed to check %s folder: %w", resolvedFolder, err)
+	}
+	if exists {
+		return nil
+	}
+
+	confirmed, confirmErr := confirmCreateFolder()
+	if confirmErr != nil {
+		return fmt.Errorf("failed to confirm folder creation: %w", confirmErr)
+	}
+	if !confirmed {
+		logger.Info(resolvedFolder, " folder was not created")
+		return nil
+	}
+
+	err = WithUnlockRetry(bw, cfg, promptPassword, logger, func() error {
+		return bw.CreateDotenvsFolder()
+	})
+	if err != nil {
+		return fmt.Errorf("failed to create %s folder: %w", resolvedFolder, err)
+	}
+	logger.Info(resolvedFolder, " folder created successfully")
+	return nil
+}
+
 // SetupBitwardenCore は Bitwarden のセットアップを行うコアロジックです。
 func SetupBitwardenCore(
 	fs FileSystem,
@@ -638,27 +687,34 @@ func SetupBitwardenCore(
 		return fmt.Errorf("failed to login: %w", err)
 	}
 
-	// 設定を保存（既存の backend / device_identifier は維持）
+	// 設定を保存（folder_name / backend / device_identifier は既存値を維持）
+	folderName := ""
+	if existingConfig != nil {
+		folderName = existingConfig.FolderName
+	}
 	newConfig := &config.Config{
 		HostType:      hostType,
 		SelfhostedURL: selfhostedURL,
 		Email:         email,
+		FolderName:    folderName,
 	}
 	preserveSetupFields(newConfig, existingConfig)
 	if err := config.SaveConfig(newConfig); err != nil {
 		return fmt.Errorf("failed to save configuration: %w", err)
 	}
 
-	// dotenvs フォルダの存在確認
+	resolvedFolder := config.ResolveFolderName(newConfig)
+
+	// 設定フォルダの存在確認
 	exists, err := bw.DotenvsFolderExists()
 	if err != nil {
 		// エラーが発生した場合はログを出力して続行（致命的ではない）
-		logger.Info("Could not check dotenvs folder: ", err.Error())
+		logger.Info("Could not check ", resolvedFolder, " folder: ", err.Error())
 		return nil
 	}
 
 	if !exists {
-		// dotenvs フォルダがない場合、作成するか確認
+		// フォルダがない場合、作成するか確認
 		confirmed, confirmErr := confirmCreateFolder()
 		if confirmErr != nil {
 			return fmt.Errorf("failed to confirm folder creation: %w", confirmErr)
@@ -667,9 +723,9 @@ func SetupBitwardenCore(
 		if confirmed {
 			// フォルダを作成
 			if createErr := bw.CreateDotenvsFolder(); createErr != nil {
-				return fmt.Errorf("failed to create dotenvs folder: %w", createErr)
+				return fmt.Errorf("failed to create %s folder: %w", resolvedFolder, createErr)
 			}
-			logger.Info("dotenvs folder created successfully")
+			logger.Info(resolvedFolder, " folder created successfully")
 		}
 	}
 

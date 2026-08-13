@@ -10,7 +10,7 @@
 - `backend=api`（またはセット後に api）では、Bitwarden への `Login`（email/password）を行わない。
 - host_type / selfhosted_url / email 等、設定ファイルに必要な項目の入力・保存のみ行う。
 - 完了後、api 利用には `bwsf auth` が必要である旨を案内する。
-- フォルダ作成確認は、Step 4 で api 実装されるまで「未実装」またはスキップしてよい（Step 3 受け入れでは Unlock が主。フォルダ作成の本実装テストは Step 4）。
+- フォルダ作成確認は Step 3 ではスキップしてよい。**本実装とテストは Step 4**（[`setup_api_folder.md`](./setup_api_folder.md)）。
 
 #### テスト：正常系
 
