@@ -159,6 +159,8 @@ func TestListCmd_Description(t *testing.T) {
 func TestSetupCmd_Description(t *testing.T) {
 	assert.NotEmpty(t, setupCmd.Short)
 	assert.NotEmpty(t, setupCmd.Long)
+	// backend=api では認証が bwsf auth に分離されることを案内する
+	assert.Contains(t, setupCmd.Long, "bwsf auth")
 }
 
 // 正常系: backend コマンドに説明がある

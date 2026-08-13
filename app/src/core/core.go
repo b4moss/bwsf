@@ -519,6 +519,89 @@ func ListDotenvsCore(
 	return items, nil
 }
 
+// collectHostEmailConfig prompts for host type, optional self-hosted URL, and email.
+func collectHostEmailConfig(
+	selectHostType func() (string, error),
+	inputURL func() (string, error),
+	inputEmail func() (string, error),
+) (hostType, selfhostedURL, email string, err error) {
+	hostType, err = selectHostType()
+	if err != nil {
+		return "", "", "", fmt.Errorf("failed to select host type: %w", err)
+	}
+
+	if hostType == "selfhosted" {
+		selfhostedURL, err = inputURL()
+		if err != nil {
+			return "", "", "", fmt.Errorf("failed to get URL: %w", err)
+		}
+		if strings.TrimSpace(selfhostedURL) == "" {
+			return "", "", "", fmt.Errorf("self-hosted URL cannot be empty")
+		}
+	}
+
+	email, err = inputEmail()
+	if err != nil {
+		return "", "", "", fmt.Errorf("failed to get email: %w", err)
+	}
+	if strings.TrimSpace(email) == "" {
+		return "", "", "", fmt.Errorf("email cannot be empty")
+	}
+
+	return hostType, selfhostedURL, email, nil
+}
+
+// preserveSetupFields copies fields that setup must not wipe (backend, device id).
+func preserveSetupFields(newConfig, existing *config.Config) {
+	if existing == nil {
+		return
+	}
+	newConfig.Backend = existing.Backend
+	newConfig.DeviceIdentifier = existing.DeviceIdentifier
+}
+
+// SetupAPIConfigCore configures host/email for the API backend without Login.
+// Authentication is performed separately via `bwsf auth`. Folder creation is
+// skipped until Issue #53 Step 4 implements API vault operations.
+func SetupAPIConfigCore(
+	logger Logger,
+	selectHostType func() (string, error),
+	inputURL func() (string, error),
+	inputEmail func() (string, error),
+) error {
+	existingConfig, err := config.LoadConfig()
+	if err != nil {
+		return fmt.Errorf("failed to load existing config: %w", err)
+	}
+	if existingConfig != nil {
+		logger.Info("Existing configuration found. Host/email settings will be updated.")
+	}
+
+	hostType, selfhostedURL, email, err := collectHostEmailConfig(selectHostType, inputURL, inputEmail)
+	if err != nil {
+		return err
+	}
+
+	newConfig := &config.Config{
+		HostType:      hostType,
+		SelfhostedURL: selfhostedURL,
+		Email:         email,
+		Backend:       config.BackendAPI,
+	}
+	preserveSetupFields(newConfig, existingConfig)
+	// Ensure API backend remains selected even when no prior config existed.
+	if newConfig.Backend == "" {
+		newConfig.Backend = config.BackendAPI
+	}
+
+	if err := config.SaveConfig(newConfig); err != nil {
+		return fmt.Errorf("failed to save configuration: %w", err)
+	}
+
+	logger.Info("Configuration saved. Run `bwsf auth` to authenticate with a Personal API Key.")
+	return nil
+}
+
 // SetupBitwardenCore は Bitwarden のセットアップを行うコアロジックです。
 func SetupBitwardenCore(
 	fs FileSystem,
@@ -539,25 +622,9 @@ func SetupBitwardenCore(
 		logger.Info("Existing configuration found. It will be overwritten.")
 	}
 
-	// ホストタイプを選択
-	hostType, err := selectHostType()
+	hostType, selfhostedURL, email, err := collectHostEmailConfig(selectHostType, inputURL, inputEmail)
 	if err != nil {
-		return fmt.Errorf("failed to select host type: %w", err)
-	}
-
-	// Self-hosted の場合は URL を入力
-	var selfhostedURL string
-	if hostType == "selfhosted" {
-		selfhostedURL, err = inputURL()
-		if err != nil {
-			return fmt.Errorf("failed to get URL: %w", err)
-		}
-	}
-
-	// メールアドレスを入力
-	email, err := inputEmail()
-	if err != nil {
-		return fmt.Errorf("failed to get email: %w", err)
+		return err
 	}
 
 	// パスワードを入力
@@ -571,15 +638,13 @@ func SetupBitwardenCore(
 		return fmt.Errorf("failed to login: %w", err)
 	}
 
-	// 設定を保存（既存の backend 設定は維持）
+	// 設定を保存（既存の backend / device_identifier は維持）
 	newConfig := &config.Config{
 		HostType:      hostType,
 		SelfhostedURL: selfhostedURL,
 		Email:         email,
 	}
-	if existingConfig != nil {
-		newConfig.Backend = existingConfig.Backend
-	}
+	preserveSetupFields(newConfig, existingConfig)
 	if err := config.SaveConfig(newConfig); err != nil {
 		return fmt.Errorf("failed to save configuration: %w", err)
 	}
