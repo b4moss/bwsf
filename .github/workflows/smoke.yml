@@ -1,0 +1,33 @@
+name: Smoke
+
+# Optional / non-blocking: Vaultwarden HTTPS ready + full make smoke.
+# Not required on pull requests.
+on:
+  workflow_dispatch:
+  schedule:
+    # Nightly 03:00 UTC
+    - cron: "0 3 * * *"
+
+jobs:
+  smoke:
+    name: Vaultwarden command smoke
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build golang image (curl + bw + CA mount)
+        run: make build
+
+      - name: Start Vaultwarden
+        run: make smoke-up
+
+      - name: Check HTTPS reachability
+        run: make smoke-ready
+
+      - name: Run command smoke
+        run: make smoke
+
+      - name: Stop smoke services
+        if: always()
+        run: make smoke-down
