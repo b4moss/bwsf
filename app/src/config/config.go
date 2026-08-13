@@ -13,7 +13,7 @@ type Config struct {
 	SelfhostedURL    string `json:"selfhosted_url"`              // URL for self-hosted instance
 	Email            string `json:"email"`                       // Email address
 	FolderName       string `json:"folder_name,omitempty"`       // Bitwarden folder for .env notes
-	Backend          string `json:"backend,omitempty"`           // "bw" (CLI) or "api"; default "bw" when unset
+	Backend          string `json:"backend,omitempty"`           // "bw" (CLI) or "api"; default "api" when unset
 	DeviceIdentifier string `json:"device_identifier,omitempty"` // Stable device id for Identity (api backend)
 }
 
@@ -23,17 +23,17 @@ const (
 
 	// BackendBW uses the Bitwarden CLI (`bw`) adapter.
 	BackendBW = "bw"
-	// BackendAPI uses the Bitwarden API adapter (not fully implemented yet).
+	// BackendAPI uses the Bitwarden API adapter (Personal API Key + SDK).
 	BackendAPI = "api"
 
 	// DefaultFolderName is the Bitwarden folder used when folder_name is unset.
 	DefaultFolderName = "dotenvs"
 )
 
-// GetBackend returns the configured backend, defaulting to "bw" when unset (backward compatible).
+// GetBackend returns the configured backend, defaulting to "api" when unset.
 func (c *Config) GetBackend() string {
 	if c == nil || c.Backend == "" {
-		return BackendBW
+		return BackendAPI
 	}
 	return c.Backend
 }
