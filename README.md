@@ -85,7 +85,7 @@ This project migrates our hand-maded shell scripts to modern CLI command with Go
 
 ```shell
 bwsf -v
-# bwsf version 0.14.0
+# bwsf version 0.15.0
 ```
 
 ## Usage
