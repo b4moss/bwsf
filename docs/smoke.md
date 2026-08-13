@@ -4,6 +4,7 @@ Development / CI helpers for **real-server** checks against Vaultwarden.
 
 - Issue: [#109](https://github.com/b4moss/bwsf/issues/109) (foundation), [#110](https://github.com/b4moss/bwsf/issues/110) (`make smoke` commands)
 - Parent tracker: [#108](https://github.com/b4moss/bwsf/issues/108)
+- Dev Container / Codespaces: [`.devcontainer/README.md`](../.devcontainer/README.md) ([#111](https://github.com/b4moss/bwsf/issues/111))
 
 ## Test target split
 
