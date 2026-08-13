@@ -29,6 +29,11 @@ func (fs *RealFileSystem) WriteFile(path string, data []byte, perm uint32) error
 	return os.WriteFile(path, data, os.FileMode(perm))
 }
 
+// Remove はファイルを削除します。
+func (fs *RealFileSystem) Remove(path string) error {
+	return os.Remove(path)
+}
+
 // Stat はファイル情報を取得します。
 func (fs *RealFileSystem) Stat(path string) (core.FileInfo, error) {
 	_, err := os.Stat(path)
@@ -84,4 +89,3 @@ func (de *realDirEntry) Name() string {
 func (de *realDirEntry) IsDir() bool {
 	return de.entry.IsDir()
 }
-

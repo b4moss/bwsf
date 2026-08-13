@@ -8,6 +8,7 @@
 | `bwsf push` | Push .env files to Bitwarden |
 | `bwsf pull` | Pull .env files from Bitwarden |
 | `bwsf list` | List all stored projects |
+| `bwsf clean` | Remove local .env files after verifying Bitwarden backup |
 
 ## bwsf setup
 
@@ -112,6 +113,28 @@ Projects in Bitwarden:
   • api-server
   • mobile-app
 ```
+
+## bwsf clean
+
+Remove bwsf-managed local `.env*` files after verifying the Bitwarden backup.
+
+```bash
+cd /path/to/your_project
+bwsf clean
+```
+
+### Options
+
+| Option | Description |
+|---|---|
+| `--from <dir>` | Directory containing .env files to clean (default: current directory) |
+
+### Behavior
+
+1. Uses the current directory name as the project name
+2. Aborts if the remote note item is missing or contains no managed files
+3. Deletes local files without prompting when contents match
+4. On any file mismatch, prompts with a single-select action (Abort / Overwrite remote then clean / Remove local)
 
 ## Common Workflows
 

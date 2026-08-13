@@ -25,11 +25,11 @@
 ### レイヤ構造の方針
 
 - **CLI 層**
-  - Cobra コマンド (`runPush`, `runPull`, `runList`, `runSetup`) からなる。
+  - Cobra コマンド (`runPush`, `runPull`, `runList`, `runSetup`, `runClean`) からなる。
   - 引数／フラグのパースと、エラー時の Exit/メッセージ表示のみを担当する「薄いラッパー」とする。
   - 実際の処理はすべて「コアロジック層」の関数に委譲する。
 - **コアロジック層**
-  - ビジネスロジック（Push/Pull/List/Setup）を環境依存のない形で実装する。
+  - ビジネスロジック（Push/Pull/List/Setup/Clean）を環境依存のない形で実装する。
   - I/O は `FileSystem` / `BwClient` / `Logger` インターフェースに抽象化する。
 - **インフラ層**
   - `exec.Command` による `bw` CLI 呼び出しや、`os` ベースのファイル操作など、現行実装に近い具体クラスを持つ。
@@ -186,6 +186,11 @@
 - 任意パスに文字列を保存する。
 - パーミッションは呼び出し側（コアロジック）から指定できるようにする。
 
+#### Remove
+
+- 任意パスのファイルを削除する。
+- 存在しない場合はエラーを返す（呼び出し側で必要なら事前に存在確認する）。
+
 #### Stat
 
 - 任意パスの存在確認／属性取得を行う。
@@ -201,8 +206,10 @@
 - 正常系
   - 既存ディレクトリに対して `MkdirAll` を呼び出してもエラーが発生しないことを確認する。
   - `WriteFile` 後に `ReadFile` で同じ内容が取得できることを確認する。
+  - `WriteFile` 後に `Remove` すると、以降の `Stat` / `ReadFile` で存在しない扱いになることを確認する。
 - 異常系
   - 読み取り専用ディレクトリ配下に `WriteFile` を試みた際にエラーが返ることを確認する（実環境ではスキップ可・モックで代用可）。
+  - 存在しないパスに対する `Remove` がエラーを返すことを確認する。
 
 ### Logger インターフェース
 
@@ -324,6 +331,33 @@
   - 既存 `.env` がある状態で `confirmOverwrite` が `false` を返す場合に、上書き処理を行わず、適切にキャンセル扱いになることを確認する。
   - `RestoreEnvFileFromJSON` が壊れた JSON でエラーを返す場合に、そのエラーがそのまま呼び出し元へ伝播することを確認する。
 
+### CleanEnvCore
+
+- シグネチャ（イメージ）:
+  - `func CleanEnvCore(targetDir, projectName string, fs FileSystem, bw BwClient, cfg *config.Config, promptPassword func() (string, error), selectMismatchAction func(mismatchedFiles []string) (CleanMismatchAction, error), logger Logger) error`
+- 処理:
+  - `FindEnvFiles` と同一のルール（`.env*` かつ `.example` 除外）でローカル対象ファイルを検出する。
+  - ローカルに対象ファイルが無い場合はエラーを返す。
+  - `WithUnlockRetry` 経由で `bw.GetDotenvsFolderID()` / `bw.GetItemByName(folderID, projectName)` を実行し、dotenvs 配下の同名 Note アイテムを取得する。
+  - アイテムが存在しない、またはアイテム内に管理対象ファイルが無い場合は、ローカルを削除せずエラーで中止する。
+  - ローカルとリモートの `MultiEnvData` を比較する。1 ファイルでも差分（欠落含む）があればプロジェクト全体を差分ありとみなす。
+  - 差分が無い場合は確認なしでローカル対象ファイルを `fs.Remove` する。
+  - 差分がある場合は `selectMismatchAction` で単一選択させる（Abort / Overwrite remote then clean / Remove local）。
+    - Abort: 削除せず中止（`ErrCleanAborted`）。
+    - Overwrite remote then clean: ローカル内容でリモートを更新（push 相当）してからローカルを削除する。
+    - Remove local: リモートを更新せずローカルのみ削除する（危険選択肢）。
+
+#### テストシナリオ
+
+- 正常系
+  - リモート同名アイテムがあり内容が一致する場合に、確認コールバックを呼ばずローカル `.env*` が `Remove` されることを確認する。
+  - 差分があり `Overwrite remote then clean` が選ばれた場合に、`UpdateNoteItem`（または作成）の後にローカルが削除されることを確認する。
+  - 差分があり `Remove local` が選ばれた場合に、リモート更新なしでローカルのみ削除されることを確認する。
+- 異常系
+  - リモートに同名アイテムが無い場合に、ローカルを削除せずエラーになることを確認する。
+  - リモートアイテムはあるが管理対象ファイルが空の場合に、ローカルを削除せずエラーになることを確認する。
+  - 差分ありで `Abort` が選ばれた場合に、ローカルもリモートも変更されないことを確認する。
+
 ### ListDotenvsCore
 
 - シグネチャ（イメージ）:
@@ -434,6 +468,23 @@
   - `SetupBitwardenCore` が `nil` を返す場合に、サインイン成功メッセージのみが出力されることを確認する。
 - 異常系
   - `SetupBitwardenCore` がエラーを返す場合に、その内容がエラーとして表示され、`os.Exit(1)` が呼ばれることを確認する。
+
+### runClean
+
+- 処理:
+  - `--from` フラグをパースして対象ディレクトリを取得する。
+  - `os.Getwd()` から `projectName` を決定する。
+  - 具象 `BwClient` / `FileSystem` / `Logger` を生成する。
+  - 差分時の単一選択 UI (`SelectCleanMismatchAction`) を `CleanEnvCore` へ渡す。
+  - `CleanEnvCore` の戻り値が `ErrCleanAborted` の場合は情報メッセージを出して終了コード 0。
+  - その他のエラーはメッセージ表示＋`os.Exit(1)`、成功時は成功メッセージを表示する。
+
+#### テストシナリオ
+
+- 正常系
+  - `clean` コマンドが root に登録され、`--from` フラグのデフォルトが `"."` であることを確認する。
+- 異常系
+  - （コア層で担保）リモート未整備や Abort 時にローカル削除が行われないことを確認する。
 
 ---
 

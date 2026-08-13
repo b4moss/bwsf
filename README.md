@@ -49,6 +49,7 @@ Simple usage below:
 | bwsf push | .env files push to your Bitwarden host |
 | bwsf pull | .env files pull from your Bitwarden host |
 | bwsf list | Show list stored .env files at your Bitwarden host |
+| bwsf clean | Remove local .env files after verifying Bitwarden backup |
 
 ## Motivation
 
