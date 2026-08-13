@@ -564,8 +564,8 @@ func preserveSetupFields(newConfig, existing *config.Config) {
 }
 
 // SetupAPIConfigCore configures host/email for the API backend without Login.
-// Authentication is performed separately via `bwsf auth`. Folder creation is
-// skipped until Issue #53 Step 4 implements API vault operations.
+// Authentication is performed separately via `bwsf auth`.
+// Folder creation is handled by EnsureConfiguredFolderCore after auth/unlock is available.
 func SetupAPIConfigCore(
 	logger Logger,
 	selectHostType func() (string, error),
@@ -602,6 +602,52 @@ func SetupAPIConfigCore(
 	}
 
 	logger.Info("Configuration saved. Run `bwsf auth` to authenticate with a Personal API Key.")
+	return nil
+}
+
+// EnsureConfiguredFolderCore checks the configured Bitwarden folder and optionally creates it.
+// Does not auto-create from push/pull/list; intended for setup flows (bw and api).
+func EnsureConfiguredFolderCore(
+	bw BwClient,
+	cfg *config.Config,
+	logger Logger,
+	promptPassword func() (string, error),
+	confirmCreateFolder func() (bool, error),
+) error {
+	if bw == nil {
+		return fmt.Errorf("bitwarden client is required")
+	}
+	resolvedFolder := config.ResolveFolderName(cfg)
+
+	var exists bool
+	err := WithUnlockRetry(bw, cfg, promptPassword, logger, func() error {
+		var innerErr error
+		exists, innerErr = bw.DotenvsFolderExists()
+		return innerErr
+	})
+	if err != nil {
+		return fmt.Errorf("failed to check %s folder: %w", resolvedFolder, err)
+	}
+	if exists {
+		return nil
+	}
+
+	confirmed, confirmErr := confirmCreateFolder()
+	if confirmErr != nil {
+		return fmt.Errorf("failed to confirm folder creation: %w", confirmErr)
+	}
+	if !confirmed {
+		logger.Info(resolvedFolder, " folder was not created")
+		return nil
+	}
+
+	err = WithUnlockRetry(bw, cfg, promptPassword, logger, func() error {
+		return bw.CreateDotenvsFolder()
+	})
+	if err != nil {
+		return fmt.Errorf("failed to create %s folder: %w", resolvedFolder, err)
+	}
+	logger.Info(resolvedFolder, " folder created successfully")
 	return nil
 }
 
