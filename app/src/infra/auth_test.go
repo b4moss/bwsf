@@ -188,7 +188,7 @@ func TestApiBwClient_AuthenticateAndLogin(t *testing.T) {
 	}
 
 	cfg := &config.Config{HostType: "cloud", Backend: config.BackendAPI}
-	client := NewApiBwClientWithDeps(cfg, store, identity)
+	client := NewApiBwClientWithDeps(cfg, store, identity, nil)
 
 	require.NoError(t, client.Authenticate(context.Background()))
 	assert.True(t, client.IsAuthenticated())
@@ -201,16 +201,10 @@ func TestApiBwClient_AuthenticateAndLogin(t *testing.T) {
 	assert.False(t, client.IsAuthenticated())
 	require.NoError(t, client.Login("ignored@example.com", "ignored", ""))
 	assert.True(t, client.IsAuthenticated())
-
-	err = client.Unlock("master")
-	assert.ErrorIs(t, err, ErrAPIUnlockNotImplemented)
-
-	_, err = client.GetDotenvsFolderID()
-	assert.ErrorIs(t, err, ErrAPINotImplemented)
 }
 
 func TestApiBwClient_Authenticate_MissingCredentials(t *testing.T) {
-	client := NewApiBwClientWithDeps(&config.Config{HostType: "cloud"}, NewMemorySecretStore(), NewIdentityClient())
+	client := NewApiBwClientWithDeps(&config.Config{HostType: "cloud"}, NewMemorySecretStore(), NewIdentityClient(), nil)
 	err := client.Authenticate(context.Background())
 	assert.ErrorIs(t, err, ErrAPINotAuthenticated)
 }
@@ -240,7 +234,7 @@ func TestApiBwClient_EnsureAccessToken_Refresh(t *testing.T) {
 
 	store := NewMemorySecretStore()
 	_ = SaveAPICredentials(store, APICredentials{ClientID: "user.cid", ClientSecret: "sec"})
-	client := NewApiBwClientWithDeps(&config.Config{HostType: "cloud"}, store, identity)
+	client := NewApiBwClientWithDeps(&config.Config{HostType: "cloud"}, store, identity, nil)
 	client.mu.Lock()
 	client.token = &TokenSet{
 		AccessToken:  "old",

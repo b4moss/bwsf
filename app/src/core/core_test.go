@@ -361,6 +361,58 @@ func TestWithUnlockRetry_NonLockErrorPropagates(t *testing.T) {
 	assert.NotContains(t, bw.calls, "Login")
 }
 
+// 異常系: 認証切れは MP プロンプトせずそのまま返す
+func TestWithUnlockRetry_NotAuthenticatedNoPrompt(t *testing.T) {
+	bw := &mockBwClient{}
+	logger := &mockLogger{}
+	cfg := &config.Config{}
+	promptCalled := false
+
+	authErr := errors.New("API backend is not authenticated. Run `bwsf auth`")
+	err := WithUnlockRetry(
+		bw,
+		cfg,
+		func() (string, error) {
+			promptCalled = true
+			return "pwd", nil
+		},
+		logger,
+		func() error { return authErr },
+	)
+
+	assert.Error(t, err)
+	assert.Equal(t, authErr, err)
+	assert.False(t, promptCalled)
+	assert.True(t, IsNotAuthenticatedError(authErr))
+}
+
+// 正常系: API vault locked 文言で Unlock 再試行する
+func TestWithUnlockRetry_APINotUnlockedThenSuccess(t *testing.T) {
+	bw := &mockBwClient{}
+	logger := &mockLogger{}
+	cfg := &config.Config{Email: "a@example.com"}
+	callCount := 0
+
+	err := WithUnlockRetry(
+		bw,
+		cfg,
+		func() (string, error) { return "pwd", nil },
+		logger,
+		func() error {
+			callCount++
+			if callCount == 1 {
+				return errors.New("API vault is locked. Enter your master password to unlock decryption keys")
+			}
+			return nil
+		},
+	)
+
+	assert.NoError(t, err)
+	assert.Equal(t, 2, callCount)
+	assert.Contains(t, bw.calls, "Unlock")
+	assert.True(t, IsNotUnlockedError(errors.New("API vault is locked. Enter your master password to unlock decryption keys")))
+}
+
 // 異常系: promptPassword がエラーを返した場合、Unlock/Login が呼ばれずにそのエラーが返る
 func TestWithUnlockRetry_PromptPasswordError(t *testing.T) {
 	bw := &mockBwClient{}

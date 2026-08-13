@@ -78,7 +78,7 @@ func runAuth(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	client := infra.NewApiBwClientWithDeps(cfg, store, infra.NewIdentityClient())
+	client := infra.NewApiBwClientWithDeps(cfg, store, infra.NewIdentityClient(), nil)
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
@@ -89,7 +89,7 @@ func runAuth(cmd *cobra.Command, args []string) {
 
 	utils.Successln("[INFO] ✅ Authenticated with Personal API Key (token stored in memory for this process)")
 	utils.Infoln("[INFO] Personal API Key is stored in the OS secret store (Keychain / secret service)")
-	utils.Infoln("[INFO] Vault unlock and push/pull via API are not implemented yet")
+	utils.Infoln("[INFO] Vault CRUD via API is not implemented yet (Issue #53 Step 4)")
 }
 
 func ensureHostConfigForAPI(cfg *config.Config) error {

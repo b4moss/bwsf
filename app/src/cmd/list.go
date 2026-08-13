@@ -27,6 +27,7 @@ func runList(cmd *cobra.Command, args []string) {
 
 	// Create dependencies
 	bw := newBwClientFromConfig(cfg)
+	defer clearAPISession(bw)
 	logger := infra.NewLogger()
 
 	// Call core logic
@@ -37,7 +38,7 @@ func runList(cmd *cobra.Command, args []string) {
 		logger,
 	)
 	if err != nil {
-		utils.Errorln("[ERROR]", err)
+		reportCommandError(err)
 		os.Exit(1)
 	}
 

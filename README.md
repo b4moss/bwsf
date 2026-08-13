@@ -142,7 +142,9 @@ bwsf auth
 
 Create a Personal API Key in the Bitwarden web vault under Account Settings → Security → Keys.
 
-Vault unlock and push/pull over the API are not implemented yet; keep using `backend=bw` for day-to-day sync.
+Vault unlock (master password → decryption keys in memory) is implemented for `backend=api` (Step 3). Keys are discarded when each command exits. Push/pull/list vault CRUD over the API is still stubbed (Step 4); keep using `backend=bw` for day-to-day sync until then.
+
+Caveat: unlock currently uses the Community SDK password-login path with config email + master password for key material. Identity Personal API Key tokens remain separate (Scenario C).
 
 ## Uninstall
 

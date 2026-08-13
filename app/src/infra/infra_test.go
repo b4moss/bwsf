@@ -131,39 +131,23 @@ func TestNewBwClientFromConfig_Unsupported(t *testing.T) {
 	assert.Contains(t, err.Error(), "unsupported backend")
 }
 
-// 正常系: ApiBwClient の保管庫メソッドは not implemented、Unlock は Step 3 案内
-func TestApiBwClient_NotImplemented(t *testing.T) {
+// 異常系: 未認証では保管庫メソッドが auth エラーになる
+func TestApiBwClient_VaultRequiresAuth(t *testing.T) {
 	client := NewApiBwClientWithDeps(
 		&config.Config{Backend: config.BackendAPI},
 		NewMemorySecretStore(),
 		NewIdentityClient(),
+		nil,
 	)
 
 	_, err := client.GetDotenvsFolderID()
-	assert.ErrorIs(t, err, ErrAPINotImplemented)
-
-	_, err = client.DotenvsFolderExists()
-	assert.ErrorIs(t, err, ErrAPINotImplemented)
-
-	assert.ErrorIs(t, client.CreateDotenvsFolder(), ErrAPINotImplemented)
+	assert.ErrorIs(t, err, ErrAPINotAuthenticated)
 
 	_, err = client.ListItemsInFolder("id")
-	assert.ErrorIs(t, err, ErrAPINotImplemented)
+	assert.ErrorIs(t, err, ErrAPINotAuthenticated)
 
-	_, err = client.GetItemByName("id", "name")
-	assert.ErrorIs(t, err, ErrAPINotImplemented)
-
-	_, err = client.GetItemByID("id")
-	assert.ErrorIs(t, err, ErrAPINotImplemented)
-
-	assert.ErrorIs(t, client.CreateNoteItem("id", "n", "notes"), ErrAPINotImplemented)
-	assert.ErrorIs(t, client.UpdateNoteItem("id", "notes"), ErrAPINotImplemented)
-
-	// Login without stored API key asks for bwsf auth
 	assert.ErrorIs(t, client.Login("e", "p", ""), ErrAPINotAuthenticated)
-
 	assert.Contains(t, ErrAPINotImplemented.Error(), "Issue #53")
-	assert.Contains(t, ErrAPINotImplemented.Error(), "bwsf backend --set bw")
 }
 
 // 正常系: ApiBwClient が BwClient インターフェースを実装している

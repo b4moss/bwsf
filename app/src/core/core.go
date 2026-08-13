@@ -72,7 +72,7 @@ type EnvData struct {
 // キーはファイル名（例: ".env", ".env.staging"）
 type MultiEnvData map[string]EnvData
 
-// IsLockedError はエラーがロック関連かどうかを判定します。
+// IsLockedError はエラーがロック関連（CLI）かどうかを判定します。
 func IsLockedError(err error) bool {
 	if err == nil {
 		return false
@@ -83,7 +83,32 @@ func IsLockedError(err error) bool {
 		strings.Contains(errMsg, "master password")
 }
 
-// WithUnlockRetry は Bitwarden がロックされている場合に Unlock/Login を挟んでリトライする共通処理です。
+// IsNotAuthenticatedError は API 未認証（bwsf auth が必要）かを判定します。
+func IsNotAuthenticatedError(err error) bool {
+	if err == nil {
+		return false
+	}
+	if strings.Contains(err.Error(), "API backend is not authenticated") {
+		return true
+	}
+	return false
+}
+
+// IsNotUnlockedError は復号鍵が無い／unlock が必要かを判定します。
+func IsNotUnlockedError(err error) bool {
+	if err == nil {
+		return false
+	}
+	if IsLockedError(err) {
+		return true
+	}
+	errMsg := err.Error()
+	return strings.Contains(errMsg, "API vault is locked") ||
+		strings.Contains(errMsg, "Enter your master password to unlock")
+}
+
+// WithUnlockRetry は未 unlock / CLI ロック時に Unlock（必要なら Login）を挟んでリトライします。
+// 認証切れはパスワードでは回復できないため、プロンプトせずそのまま返します。
 func WithUnlockRetry(
 	bw BwClient,
 	cfg *config.Config,
@@ -91,55 +116,54 @@ func WithUnlockRetry(
 	logger Logger,
 	fn func() error,
 ) error {
-	// 最初に fn() を実行
 	err := fn()
 	if err == nil {
 		return nil
 	}
 
-	// ロック関連エラーでなければそのまま返す
-	if !IsLockedError(err) {
+	if IsNotAuthenticatedError(err) {
 		return err
 	}
 
-	// ロック状態なのでアンロックを試みる
-	logger.Info("Bitwarden CLI is locked. Please enter your master password to unlock.")
+	if !IsNotUnlockedError(err) {
+		return err
+	}
 
-	// パスワード入力
+	logger.Info("Vault is locked. Please enter your master password to unlock.")
+
 	password, promptErr := promptPassword()
 	if promptErr != nil {
 		return fmt.Errorf("failed to get master password: %w", promptErr)
 	}
 
-	// Unlock を試行
 	unlockErr := bw.Unlock(password)
 	if unlockErr == nil {
-		// Unlock 成功、fn() を再実行
-		logger.Info("Bitwarden CLI unlocked successfully")
+		logger.Info("Vault unlocked successfully")
 		return fn()
 	}
 
-	// Unlock 失敗、cfg があれば Login を試みる
+	// bw 経路互換: Unlock 失敗後に Login → Unlock
 	if cfg != nil && cfg.Email != "" {
 		logger.Info("Unlock failed, trying login then unlock...")
 		loginErr := bw.Login(cfg.Email, password, cfg.SelfhostedURL)
 		if loginErr != nil {
+			// api Login は API Key 認証なので、ここでの失敗は認証切れとして返す
+			if IsNotAuthenticatedError(loginErr) {
+				return loginErr
+			}
 			return fmt.Errorf("failed to login Bitwarden CLI: %w", loginErr)
 		}
 		logger.Info("Bitwarden CLI logged in successfully")
 
-		// Login 成功後、再度 Unlock を試行
 		unlockErr = bw.Unlock(password)
 		if unlockErr != nil {
-			return fmt.Errorf("failed to unlock Bitwarden CLI after login: %w", unlockErr)
+			return fmt.Errorf("failed to unlock after login: %w", unlockErr)
 		}
-		logger.Info("Bitwarden CLI unlocked successfully")
-
-		// fn() を再実行
+		logger.Info("Vault unlocked successfully")
 		return fn()
 	}
 
-	return fmt.Errorf("failed to unlock Bitwarden CLI: %w", unlockErr)
+	return fmt.Errorf("failed to unlock vault: %w", unlockErr)
 }
 
 // PushEnvCore は .env ファイルを Bitwarden にプッシュするコアロジックです。

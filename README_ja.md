@@ -141,7 +141,9 @@ bwsf auth
 
 Personal API Key は Bitwarden Web 保管庫の アカウント設定 → セキュリティ → キー から作成できます。
 
-API 経由のボルト unlock や push/pull は未実装です。日常利用は当面 `backend=bw` を使ってください。
+API 経由のボルト unlock（マスターパスワード → メモリ上の復号鍵）は実装済みです（Step 3）。鍵は各コマンド終了時に破棄されます。push/pull/list の保管庫 CRUD はまだ stub です（Step 4）。日常の同期は当面 `backend=bw` を使ってください。
+
+補足: unlock は現状、Community SDK のパスワード login 経路（config の email + マスターパスワード）で鍵を復元します。Identity の Personal API Key トークンとは別管理です（Scenario C）。
 
 ## アンインストール
 

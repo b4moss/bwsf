@@ -25,17 +25,24 @@ var ErrAPINotAuthenticated = errors.New(
 	"API backend is not authenticated. Run `bwsf auth` to store your Personal API Key and obtain a token",
 )
 
-// ErrAPIUnlockNotImplemented is returned until Issue #53 Step 3 (master password → crypto keys).
+// ErrAPINotUnlocked means Identity auth succeeded but vault decryption keys are missing.
+var ErrAPINotUnlocked = errors.New(
+	"API vault is locked. Enter your master password to unlock decryption keys",
+)
+
+// ErrAPIUnlockNotImplemented is kept for older call sites; Unlock is implemented in Step 3.
 var ErrAPIUnlockNotImplemented = errors.New(
 	"API vault unlock (master password / crypto keys) is not implemented yet (Issue #53 Step 3)",
 )
 
 // ApiBwClient is the Bitwarden API backend adapter.
-// Step 2: Personal API Key + Identity token. Vault CRUD remains stubbed.
+// Step 3: Personal API Key + Identity token + master-password unlock (SDK).
+// Vault CRUD remains stubbed until Step 4.
 type ApiBwClient struct {
 	cfg      *config.Config
 	store    SecretStore
 	identity *IdentityClient
+	crypto   CryptoSession
 
 	mu    sync.Mutex
 	token *TokenSet
@@ -43,11 +50,11 @@ type ApiBwClient struct {
 
 // NewApiBwClient creates an ApiBwClient with OS keyring and default HTTP client.
 func NewApiBwClient(cfg *config.Config) *ApiBwClient {
-	return NewApiBwClientWithDeps(cfg, NewKeyringStore(), NewIdentityClient())
+	return NewApiBwClientWithDeps(cfg, NewKeyringStore(), NewIdentityClient(), NewSDKCryptoSession())
 }
 
 // NewApiBwClientWithDeps creates an ApiBwClient with injectable dependencies (tests).
-func NewApiBwClientWithDeps(cfg *config.Config, store SecretStore, identity *IdentityClient) *ApiBwClient {
+func NewApiBwClientWithDeps(cfg *config.Config, store SecretStore, identity *IdentityClient, crypto CryptoSession) *ApiBwClient {
 	if cfg == nil {
 		cfg = &config.Config{}
 	}
@@ -57,10 +64,14 @@ func NewApiBwClientWithDeps(cfg *config.Config, store SecretStore, identity *Ide
 	if identity == nil {
 		identity = NewIdentityClient()
 	}
+	if crypto == nil {
+		crypto = NewSDKCryptoSession()
+	}
 	return &ApiBwClient{
 		cfg:      cfg,
 		store:    store,
 		identity: identity,
+		crypto:   crypto,
 	}
 }
 
@@ -139,7 +150,6 @@ func (c *ApiBwClient) EnsureAccessToken(ctx context.Context) (string, error) {
 		return token.AccessToken, nil
 	}
 
-	// Prefer refresh_token when present (client_credentials often has none).
 	if token != nil && token.RefreshToken != "" {
 		identityBase, err := ResolveIdentityBase(c.cfg.HostType, c.cfg.SelfhostedURL)
 		if err != nil {
@@ -180,11 +190,22 @@ func (c *ApiBwClient) IsAuthenticated() bool {
 	return c.token.Valid()
 }
 
-// ClearSession drops the in-memory token (does not remove Keychain secrets).
+// IsUnlocked reports whether vault decryption keys are present in memory.
+func (c *ApiBwClient) IsUnlocked() bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.crypto != nil && c.crypto.Unlocked()
+}
+
+// ClearSession drops the in-memory token and decryption keys (does not remove Keychain secrets).
 func (c *ApiBwClient) ClearSession() {
 	c.mu.Lock()
 	c.token = nil
+	crypto := c.crypto
 	c.mu.Unlock()
+	if crypto != nil {
+		crypto.Lock()
+	}
 }
 
 // TokenExpiresAt exposes token expiry for diagnostics/tests.
@@ -197,35 +218,71 @@ func (c *ApiBwClient) TokenExpiresAt() time.Time {
 	return c.token.ExpiresAt
 }
 
+func (c *ApiBwClient) requireUnlocked() error {
+	if !c.IsAuthenticated() {
+		if err := c.Authenticate(context.Background()); err != nil {
+			return err
+		}
+	}
+	if !c.IsUnlocked() {
+		return ErrAPINotUnlocked
+	}
+	return nil
+}
+
 func (c *ApiBwClient) GetDotenvsFolderID() (string, error) {
+	if err := c.requireUnlocked(); err != nil {
+		return "", err
+	}
 	return "", ErrAPINotImplemented
 }
 
 func (c *ApiBwClient) DotenvsFolderExists() (bool, error) {
+	if err := c.requireUnlocked(); err != nil {
+		return false, err
+	}
 	return false, ErrAPINotImplemented
 }
 
 func (c *ApiBwClient) CreateDotenvsFolder() error {
+	if err := c.requireUnlocked(); err != nil {
+		return err
+	}
 	return ErrAPINotImplemented
 }
 
 func (c *ApiBwClient) ListItemsInFolder(folderID string) ([]core.Item, error) {
+	if err := c.requireUnlocked(); err != nil {
+		return nil, err
+	}
 	return nil, ErrAPINotImplemented
 }
 
 func (c *ApiBwClient) GetItemByName(folderID, name string) (*core.FullItem, error) {
+	if err := c.requireUnlocked(); err != nil {
+		return nil, err
+	}
 	return nil, ErrAPINotImplemented
 }
 
 func (c *ApiBwClient) GetItemByID(id string) (*core.FullItem, error) {
+	if err := c.requireUnlocked(); err != nil {
+		return nil, err
+	}
 	return nil, ErrAPINotImplemented
 }
 
 func (c *ApiBwClient) CreateNoteItem(folderID, name, notes string) error {
+	if err := c.requireUnlocked(); err != nil {
+		return err
+	}
 	return ErrAPINotImplemented
 }
 
 func (c *ApiBwClient) UpdateNoteItem(id, notes string) error {
+	if err := c.requireUnlocked(); err != nil {
+		return err
+	}
 	return ErrAPINotImplemented
 }
 
@@ -243,13 +300,45 @@ func (c *ApiBwClient) Login(email, password, serverURL string) error {
 	return c.Authenticate(context.Background())
 }
 
-// Unlock is not available until Step 3 (master password → decryption keys).
+// Unlock restores vault decryption keys with the master password.
+// Caveat (pending Scenario C): keys are obtained via SDK password login using
+// config email + MP. Identity Personal API Key tokens remain separate.
 func (c *ApiBwClient) Unlock(masterPassword string) error {
-	_ = masterPassword
+	if masterPassword == "" {
+		return fmt.Errorf("master password cannot be empty")
+	}
 	if !c.IsAuthenticated() {
 		if err := c.Authenticate(context.Background()); err != nil {
 			return err
 		}
 	}
-	return ErrAPIUnlockNotImplemented
+	if c.cfg.Email == "" {
+		return fmt.Errorf("email is required in config for API vault unlock (run bwsf setup)")
+	}
+
+	deviceID, err := EnsureDeviceIdentifier(c.cfg)
+	if err != nil {
+		return err
+	}
+	device := DefaultDeviceInfo(deviceID)
+
+	serverURL := ""
+	if c.cfg.HostType == "selfhosted" {
+		serverURL = c.cfg.SelfhostedURL
+	}
+
+	c.mu.Lock()
+	crypto := c.crypto
+	c.mu.Unlock()
+	if crypto == nil {
+		crypto = NewSDKCryptoSession()
+		c.mu.Lock()
+		c.crypto = crypto
+		c.mu.Unlock()
+	}
+
+	if err := crypto.UnlockWithPassword(context.Background(), c.cfg.Email, masterPassword, serverURL, device); err != nil {
+		return err
+	}
+	return nil
 }
