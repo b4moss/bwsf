@@ -57,4 +57,4 @@ Googleのプライバシー慣行の詳細については、[Googleプライバ�
 
 ## お問い合わせ
 
-当Cookieポリシーについてご質問がある場合は、[GitHubリポジトリ](https://github.com/b4m-oss/bwenv)からお問い合わせください。
+当Cookieポリシーについてご質問がある場合は、[GitHubリポジトリ](https://github.com/b4moss/bwsf)からお問い合わせください。

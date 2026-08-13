@@ -2,7 +2,7 @@
 
 ## Q: I don't have a Bitwarden account
 
-`bwsf` is a command that saves .env files to Bitwarden.
+`bwsf` is a command that saves managed files (`.env*`, `*.tfvars`, `*.tfvars.json`) to Bitwarden.
 
 Therefore, **a Bitwarden account is required** to use it.
 
@@ -20,9 +20,9 @@ Currently, only macOS/Linux is supported.
 
 `bwsf` itself is a command installed on individual development machines.
 
-However, it uses Bitwarden as the backend for storing .env files.
+However, it uses Bitwarden as the backend for storing managed files.
 
-Bitwarden allows you to set detailed user permissions, so by configuring users on the Bitwarden side, you can securely manage .env files among multiple users.
+Bitwarden allows you to set detailed user permissions, so by configuring users on the Bitwarden side, you can securely manage those files among multiple users.
 
 ## Q: How are files stored in Bitwarden?
 
@@ -32,29 +32,30 @@ Among these, `bwsf` uses a format called "Secure Note".
 
 The Secure Note title is the **project name**, and the content is stored in **JSON format**.
 
-## Q: Can I save .env files for multiple environments?
+## Q: Can I save files for multiple environments?
 
-Yes, you can.
+Yes, you can. For example:
 
-- .env
-- .env.local
-- .env.staging
-- .env.production
+- `.env`
+- `.env.local`
+- `.env.staging`
+- `.env.production`
+- `terraform.tfvars`
 
-These files are saved all at once.
+These managed files are saved all at once.
 
 However, **files with `.example` in the filename** are NOT saved.
 
-## Q: Can I exclude specific .env files?
+## Q: Can I exclude specific managed files?
 
 For example:
 
-- .env ← Save this
-- .env.production ← Don't want to save this
+- `.env` ← Save this
+- `.env.production` ← Don't want to save this
 
 Unfortunately, this feature has not been implemented yet.
 
-## Q: Can I edit .env files on the Bitwarden host?
+## Q: Can I edit files on the Bitwarden host?
 
 Yes, **if you can visually edit JSON files**.
 

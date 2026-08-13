@@ -11,6 +11,8 @@
 | `bwsf list` | List all stored projects |
 | `bwsf clean` | Remove local managed files after verifying Bitwarden backup |
 
+Managed files are directory entries whose names start with `.env`, or end with `.tfvars` / `.tfvars.json`. Names that contain `.example` are excluded.
+
 ## bwsf setup
 
 Configure your Bitwarden connection settings.
@@ -25,12 +27,26 @@ Optional: use a custom Bitwarden folder instead of `dotenvs`:
 bwsf setup --folder my-envs
 ```
 
-The folder name is stored in `~/.config/bwsf/config.json` and used by push / pull / list. Renaming does **not** migrate existing notes.
+The folder name is stored in `~/.config/bwsf/config.json` and used by push / pull / list / clean. Renaming does **not** migrate existing notes.
 
-This interactive command will prompt you for:
+### Interactive prompts
+
 - **Server URL**: Your Bitwarden server URL (leave blank for Bitwarden Cloud)
 - **Email**: Your Bitwarden account email
 - **Master Password**: Your Bitwarden master password
+
+### Non-interactive flags
+
+For automation (for example smoke tests):
+
+| Flag | Description |
+|---|---|
+| `--host-type` | `cloud` or `selfhosted` |
+| `--url` | Self-hosted server URL (required when `--host-type=selfhosted`) |
+| `--email` | Account email |
+| `--password` | Master password |
+| `--yes` | Assume yes for confirmations (for example create folder) |
+| `--folder` | Bitwarden folder name (default: `dotenvs`) |
 
 ## bwsf config show
 
@@ -44,7 +60,7 @@ Prints host type, self-hosted URL, email, and the effective folder name. Does no
 
 ## bwsf push
 
-Push `.env` files from the current directory to your Bitwarden vault.
+Push managed files from the current directory to your Bitwarden vault.
 
 ```bash
 cd /path/to/your_project
@@ -55,13 +71,13 @@ bwsf push
 
 | Option | Description |
 |---|---|
-| `--from <dir>` | Specify source directory (default: current directory) |
+| `--from <dir>` | Directory containing managed files (default: current directory) |
 
 ### Behavior
 
 1. Uses the current directory name as the project name
-2. Searches for `.env*` files in the directory
-3. If a project with the same name exists in Bitwarden, prompts to overwrite
+2. Detects managed files (`.env*`, `*.tfvars`, `*.tfvars.json`; excludes names containing `.example`)
+3. If a Note with the same project name already exists, **updates it without an overwrite prompt**
 4. Stores the files as a Note item in the configured folder (default: `dotenvs`)
 
 ### Example
@@ -77,7 +93,7 @@ bwsf push --from ./config
 
 ## bwsf pull
 
-Pull `.env` files from your Bitwarden vault to the current directory.
+Pull managed files from your Bitwarden vault to the current directory.
 
 ```bash
 cd /path/to/your_project
@@ -88,14 +104,14 @@ bwsf pull
 
 | Option | Description |
 |---|---|
-| `--output <dir>` | Specify output directory (default: current directory) |
+| `--output <dir>` | Output directory (default: current directory) |
 
 ### Behavior
 
 1. Uses the current directory name as the project name
 2. Searches for a matching project in the configured folder (default: `dotenvs`)
-3. If `.env` files already exist locally, prompts to overwrite
-4. Downloads and creates the `.env` files
+3. If a target file already exists locally, prompts to overwrite (per file)
+4. Writes the managed files from the Note
 
 ### Example
 
@@ -118,16 +134,23 @@ bwsf list
 
 ### Output
 
+Prints one project name per line to stdout. When the configured folder has no items:
+
 ```
-Projects in Bitwarden:
-  • my-web-app
-  • api-server
-  • mobile-app
+No items found in dotenvs folder
+```
+
+Example when items exist:
+
+```
+my-web-app
+api-server
+mobile-app
 ```
 
 ## bwsf clean
 
-Remove bwsf-managed local `.env*` files after verifying the Bitwarden backup.
+Remove local managed files after verifying the Bitwarden backup.
 
 ```bash
 cd /path/to/your_project
@@ -138,7 +161,7 @@ bwsf clean
 
 | Option | Description |
 |---|---|
-| `--from <dir>` | Directory containing .env files to clean (default: current directory) |
+| `--from <dir>` | Directory containing managed files to clean (default: current directory) |
 
 ### Behavior
 
@@ -152,8 +175,9 @@ bwsf clean
 ### Setting up a new project
 
 ```bash
-# Create your .env file
+# Create managed files
 echo "API_KEY=secret123" > .env
+echo 'region = "ap-northeast-1"' > terraform.tfvars
 
 # Push to Bitwarden
 bwsf push
@@ -166,7 +190,7 @@ bwsf push
 git clone https://github.com/yourorg/my-web-app.git
 cd my-web-app
 
-# Pull .env from Bitwarden
+# Pull managed files from Bitwarden
 bwsf pull
 ```
 
@@ -178,10 +202,9 @@ echo "API_URL=http://localhost:3000" > .env
 echo "API_URL=https://staging.example.com" > .env.staging
 echo "API_URL=https://api.example.com" > .env.production
 
-# Push all files
+# Push all managed files
 bwsf push
 
 # On another machine, pull all files
 bwsf pull
 ```
-

@@ -2,9 +2,9 @@
 
 ## What is bwsf?
 
-**bwsf** is a CLI tool that uses [Bitwarden](https://bitwarden.com/) to manage `.env` files securely.
+**bwsf** is a CLI tool that uses [Bitwarden](https://bitwarden.com/) to manage project files such as `.env*` and Terraform `*.tfvars` / `*.tfvars.json` securely.
 
-Instead of sharing `.env` files through insecure channels like email or Slack, bwsf lets you store them in your Bitwarden vault and sync them across your team.
+Instead of sharing secrets through insecure channels like email or Slack, bwsf lets you store them in your Bitwarden vault and sync them across your team.
 
 ## Prerequisites
 
@@ -25,16 +25,17 @@ bw --version
 
 ## How bwsf Works
 
-bwsf stores your `.env` files in a special folder called `dotenvs` within your Bitwarden vault. Here's how the structure looks:
+bwsf stores managed files as **Note items** in a Bitwarden folder (default name: `dotenvs`). Here's how the structure looks:
 
 ```
 Bitwarden Vault
-└── dotenvs/                    # Reserved folder for bwsf
-    ├── my-web-app/             # Project name (directory name)
+└── dotenvs/                    # Default folder for bwsf (configurable)
+    ├── my-web-app              # Project name = current directory name
     │   ├── .env
     │   ├── .env.staging
-    │   └── .env.production
-    └── another-project/
+    │   ├── .env.production
+    │   └── terraform.tfvars
+    └── another-project
         └── .env
 ```
 
@@ -53,6 +54,12 @@ bwsf setup
 This will configure:
 - Your Bitwarden server URL (for self-hosted instances)
 - Your Bitwarden account credentials
+
+Check the saved values any time with:
+
+```bash
+bwsf config show
+```
 
 ## Next Steps
 
