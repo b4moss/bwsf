@@ -8,6 +8,7 @@
 | `bwsf push` | .env ファイルを Bitwarden にプッシュ |
 | `bwsf pull` | .env ファイルを Bitwarden からプル |
 | `bwsf list` | 保存されている全プロジェクトを一覧表示 |
+| `bwsf clean` | リモートバックアップ確認後にローカル .env を削除 |
 
 ## bwsf setup
 
@@ -112,6 +113,28 @@ Projects in Bitwarden:
   • api-server
   • mobile-app
 ```
+
+## bwsf clean
+
+Bitwarden 側のバックアップを確認したうえで、ローカルの管理対象 `.env*` を削除します。
+
+```bash
+cd /path/to/your_project
+bwsf clean
+```
+
+### オプション
+
+| オプション | 説明 |
+|---|---|
+| `--from <dir>` | 削除対象ディレクトリを指定（デフォルト: カレントディレクトリ） |
+
+### 挙動
+
+1. カレントディレクトリ名をプロジェクト名として使う
+2. リモートに同名 Note アイテムが無い、または管理対象ファイルが空なら中止する
+3. 内容が一致すれば確認なしでローカルを削除する
+4. 1 ファイルでも差分があれば単一選択で分岐する（Abort / Overwrite remote then clean / Remove local）
 
 ## よくあるワークフロー
 

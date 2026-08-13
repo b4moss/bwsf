@@ -117,3 +117,50 @@ func ConfirmYesNo(message string) (bool, error) {
 	response := strings.TrimSpace(strings.ToLower(input))
 	return response == "y" || response == "yes", nil
 }
+
+// CleanMismatchAction labels returned by SelectCleanMismatchAction.
+const (
+	CleanMismatchAbort                    = "abort"
+	CleanMismatchOverwriteRemoteThenClean = "overwrite_remote_then_clean"
+	CleanMismatchRemoveLocal              = "remove_local"
+)
+
+// SelectCleanMismatchAction prompts for a single action when local/remote contents differ.
+// Options are presented as a radio-style single select (Abort first for safety).
+func SelectCleanMismatchAction(mismatchedFiles []string) (string, error) {
+	Warningln("[bwsf Alert] File contents on remote are mismatch.")
+	if len(mismatchedFiles) > 0 {
+		Infoln("[INFO] Mismatched file(s):")
+		for _, name := range mismatchedFiles {
+			Infoln("  -", name)
+		}
+	}
+	Infoln("Are you sure to remove files from local?")
+
+	items := []string{
+		"Abort",
+		"Overwrite remote with my local, then clean",
+		"Remove local without updating remote (DANGER)",
+	}
+
+	prompt := promptui.Select{
+		Label: "Select an action",
+		Items: items,
+	}
+
+	index, _, err := prompt.Run()
+	if err != nil {
+		return CleanMismatchAbort, fmt.Errorf("failed to select clean action: %w", err)
+	}
+
+	switch index {
+	case 0:
+		return CleanMismatchAbort, nil
+	case 1:
+		return CleanMismatchOverwriteRemoteThenClean, nil
+	case 2:
+		return CleanMismatchRemoveLocal, nil
+	default:
+		return CleanMismatchAbort, nil
+	}
+}

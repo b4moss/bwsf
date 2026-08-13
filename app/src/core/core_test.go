@@ -154,6 +154,10 @@ type mockFileSystem struct {
 	writtenFiles map[string][]byte // 複数ファイル用
 	writeErr     error
 
+	// Remove の挙動制御
+	removedFiles []string
+	removeErr    error
+
 	// Stat の挙動制御
 	statInfo    FileInfo
 	statInfoMap map[string]FileInfo // ファイルパスごとの情報
@@ -197,6 +201,15 @@ func (m *mockFileSystem) WriteFile(path string, data []byte, perm uint32) error 
 	}
 	m.writtenFiles[path] = data
 	return m.writeErr
+}
+
+func (m *mockFileSystem) Remove(path string) error {
+	m.calls = append(m.calls, fmt.Sprintf("Remove(%s)", path))
+	m.removedFiles = append(m.removedFiles, path)
+	if m.readContentMap != nil {
+		delete(m.readContentMap, path)
+	}
+	return m.removeErr
 }
 
 func (m *mockFileSystem) Stat(path string) (FileInfo, error) {
@@ -1777,7 +1790,7 @@ func TestPushEnvCore_DoubleDotFromDir(t *testing.T) {
 // 正常系: MultiEnvData を JSON に変換して復元
 func TestMultiEnvData_RoundTrip(t *testing.T) {
 	original := MultiEnvData{
-		".env": EnvData{Lines: []string{"KEY1=value1", "KEY2=value2"}},
+		".env":         EnvData{Lines: []string{"KEY1=value1", "KEY2=value2"}},
 		".env.staging": EnvData{Lines: []string{"KEY1=staging1", "KEY2=staging2"}},
 	}
 
@@ -2085,6 +2098,276 @@ func TestGetPulledEnvFiles_LegacyFormat(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Len(t, files, 1)
 	assert.Equal(t, ".env", files[0])
+}
+
+// =============================================================================
+// CleanEnvCore のテスト
+// =============================================================================
+
+func multiEnvNotes(files map[string][]string) string {
+	data := make(MultiEnvData)
+	for name, lines := range files {
+		data[name] = EnvData{Lines: lines}
+	}
+	jsonStr, err := multiEnvDataToJSON(data)
+	if err != nil {
+		panic(err)
+	}
+	return jsonStr
+}
+
+// 正常系: 内容一致なら確認なしでローカル削除
+func TestCleanEnvCore_MatchRemovesLocal(t *testing.T) {
+	notes := multiEnvNotes(map[string][]string{".env": {"KEY=value"}})
+	bw := &mockBwClient{
+		folderID:   "folder-123",
+		itemByName: &FullItem{ID: "item-456", Name: "my-project", Notes: notes},
+	}
+	fs := &mockFileSystem{
+		dirEntries: []DirEntry{&mockDirEntry{name: ".env"}},
+		readContentMap: map[string][]byte{
+			".env": []byte("KEY=value"),
+		},
+	}
+	logger := &mockLogger{}
+	cfg := &config.Config{}
+	selectCalled := false
+
+	err := CleanEnvCore(
+		".",
+		"my-project",
+		fs,
+		bw,
+		cfg,
+		func() (string, error) { return "pwd", nil },
+		func(mismatched []string) (CleanMismatchAction, error) {
+			selectCalled = true
+			return CleanActionAbort, nil
+		},
+		logger,
+	)
+
+	assert.NoError(t, err)
+	assert.False(t, selectCalled)
+	assert.Contains(t, fs.calls, "Remove(.env)")
+	assert.NotContains(t, bw.calls, "UpdateNoteItem(item-456)")
+}
+
+// 正常系: 差分ありで overwrite then clean
+func TestCleanEnvCore_OverwriteRemoteThenClean(t *testing.T) {
+	notes := multiEnvNotes(map[string][]string{".env": {"KEY=remote"}})
+	bw := &mockBwClient{
+		folderID:   "folder-123",
+		itemByName: &FullItem{ID: "item-456", Name: "my-project", Notes: notes},
+	}
+	fs := &mockFileSystem{
+		dirEntries: []DirEntry{&mockDirEntry{name: ".env"}},
+		readContentMap: map[string][]byte{
+			".env": []byte("KEY=local"),
+		},
+	}
+	logger := &mockLogger{}
+	cfg := &config.Config{}
+
+	err := CleanEnvCore(
+		".",
+		"my-project",
+		fs,
+		bw,
+		cfg,
+		func() (string, error) { return "pwd", nil },
+		func(mismatched []string) (CleanMismatchAction, error) {
+			assert.Contains(t, mismatched, ".env")
+			return CleanActionOverwriteRemoteThenClean, nil
+		},
+		logger,
+	)
+
+	assert.NoError(t, err)
+	assert.Contains(t, bw.calls, "UpdateNoteItem(item-456)")
+	assert.Contains(t, fs.calls, "Remove(.env)")
+}
+
+// 正常系: 差分ありで remove local のみ
+func TestCleanEnvCore_RemoveLocalOnly(t *testing.T) {
+	notes := multiEnvNotes(map[string][]string{".env": {"KEY=remote"}})
+	bw := &mockBwClient{
+		folderID:   "folder-123",
+		itemByName: &FullItem{ID: "item-456", Name: "my-project", Notes: notes},
+	}
+	fs := &mockFileSystem{
+		dirEntries: []DirEntry{&mockDirEntry{name: ".env"}},
+		readContentMap: map[string][]byte{
+			".env": []byte("KEY=local"),
+		},
+	}
+	logger := &mockLogger{}
+	cfg := &config.Config{}
+
+	err := CleanEnvCore(
+		".",
+		"my-project",
+		fs,
+		bw,
+		cfg,
+		func() (string, error) { return "pwd", nil },
+		func(mismatched []string) (CleanMismatchAction, error) {
+			return CleanActionRemoveLocal, nil
+		},
+		logger,
+	)
+
+	assert.NoError(t, err)
+	assert.Contains(t, fs.calls, "Remove(.env)")
+	for _, call := range bw.calls {
+		assert.NotContains(t, call, "UpdateNoteItem")
+		assert.NotContains(t, call, "CreateNoteItem")
+	}
+}
+
+// 異常系: リモートアイテム無し
+func TestCleanEnvCore_RemoteItemMissing(t *testing.T) {
+	bw := &mockBwClient{
+		folderID:   "folder-123",
+		itemByName: nil,
+	}
+	fs := &mockFileSystem{
+		dirEntries: []DirEntry{&mockDirEntry{name: ".env"}},
+		readContentMap: map[string][]byte{
+			".env": []byte("KEY=value"),
+		},
+	}
+	logger := &mockLogger{}
+	cfg := &config.Config{}
+
+	err := CleanEnvCore(
+		".",
+		"my-project",
+		fs,
+		bw,
+		cfg,
+		func() (string, error) { return "pwd", nil },
+		func(mismatched []string) (CleanMismatchAction, error) {
+			return CleanActionRemoveLocal, nil
+		},
+		logger,
+	)
+
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "not found")
+	assert.Empty(t, fs.removedFiles)
+}
+
+// 異常系: リモートに管理対象ファイルが空
+func TestCleanEnvCore_RemoteEmptyFiles(t *testing.T) {
+	bw := &mockBwClient{
+		folderID:   "folder-123",
+		itemByName: &FullItem{ID: "item-456", Name: "my-project", Notes: `{}`},
+	}
+	fs := &mockFileSystem{
+		dirEntries: []DirEntry{&mockDirEntry{name: ".env"}},
+		readContentMap: map[string][]byte{
+			".env": []byte("KEY=value"),
+		},
+	}
+	logger := &mockLogger{}
+	cfg := &config.Config{}
+
+	err := CleanEnvCore(
+		".",
+		"my-project",
+		fs,
+		bw,
+		cfg,
+		func() (string, error) { return "pwd", nil },
+		func(mismatched []string) (CleanMismatchAction, error) {
+			return CleanActionRemoveLocal, nil
+		},
+		logger,
+	)
+
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "no env files")
+	assert.Empty(t, fs.removedFiles)
+}
+
+// 異常系: 差分ありで Abort
+func TestCleanEnvCore_AbortOnMismatch(t *testing.T) {
+	notes := multiEnvNotes(map[string][]string{".env": {"KEY=remote"}})
+	bw := &mockBwClient{
+		folderID:   "folder-123",
+		itemByName: &FullItem{ID: "item-456", Name: "my-project", Notes: notes},
+	}
+	fs := &mockFileSystem{
+		dirEntries: []DirEntry{&mockDirEntry{name: ".env"}},
+		readContentMap: map[string][]byte{
+			".env": []byte("KEY=local"),
+		},
+	}
+	logger := &mockLogger{}
+	cfg := &config.Config{}
+
+	err := CleanEnvCore(
+		".",
+		"my-project",
+		fs,
+		bw,
+		cfg,
+		func() (string, error) { return "pwd", nil },
+		func(mismatched []string) (CleanMismatchAction, error) {
+			return CleanActionAbort, nil
+		},
+		logger,
+	)
+
+	assert.ErrorIs(t, err, ErrCleanAborted)
+	assert.Empty(t, fs.removedFiles)
+	for _, call := range bw.calls {
+		assert.NotContains(t, call, "UpdateNoteItem")
+	}
+}
+
+// 正常系: 複数ファイルのうち1つでも差分があれば差分扱い
+func TestCleanEnvCore_OneFileDiffTreatsAsMismatch(t *testing.T) {
+	notes := multiEnvNotes(map[string][]string{
+		".env":         {"KEY=value"},
+		".env.staging": {"ENV=staging"},
+	})
+	bw := &mockBwClient{
+		folderID:   "folder-123",
+		itemByName: &FullItem{ID: "item-456", Name: "my-project", Notes: notes},
+	}
+	fs := &mockFileSystem{
+		dirEntries: []DirEntry{
+			&mockDirEntry{name: ".env"},
+			&mockDirEntry{name: ".env.staging"},
+		},
+		readContentMap: map[string][]byte{
+			".env":         []byte("KEY=value"),
+			".env.staging": []byte("ENV=changed"),
+		},
+	}
+	logger := &mockLogger{}
+	cfg := &config.Config{}
+	var gotMismatched []string
+
+	err := CleanEnvCore(
+		".",
+		"my-project",
+		fs,
+		bw,
+		cfg,
+		func() (string, error) { return "pwd", nil },
+		func(mismatched []string) (CleanMismatchAction, error) {
+			gotMismatched = mismatched
+			return CleanActionAbort, nil
+		},
+		logger,
+	)
+
+	assert.ErrorIs(t, err, ErrCleanAborted)
+	assert.Contains(t, gotMismatched, ".env.staging")
+	assert.Empty(t, fs.removedFiles)
 }
 
 // =============================================================================

@@ -50,6 +50,7 @@ func TestRealFileSystem_ImplementsInterface(t *testing.T) {
 	assert.NotNil(t, fs.OpenEnvFile)
 	assert.NotNil(t, fs.ReadFile)
 	assert.NotNil(t, fs.WriteFile)
+	assert.NotNil(t, fs.Remove)
 	assert.NotNil(t, fs.Stat)
 	assert.NotNil(t, fs.MkdirAll)
 }
@@ -111,8 +112,3 @@ func TestRealFileInfo_IsNotExist_False(t *testing.T) {
 
 	assert.False(t, info.IsNotExist())
 }
-
-
-
-
-
