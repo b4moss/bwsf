@@ -90,6 +90,21 @@ func TestSetupCmd_Registered(t *testing.T) {
 	assert.True(t, found, "setup command should be registered")
 }
 
+// 正常系: clean コマンドが登録されている
+func TestCleanCmd_Registered(t *testing.T) {
+	assert.NotNil(t, cleanCmd)
+	assert.Equal(t, "clean", cleanCmd.Use)
+
+	found := false
+	for _, cmd := range rootCmd.Commands() {
+		if cmd.Use == "clean" {
+			found = true
+			break
+		}
+	}
+	assert.True(t, found, "clean command should be registered")
+}
+
 // =============================================================================
 // フラグのテスト
 // =============================================================================
@@ -104,6 +119,13 @@ func TestPushCmd_FromFlag(t *testing.T) {
 // 正常系: pull コマンドに --output フラグがある
 func TestPullCmd_OutputFlag(t *testing.T) {
 	flag := pullCmd.Flags().Lookup("output")
+	assert.NotNil(t, flag)
+	assert.Equal(t, ".", flag.DefValue)
+}
+
+// 正常系: clean コマンドに --from フラグがある
+func TestCleanCmd_FromFlag(t *testing.T) {
+	flag := cleanCmd.Flags().Lookup("from")
 	assert.NotNil(t, flag)
 	assert.Equal(t, ".", flag.DefValue)
 }
@@ -136,5 +158,8 @@ func TestSetupCmd_Description(t *testing.T) {
 	assert.NotEmpty(t, setupCmd.Long)
 }
 
-
-
+// 正常系: clean コマンドに説明がある
+func TestCleanCmd_Description(t *testing.T) {
+	assert.NotEmpty(t, cleanCmd.Short)
+	assert.NotEmpty(t, cleanCmd.Long)
+}
