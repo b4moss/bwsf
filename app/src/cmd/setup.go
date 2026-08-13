@@ -89,6 +89,31 @@ func runSetupAPI() {
 		os.Exit(1)
 	}
 
+	cfg := loadConfigOrEmpty()
+	folderName := config.ResolveFolderName(cfg)
+	bw := newBwClientFromConfig(cfg)
+	defer clearAPISession(bw)
+
+	inputPassword := utils.InputPassword
+	if setupPassword != "" {
+		inputPassword = func() (string, error) { return setupPassword, nil }
+	}
+	confirmCreateFolder := func() (bool, error) {
+		return utils.ConfirmYesNo(fmt.Sprintf("%s folder not found. Create it? (y/N): ", folderName))
+	}
+	if setupYes {
+		confirmCreateFolder = func() (bool, error) { return true, nil }
+	}
+
+	if err := core.EnsureConfiguredFolderCore(bw, cfg, logger, inputPassword, confirmCreateFolder); err != nil {
+		if core.IsNotAuthenticatedError(err) {
+			utils.Infoln("[INFO] Folder check skipped until `bwsf auth` (and unlock) succeeds.")
+		} else {
+			utils.Errorln("[ERROR]", err)
+			os.Exit(1)
+		}
+	}
+
 	utils.Successln("[INFO] ✅ Configuration saved. Run `bwsf auth` to authenticate for API backend.")
 }
 
