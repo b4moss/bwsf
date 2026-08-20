@@ -1,5 +1,20 @@
-import { copyFileSync } from "node:fs";
+import { copyFileSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
+
+/** Latest product version from app/src/cmd/version.go (single source of truth). */
+function readAppVersion(): string {
+  const repoRoot = join(fileURLToPath(new URL(".", import.meta.url)), "../..");
+  const versionGo = readFileSync(
+    join(repoRoot, "app/src/cmd/version.go"),
+    "utf8",
+  );
+  const match = versionGo.match(/const Version = "([^"]+)"/);
+  if (!match) {
+    throw new Error("Could not parse Version from app/src/cmd/version.go");
+  }
+  return `v${match[1]}`;
+}
 
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
@@ -15,7 +30,7 @@ export default defineNuxtConfig({
   runtimeConfig: {
     public: {
       siteName: "bwsf",
-      siteVersion: "",
+      siteVersion: readAppVersion(),
       githubUrl: "https://github.com/b4moss/bwsf",
       footerText: "MIT License · 2026 Bicycle for Mind LLC.",
     },
