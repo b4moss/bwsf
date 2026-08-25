@@ -1,5 +1,18 @@
 # Archived TODOs
 
+## docs/todo.md retirement (v0.15.0 docs sync)
+
+`docs/todo.md` was removed. Remaining open items were moved to GitHub Issues:
+
+| Former todo.md item | Issue |
+|---|---|
+| Homebrew 本家への登録 | #129 (Until v1.0.0) |
+| bwコマンド依存からの脱却 | #53 (Until v1.0.0) |
+| マスターパスワード入力の負担軽減 | #130 (After v1.0.0) |
+| Windows 版ビルド＆ Chocolatey 公開 | #131 (After v1.0.0) |
+
+Already done / covered elsewhere: docs site (#71), local Vaultwarden smoke (#108–#110), remote smoke (#112), custom folder name (#54).
+
 ## v0.10.0
 - ✅ Linux版ビルド＆Homebrew公開
 - ✅ Bugfix: user GPG unverified

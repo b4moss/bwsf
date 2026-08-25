@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>bwsf</title>
+    <script>
+      (function () {
+        var cookieKey = "i18n_redirected";
+        var match = document.cookie.match(
+          new RegExp("(?:^|; )" + cookieKey + "=([^;]*)"),
+        );
+        var stored = match ? decodeURIComponent(match[1]) : null;
+        var locale = "ja";
+        if (stored === "ja" || stored === "en") {
+          locale = stored;
+        } else {
+          var langs = navigator.languages || [navigator.language || "ja"];
+          for (var i = 0; i < langs.length; i++) {
+            var code = String(langs[i]).toLowerCase();
+            if (code.startsWith("ja")) {
+              locale = "ja";
+              break;
+            }
+            if (code.startsWith("en")) {
+              locale = "en";
+              break;
+            }
+          }
+        }
+        location.replace("/" + locale + "/");
+      })();
+    </script>
+    <meta http-equiv="refresh" content="0;url=/ja/" />
+  </head>
+  <body>
+    <p><a href="/ja/">日本語</a> / <a href="/en/">English</a></p>
+  </body>
+</html>

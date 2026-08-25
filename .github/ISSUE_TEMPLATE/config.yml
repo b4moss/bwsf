@@ -1,12 +1,12 @@
 blank_issues_enabled: false
 contact_links:
   - name: Feature Request
-    url: https://github.com/b4m-oss/bwenv/discussions/categories/ideas
+    url: https://github.com/b4moss/bwsf/discussions/categories/ideas
     about: Suggest a new feature or enhancement in Discussions
   - name: Questions & Help
-    url: https://github.com/b4m-oss/bwenv/discussions/categories/q-a
+    url: https://github.com/b4moss/bwsf/discussions/categories/q-a
     about: Ask questions or get help in Discussions
   - name: General Discussion
-    url: https://github.com/b4m-oss/bwenv/discussions
-    about: Start a general discussion about bwenv
+    url: https://github.com/b4moss/bwsf/discussions
+    about: Start a general discussion about bwsf
 

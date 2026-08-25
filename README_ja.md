@@ -41,16 +41,17 @@ v0.8.0以前に保存されたデータは、v0.9.0以降では互換性があ�
 
 ## 概要
 
-bwsfコマンドは、Bitwardenで管理されているdotenvファイルをサポートします。
+bwsf は Bitwarden 上でプロジェクトファイル（`.env*` / `*.tfvars` / `*.tfvars.json`。名前に `.example` を含むものは除外）を管理します。
 
 簡単な使用方法は以下の通りです：
 
 | コマンド | |
 |----|----|
+| bwsf setup | Bitwarden ホストとアカウントの設定 |
 | bwsf config show | 現在のローカル設定を表示 |
-| bwsf push | 管理対象ファイル（`.env*` / `*.tfvars` / `*.tfvars.json`）をBitwardenホストにプッシュ |
-| bwsf pull | Bitwardenホストから管理対象ファイルをプル |
-| bwsf list | Bitwardenホストに保存されているプロジェクトの一覧を表示 |
+| bwsf push | 管理対象ファイルを Bitwarden ホストにプッシュ |
+| bwsf pull | Bitwarden ホストから管理対象ファイルをプル |
+| bwsf list | Bitwarden ホストに保存されているプロジェクトの一覧を表示 |
 | bwsf clean | リモートバックアップを確認したうえでローカルの管理対象ファイルを削除 |
 
 ## 動機
@@ -102,39 +103,57 @@ bwsf setup
 
 Bitwardenホストとアカウント情報を設定します。
 
-デフォルトでは、`.env` ノートは Bitwarden の `dotenvs` フォルダに保存されます。別のフォルダ名を使う場合:
+デフォルトでは、ノートは Bitwarden の `dotenvs` フォルダに保存されます。別のフォルダ名を使う場合:
 
 ```shell
 bwsf setup --folder my-envs
 ```
 
-フォルダ名は `~/.config/bwsf/config.json` に保存され、push / pull / list で参照されます。フォルダ名を変更しても既存ノートは自動では移動しません。必要なら Bitwarden 上で手動移動してください。
+フォルダ名は `~/.config/bwsf/config.json` に保存され、push / pull / list / clean で参照されます。フォルダ名を変更しても既存ノートは自動では移動しません。必要なら Bitwarden 上で手動移動してください。
 
-### Bitwardenホストから.envファイルをプル
+保存内容の確認:
+
+```shell
+bwsf config show
+```
+
+### Bitwardenホストから管理対象ファイルをプル
 
 ```shell
 cd /path/to/your_project
 bwsf pull
 ```
 
-bwsfはカレントディレクトリの名前を使用して、Bitwardenホスト内の.envデータを検索します。
-存在する場合、カレントディレクトリに.envファイルとしてデータをプルします。
-カレントディレクトリに既に.envファイルがある場合、bwsfは上書きするかどうかを確認します。
-データはBitwardenのNoteアイテムとして保存されます。
+bwsf はカレントディレクトリ名に一致する Note を Bitwarden ホストから検索します。
+存在する場合、管理対象ファイルをカレントディレクトリへ書き出します。
+同名のローカルファイルがある場合は、ファイル単位で上書き確認します。
 
-### Bitwardenホストに.envファイルをプッシュ
+### Bitwardenホストに管理対象ファイルをプッシュ
 
-bwsfはカレントディレクトリの.envデータをBitwardenホストにプッシュします。
-dotenvフォルダ（デフォルト: `dotenvs`）に同じ名前のBitwardenのNoteアイテムが存在する場合、bwsfは上書きするかどうかを確認します。
+```shell
+cd /path/to/your_project
+bwsf push
+```
 
-### Bitwardenホストの.envデータ一覧
+bwsf はカレントディレクトリの管理対象ファイルを Bitwarden ホストへプッシュします。
+設定フォルダ（デフォルト: `dotenvs`）に同じ名前の Note がある場合は、**上書き確認なしで更新**します。
+
+### Bitwardenホストのプロジェクト一覧
 
 ```shell
 bwsf list
 ```
 
-Bitwardenホストから.envデータの一覧を取得します。
-プロジェクト名のリストが標準出力に表示されます。
+Bitwarden ホスト上のプロジェクト名を、標準出力に 1 行ずつ表示します。
+
+### ローカル管理対象ファイルの削除
+
+```shell
+cd /path/to/your_project
+bwsf clean
+```
+
+リモートのバックアップを確認したうえで、ローカルの管理対象ファイルを削除します。
 
 ## アンインストール
 
@@ -167,7 +186,7 @@ bwsfを使用するには、Bitwardenアカウントが必要です。
 <details>
 <summary>Q. .envファイルはBitwardenホストにどのように保存されますか？</summary>
 
-.envファイルはJSON形式に変換されます。bwsfはBitwardenのNoteアイテムを作成し、NoteセクションにそのJSONを保存します。
+管理対象ファイルはJSON形式に変換されます。bwsfはBitwardenのNoteアイテムを作成し、NoteセクションにそのJSONを保存します。
 
 </details>
 
@@ -190,7 +209,7 @@ bwsfは設定データを`~/.config/bwsf/`に保存します。
 ### 開発環境の起動
 
 ```
-git clone https://github.com/b4m-oss/bwsf.git
+git clone https://github.com/b4moss/bwsf.git
 cd bwsf
 make run
 ```
