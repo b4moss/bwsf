@@ -92,7 +92,7 @@ brew install bwsf@0.15.0
 
 ```shell
 bwsf -v
-# bwsf version 0.15.0
+# bwsf version 0.16.0
 ```
 
 ## Usage
