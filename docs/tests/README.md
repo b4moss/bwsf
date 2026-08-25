@@ -11,6 +11,7 @@
 |------|------|
 | [`core/`](./core/) | コア層（管理対象ファイル検出、push/pull/list/clean） |
 | [`cmd/`](./cmd/) | CLI コマンド層（cobra 登録・ユーザー向け出力契約） |
+| [`project/`](./project/) | プロジェクトルート／名前解決（`.git` 基準） |
 
 ## Issue #102 / v0.15.0 — `*.tfvars` 対応
 
@@ -28,3 +29,11 @@
 | [`cmd/config_show.md`](./cmd/config_show.md) | `config` / `config show` の登録・表示項目・未設定時エラー |
 
 方針正本: 同文書の前提 C1〜C6（[#125](https://github.com/b4moss/bwsf/issues/125)）
+
+## Issue #134 / v0.16.0 — `.git` をプロジェクトルートとして扱う
+
+| 文書 | 内容 |
+|------|------|
+| [`project/git_root.md`](./project/git_root.md) | `FindGitRoot` / `Resolve`、push/pull/clean の名前・作業ディレクトリ、`--from`/`--output` の Changed 判定 |
+
+合意正本: [#134](https://github.com/b4moss/bwsf/issues/134)（Q1〜Q3, Q7）。`override_project_name` 実装は [#133](https://github.com/b4moss/bwsf/issues/133) へ先送り（空スロットのみ）
