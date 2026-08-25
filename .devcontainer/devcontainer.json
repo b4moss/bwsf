@@ -1,6 +1,6 @@
 {
   "name": "bwsf",
-  "image": "mcr.microsoft.com/devcontainers/go:1.25-bookworm",
+  "image": "mcr.microsoft.com/devcontainers/go:1.26-bookworm",
   "features": {
     "ghcr.io/devcontainers/features/node:1": {
       "version": "22",

@@ -6,7 +6,6 @@ import (
 	"bwsf/src/infra"
 	"bwsf/src/utils"
 	"os"
-	"path/filepath"
 
 	"github.com/spf13/cobra"
 )
@@ -24,29 +23,18 @@ func init() {
 }
 
 func runPush(cmd *cobra.Command, args []string) {
-	// Check if bw command is installed
 	installed, _ := utils.CheckBwCommand()
 	if !installed {
 		utils.Errorln("[ERROR] ❌ bw command is not installed...")
 		os.Exit(1)
 	}
 
-	// Get --from flag value
-	fromDir, err := cmd.Flags().GetString("from")
+	projectName, fromDir, err := resolveProjectAndFileDir(cmd, "from")
 	if err != nil {
-		utils.Errorln("[ERROR] Failed to get --from flag:", err)
+		utils.Errorln("[ERROR] Failed to resolve project directory:", err)
 		os.Exit(1)
 	}
 
-	// Get current working directory name as project name
-	wd, err := os.Getwd()
-	if err != nil {
-		utils.Errorln("[ERROR] Failed to get current working directory:", err)
-		os.Exit(1)
-	}
-	projectName := filepath.Base(wd)
-
-	// Load config
 	cfg, err := config.LoadConfig()
 	if err != nil {
 		utils.Errorln("[ERROR] Failed to load config:", err)
@@ -56,12 +44,10 @@ func runPush(cmd *cobra.Command, args []string) {
 		cfg = &config.Config{}
 	}
 
-	// Create dependencies
 	bw := infra.NewBwClient()
 	fs := infra.NewFileSystem()
 	logger := infra.NewLogger()
 
-	// Get list of env files to be pushed
 	envFiles, err := core.GetPushedEnvFiles(fromDir, fs)
 	if err != nil {
 		utils.Errorln("[ERROR] Failed to find managed files:", err)
@@ -73,13 +59,11 @@ func runPush(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	// Display files to be pushed
 	utils.Infoln("[INFO] Found", len(envFiles), "managed file(s) to push:")
 	for _, f := range envFiles {
 		utils.Infoln("  -", f)
 	}
 
-	// Call core logic
 	err = core.PushEnvCore(
 		fromDir,
 		projectName,

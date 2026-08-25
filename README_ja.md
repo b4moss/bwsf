@@ -79,6 +79,12 @@ bwsfコマンドは、Bitwardenで管理されているdotenvファイルをサ�
 |----|----|
 | macOS / Linux| brew tap b4m-oss/tap && brew install bwsf |
 
+過去バージョンのインストール（公開済みの全リリースが tap にあります）:
+
+```shell
+brew install bwsf@0.15.0
+```
+
 ## インストールの確認
 
 ```shell

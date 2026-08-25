@@ -7,7 +7,7 @@ Depends on smoke foundation: [#109](https://github.com/b4moss/bwsf/issues/109), 
 
 | Tool | Notes |
 |------|--------|
-| Go 1.25 | Matches `app/go.mod` on the v0.13 line |
+| Go 1.26 | Matches `app/go.mod` |
 | Node.js + `bw` | `@bitwarden/cli` via `post-create.sh` |
 | Docker + Compose | **Docker-outside-of-Docker** (host/Codespaces engine via socket) |
 | Make | Used for `make test` / `make smoke*` |
