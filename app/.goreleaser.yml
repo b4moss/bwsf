@@ -47,6 +47,7 @@ changelog:
       - "^test:"
 
 brews:
+  # Latest formula (brew install bwsf)
   - repository:
       owner: b4m-oss
       name: tap
@@ -54,6 +55,22 @@ brews:
     homepage: https://github.com/b4m-oss/bwsf
     description: CLI tool to manage .env files with Bitwarden
     license: MIT
+    install: |
+      bin.install "bwsf"
+    test: |
+      system "#{bin}/bwsf", "--help"
+
+  # Versioned formula (brew install bwsf@x.y.z) — keeps prior releases installable
+  - name: "bwsf@{{ .Version }}"
+    repository:
+      owner: b4m-oss
+      name: tap
+      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
+    homepage: https://github.com/b4m-oss/bwsf
+    description: CLI tool to manage .env files with Bitwarden
+    license: MIT
+    custom_block: |
+      keg_only :versioned_formula
     install: |
       bin.install "bwsf"
     test: |
