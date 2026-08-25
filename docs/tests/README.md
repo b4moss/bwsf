@@ -34,6 +34,6 @@
 
 | 文書 | 内容 |
 |------|------|
-| [`project/git_root.md`](./project/git_root.md) | `FindGitRoot` / `Resolve`、push/pull/clean の名前・作業ディレクトリ、`--from`/`--output` の Changed 判定 |
+| [`project/git_root.md`](./project/git_root.md) | `.git` 有無・サブディレクトリ・フラグ有無での Name/Dir/Warn 振る舞い（現行との差分） |
 
 合意正本: [#134](https://github.com/b4moss/bwsf/issues/134)（Q1〜Q3, Q7）。`override_project_name` 実装は [#133](https://github.com/b4moss/bwsf/issues/133) へ先送り（空スロットのみ）
