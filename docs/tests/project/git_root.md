@@ -1,148 +1,120 @@
-# project: `.git` ルート解決と push/pull/clean（Issue #134 / v0.16.0）
-
-対象パッケージ:
-
-- 主: `app/src/project`（新規。`FindGitRoot` / `Resolve`）
-- 配線: `app/src/cmd` の `push` / `pull` / `clean`
-- 触らない: `app/src/core` の `PushEnvCore` / `PullEnvCore` / `CleanEnvCore` シグネチャ（`fromDir` / `projectName` を受け取る契約は維持）
+# 振る舞い仕様: `.git` 有無によるプロジェクト解決（Issue #134 / v0.16.0）
 
 Issue: [#134](https://github.com/b4moss/bwsf/issues/134)  
-関連（先送り）: [#133](https://github.com/b4moss/bwsf/issues/133) — `bwsf.config.json` / `override_project_name` / `ignore` は本仕様では **実装しない**。名前解決の第1段だけ空スロットとして残す。
+対象コマンド: `push` / `pull` / `clean`（`list` / `setup` / `config` は対象外）  
+関連先送り: [#133](https://github.com/b4moss/bwsf/issues/133)（`override_project_name` は本仕様では常に未使用）
 
-合意正本（#134）:
-
-| # | 合意 |
-|---|------|
-| Q1 | ハイブリッド … プロジェクト名の基準は git ルート。`--from` / `--output` 指定時は **ファイル操作ディレクトリだけ**そのパス（名前はルート／将来の config 由来のまま） |
-| Q2 | 祖先に `.git` が無いときは **警告を出して cwd にフォールバック**（エラーで止めない） |
-| Q3 | モノレポは **親リポジトリの `.git` がルートの正**。パッケージごとの Note 名差は #133 |
-| Q7 | ファイル探索のデフォルトディレクトリは **git ルート**。無ければ **cwd**（Q2 と同じ） |
-
-### プロジェクト名の解決順（#133 と共用・本 Issue では 1 を常に空）
-
-1. `override_project_name`（本 Issue では呼び出し側が常に空文字を渡す＝スキップ）
-2. なければ git ルートの basename
-3. git ルートが無ければ cwd の basename（現行互換）
-
-### ファイル探索ディレクトリ
-
-1. CLI の `--from` / `--output` が **明示指定**されていればそれ
-2. なければ git ルート
-3. git ルートが無ければ cwd
+本ドキュメントの目的は実装詳細ではなく、**これまで（cwd 基準）とこれから（git ルート基準）で何が変わるかを固定し、その差分をテストで確認できるようにすること**。
 
 ---
 
-### 前提（本仕様で固定）
+## 1. 観測する2値
 
-| # | 方針 |
-|---|------|
-| G1 | `.git` 探索は純 Go。`git` CLI に依存しない |
-| G2 | `.git` が **ディレクトリ**でも **ファイル**（worktree / 一部 submodule）でも、その親ディレクトリを git ルートとする |
-| G3 | `--from` / `--output` の Cobra デフォルト文字列 `"."` は残してよい。実際の既定切替は `Flags().Changed(...)` で判定する（未変更＝git ルート／cwd フォールバック、変更済み＝フラグ値） |
-| G4 | フォールバック警告は既存 `utils.Warningln`（または同等の黄色警告）を **1 回**。エラー終了にしない |
-| G5 | `list` / `setup` / `config` / グローバル `~/.config/bwsf` は本 Issue の対象外 |
-| G6 | #133 の設定ファイル探索・対話選択・`ignore` glob は本 Issue 外。`Resolve` が `overrideProjectName string` を受け取れることだけを契約に含める |
+各シナリオで、コマンドが core に渡す（＝ユーザー効果として現れる）次を固定する。
 
----
+| 記号 | 意味 |
+|------|------|
+| **Name** | Bitwarden Note 名（プロジェクト名） |
+| **Dir** | 管理対象ファイルの読み書きディレクトリ（push/clean の探索元、pull の出力先） |
+| **Warn** | `.git` 無しフォールバック時の警告を 1 回出すか |
 
-### `FindGitRoot(start string) (root string, ok bool)`
+コマンドとフラグの対応:
 
-`start`（絶対パス推奨。相対なら実装側で絶対化してよい）から親へ辿り、最初に見つかった `.git` エントリの親を返す。見つからなければ `ok=false`。
+| コマンド | Dir を決めるフラグ |
+|----------|-------------------|
+| `push` / `clean` | `--from` |
+| `pull` | `--output` |
 
-#### テスト：正常系
-
-- `repo/.git/`（ディレクトリ）があり、`start=repo/subdir` のとき `root=repo`, `ok=true`
-- `repo/.git` が **ファイル**（worktree 風）で、`start=repo/pkg` のときも `root=repo`, `ok=true`
-- `start` がちょうど git ルート自身でも `root` はそのディレクトリ
-
-#### テスト: 異常系 / 境界
-
-- `.git` が祖先に無い → `ok=false`, `root` は空（または未使用）
-- ファイルシステムルートまで辿ってもパニックせず終了する
-- （任意）`start` が存在しないパスでも、親辿りが可能な範囲で落ちずに `ok=false` またはエラー方針を実装で固定しテストする（本仕様は「パニックしない」を最低条件とする）
+フラグは **明示指定されたときだけ** Dir を上書きする（Cobra デフォルト `"."` のまま未タッチなら「未指定」）。
 
 ---
 
-### `Resolve(cwd, overrideProjectName string) (Context, error)`
+## 2. 現行（変更前）の基準振る舞い
 
-`Context` が少なくとも持つもの:
+変更前は常に次だった。
 
-- `GitRoot string`（無ければ空）
-- `ProjectName string`
-- `WorkDir string`（ファイル探索のデフォルトディレクトリ）
-- `UsedCwdFallback bool`（git 無しで cwd に落としたとき true）
+| 条件 | Name | Dir（フラグ未指定） | Warn |
+|------|------|---------------------|------|
+| 任意の cwd | `basename(cwd)` | `cwd`（`.`） | なし |
+| フラグ明示 | `basename(cwd)` のまま | フラグ値 | なし |
 
-#### テスト：正常系 — 名前
-
-- git ルートあり・`overrideProjectName=""` → `ProjectName` は git ルートの basename（サブディレクトリを `cwd` にしてもルート名）
-- git ルートあり・`overrideProjectName="my-api"` → `ProjectName` は `my-api`（#133 予約スロット。本 Issue の cmd からは渡さないがヘルパ単体では検証する）
-- git ルートなし・`overrideProjectName=""` → `ProjectName` は `cwd` の basename、`UsedCwdFallback=true`
-
-#### テスト：正常系 — WorkDir
-
-- git ルートあり → `WorkDir` は git ルート（`cwd` がサブディレクトリでもルート）
-- git ルートなし → `WorkDir` は `cwd`、`UsedCwdFallback=true`
-
-#### テスト: 異常系
-
-- `cwd` 取得不能相当をヘルパに渡すケースは cmd 側で先にエラーにしてよい。`Resolve` に空 `cwd` を渡した場合の扱いは実装で固定し、パニックしないこと
+サブディレクトリから実行すると **Name も Dir もサブディレクトリ基準**だった。これが #134 で変える主対象。
 
 ---
 
-### cmd: `push` / `clean`（`--from`）
+## 3. 変更後の決定表（本仕様で FIX）
 
-- `Resolve(wd, "")` で `ProjectName` / デフォルト作業ディレクトリを得る
-- `UsedCwdFallback` なら警告を 1 回出して続行
-- `Flags().Changed("from") == false` → 作業ディレクトリは `Context.WorkDir`
-- `Changed("from") == true` → 作業ディレクトリはフラグ値。**`ProjectName` は変えない**
-- 得た `projectName` と作業ディレクトリを既存 core に渡す
+共通前提の例:
 
-#### テスト：正常系
+```text
+/repo/                 ← ここに .git がある場合の「git ルート」。basename = "repo"
+/repo/app/             ← サブディレクトリ
+/repo/.env             ← 管理対象はルートにある想定（Dir の話で使う）
+/norepo/workdir/       ← .git が祖先に無いツリー。basename(workdir) = "workdir"
+```
 
-- サブディレクトリを cwd にし、`--from` 未指定: core に渡る `projectName` がリポジトリ basename、`fromDir` が git ルート（モック／ヘルパ経由で検証してよい）
-- `--from` に別パスを明示: `fromDir` はそのパス、`projectName` は依然 git ルート basename
-- `.git` 無しツリー: 警告が出て、`projectName` / `fromDir` は cwd 基準（現行互換）
+### 3.1 `.git` がある場合
 
-#### テスト: 異常系 / 退行
+| # | cwd | フラグ | Name | Dir | Warn | 現行との差分 |
+|---|-----|--------|------|-----|------|--------------|
+| A1 | `/repo` | 未指定 | `repo` | `/repo` | なし | **差分なし**（ルート直下では従来と同じ） |
+| A2 | `/repo/app` | 未指定 | `repo` | `/repo` | なし | **変わる**（旧: Name=`app`, Dir=`/repo/app`） |
+| A3 | `/repo/app` | `--from=/repo/app` または `--output=/repo/app` | `repo` | `/repo/app` | なし | **Name だけ変わる**（旧: Name=`app`。Dir は明示どおり） |
+| A4 | `/repo/app` | `--from=/tmp/other` 等（ルート外パス） | `repo` | フラグ値 | なし | Name はルート、Dir だけフラグ（ハイブリッド） |
 
-- `Getwd` 失敗は現行どおりエラー終了
-- core の「管理対象 0 件」等のエラー伝播は退行として維持（ディレクトリが変わった結果 0 件になるのは仕様どおり成功扱いにしない）
+モノレポ（`/repo/packages/foo` に cwd）も A2/A3 と同じ。**親の `.git` が正**。パッケージ名を Note 名にしたい場合は #133（本仕様外）。
 
----
+`.git` がディレクトリでもファイル（worktree）でも、上表の「git ルート」の意味は同じ。
 
-### cmd: `pull`（`--output`）
+### 3.2 `.git` が無い場合
 
-- `push` / `clean` と同じ名前解決
-- `Flags().Changed("output")` で出力ディレクトリを切替（未指定 → `WorkDir`、指定あり → フラグ値）
-- 名前は常に `Context.ProjectName`
+| # | cwd | フラグ | Name | Dir | Warn | 現行との差分 |
+|---|-----|--------|------|-----|------|--------------|
+| B1 | `/norepo/workdir` | 未指定 | `workdir` | `/norepo/workdir` | **あり** | Name/Dir は現行と同じ。**警告だけが増える** |
+| B2 | `/norepo/workdir` | フラグ明示 | `workdir` | フラグ値 | **あり** | 同上（Name/Dir は現行互換＋警告） |
 
-#### テスト：正常系
-
-- サブディレクトリ cwd・`--output` 未指定: 出力先は git ルート、Note 名はリポジトリ basename
-- `--output` 明示: 出力先のみフラグ値、Note 名は git ルート basename のまま
-- `.git` 無し: 警告＋ cwd フォールバック
-
-#### テスト: 異常系
-
-- リモートに該当プロジェクトが無いときのエラーは現行どおり（名前解決後の名前で検索する）
+`.git` 無しはエラーにしない（中断しない）。
 
 ---
 
-### 退行
+## 4. テストで必ず押さえるシナリオ
 
-#### テスト：正常系
+実装の置き場（`project` パッケージ等）は問わない。**次の振る舞いが観測できればよい**。
 
-- git ルート直下を cwd にした `push` / `pull` / `clean` は、名前・ディレクトリともに現行（ルート basename / `.` 相当）と結果が一致する
-- 既存の core 単体テスト（モックに明示的 `fromDir` / `projectName` を渡すもの）は **変更不要で通る**
+### 4.1 `.git` あり — 差分の中心
 
-#### テスト: 異常系
+| ID | 確認内容 |
+|----|----------|
+| T-A2 | サブディレクトリ cwd・フラグ未指定 → Name=`repo`, Dir=`/repo`（旧 `app` / `/repo/app` ではない） |
+| T-A1 | ルート cwd・フラグ未指定 → Name=`repo`, Dir=`/repo`（退行: 従来と同じ） |
+| T-A3 | サブディレクトリ cwd・フラグでサブディレクトリを明示 → Name=`repo`, Dir=フラグ値 |
 
-- `list` / `setup` / `config show` の挙動が本変更で壊れない（対象外コマンドの退行スモークでよい）
+### 4.2 `.git` なし — 互換＋警告
+
+| ID | 確認内容 |
+|----|----------|
+| T-B1 | フラグ未指定 → Name/Dir は cwd 基準のまま、かつ警告が 1 回出る |
+| T-B2 | フラグ明示 → Dir はフラグ、Name は cwd basename、警告が 1 回出る |
+
+### 4.3 境界
+
+| ID | 確認内容 |
+|----|----------|
+| T-W | `.git` がファイルでも T-A2 と同じ結果 |
+| T-N | 祖先に `.git` が無いときエラー終了しない（B1） |
 
 ---
 
-### 実装メモ（仕様外だがテスト配置の指針）
+## 5. 明示的にテストしない／先送り
 
-- ユニットは `app/src/project` を厚くする
-- cmd の `Changed` 分岐は、可能なら作業ディレクトリ決定を小さい純関数／テスト可能なヘルパに寄せるとよい
-- `docs/tests/*.md` 以外のプロダクト docs 更新は本 Issue の必須ではない
+- `bwsf.config.json` / `override_project_name` / `ignore`（#133）
+- `list` / `setup` / `config` の仕様変更
+- core の MultiEnvData 形式そのもの（Dir/Name の渡し方が変わっても、渡した後の push/pull/clean ロジックは現行のまま）
+
+---
+
+## 6. 受け入れの一文
+
+- **`.git` あり・サブディレクトリからフラグ未指定で実行すると、Note 名もファイル位置もリポジトリルート基準になる**（T-A2）。
+- **`.git` なしでは従来どおり cwd 基準で動き、警告だけが増える**（T-B1）。
+- **フラグは Dir だけを上書きし、Name は上のルールのまま**（T-A3）。
