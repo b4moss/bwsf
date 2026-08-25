@@ -30,14 +30,20 @@ jobs:
         working-directory: app
         run: go mod download
 
-      - name: Run unit tests
+      - name: Run unit tests with coverage
         working-directory: app
         run: |
-          go test -v ./src/cmd/...
-          go test -v ./src/config/...
-          go test -v ./src/core/...
-          go test -v ./src/infra/...
-          go test -v ./src/utils/...
+          go test -coverprofile=coverage.out -covermode=atomic \
+            ./src/cmd/... ./src/config/... ./src/core/... ./src/infra/... ./src/utils/...
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: app/coverage.out
+          flags: unit
+          fail_ci_if_error: false
+          verbose: true
 
   e2e-test:
     name: E2E Tests
