@@ -25,29 +25,18 @@ func init() {
 }
 
 func runPull(cmd *cobra.Command, args []string) {
-	// Check if bw command is installed
 	installed, _ := utils.CheckBwCommand()
 	if !installed {
 		utils.Errorln("[ERROR] ❌ bw command is not installed...")
 		os.Exit(1)
 	}
 
-	// Get --output flag value
-	outputDir, err := cmd.Flags().GetString("output")
+	projectName, outputDir, err := resolveProjectAndFileDir(cmd, "output")
 	if err != nil {
-		utils.Errorln("[ERROR] Failed to get --output flag:", err)
+		utils.Errorln("[ERROR] Failed to resolve project directory:", err)
 		os.Exit(1)
 	}
 
-	// Get current working directory name as project name
-	wd, err := os.Getwd()
-	if err != nil {
-		utils.Errorln("[ERROR] Failed to get current working directory:", err)
-		os.Exit(1)
-	}
-	projectName := filepath.Base(wd)
-
-	// Load config
 	cfg, err := config.LoadConfig()
 	if err != nil {
 		utils.Errorln("[ERROR] Failed to load config:", err)
@@ -57,12 +46,10 @@ func runPull(cmd *cobra.Command, args []string) {
 		cfg = &config.Config{}
 	}
 
-	// Create dependencies
 	bw := infra.NewBwClient()
 	fs := infra.NewFileSystem()
 	logger := infra.NewLogger()
 
-	// Get list of env files to be pulled
 	envFiles, err := core.GetPulledEnvFiles(projectName, bw, cfg, utils.InputPassword, logger)
 	if err != nil {
 		utils.Errorln("[ERROR] Failed to get env files info:", err)
@@ -74,18 +61,15 @@ func runPull(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	// Display files to be pulled
 	utils.Infoln("[INFO] Found", len(envFiles), "env file(s) to pull:")
 	for _, f := range envFiles {
 		utils.Infoln("  -", f)
 	}
 
-	// confirmOverwrite wrapper
 	confirmOverwrite := func(path string) (bool, error) {
 		return utils.ConfirmOverwrite(fmt.Sprintf("%s already exists. Overwrite? (y/N): ", filepath.Base(path)))
 	}
 
-	// Call core logic
 	err = core.PullEnvCore(
 		outputDir,
 		projectName,

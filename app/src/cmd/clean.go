@@ -7,7 +7,6 @@ import (
 	"bwsf/src/utils"
 	"errors"
 	"os"
-	"path/filepath"
 
 	"github.com/spf13/cobra"
 )
@@ -31,18 +30,11 @@ func runClean(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	fromDir, err := cmd.Flags().GetString("from")
+	projectName, fromDir, err := resolveProjectAndFileDir(cmd, "from")
 	if err != nil {
-		utils.Errorln("[ERROR] Failed to get --from flag:", err)
+		utils.Errorln("[ERROR] Failed to resolve project directory:", err)
 		os.Exit(1)
 	}
-
-	wd, err := os.Getwd()
-	if err != nil {
-		utils.Errorln("[ERROR] Failed to get current working directory:", err)
-		os.Exit(1)
-	}
-	projectName := filepath.Base(wd)
 
 	cfg, err := config.LoadConfig()
 	if err != nil {
