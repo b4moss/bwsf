@@ -45,6 +45,17 @@ Linux requires [Homebrew on Linux](https://docs.brew.sh/Homebrew-on-Linux) to be
 brew tap b4m-oss/tap && brew install bwsf
 ```
 
+### Install a specific version
+
+Past releases are also published on the Homebrew tap:
+
+```bash
+brew tap b4m-oss/tap
+brew install bwsf@0.15.0
+```
+
+See [GitHub Releases](https://github.com/b4moss/bwsf/releases) for available versions. Versioned formulas are keg-only, so you may need to adjust your `PATH` or run `brew link --force bwsf@0.15.0`.
+
 ## Verify Installation
 
 ```bash
