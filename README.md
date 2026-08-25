@@ -82,6 +82,12 @@ This project migrates our hand-maded shell scripts to modern CLI command with Go
 
 > Note: Linux requires [Homebrew on Linux](https://docs.brew.sh/Homebrew-on-Linux) to be installed first.
 
+Install a past release (all published versions are on the tap):
+
+```shell
+brew install bwsf@0.15.0
+```
+
 ## Verify installation
 
 ```shell
