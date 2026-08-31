@@ -50,7 +50,8 @@ func runPull(cmd *cobra.Command, args []string) {
 	fs := infra.NewFileSystem()
 	logger := infra.NewLogger()
 
-	envFiles, err := core.GetPulledEnvFiles(projectName, bw, cfg, utils.InputPassword, logger)
+	sessions := infra.NewSessionStore()
+	envFiles, err := core.GetPulledEnvFiles(projectName, bw, cfg, utils.InputPassword, logger, sessions)
 	if err != nil {
 		utils.Errorln("[ERROR] Failed to get env files info:", err)
 		os.Exit(1)
@@ -79,6 +80,7 @@ func runPull(cmd *cobra.Command, args []string) {
 		utils.InputPassword,
 		confirmOverwrite,
 		logger,
+		sessions,
 	)
 	if err != nil {
 		utils.Errorln("[ERROR]", err)

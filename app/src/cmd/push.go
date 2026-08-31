@@ -64,6 +64,7 @@ func runPush(cmd *cobra.Command, args []string) {
 		utils.Infoln("  -", f)
 	}
 
+	sessions := infra.NewSessionStore()
 	err = core.PushEnvCore(
 		fromDir,
 		projectName,
@@ -72,6 +73,7 @@ func runPush(cmd *cobra.Command, args []string) {
 		cfg,
 		utils.InputPassword,
 		logger,
+		sessions,
 	)
 	if err != nil {
 		utils.Errorln("[ERROR]", err)

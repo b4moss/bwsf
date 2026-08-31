@@ -3,6 +3,7 @@ package core
 import (
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -304,6 +305,7 @@ func TestWithUnlockRetry_SuccessWithoutRetry(t *testing.T) {
 			return "", errors.New("prompt should not be called")
 		},
 		logger,
+		nil,
 		fn,
 	)
 
@@ -337,6 +339,7 @@ func TestWithUnlockRetry_LockThenUnlockSuccess(t *testing.T) {
 			return "password123", nil
 		},
 		logger,
+		nil,
 		fn,
 	)
 
@@ -364,6 +367,7 @@ func TestWithUnlockRetry_NonLockErrorPropagates(t *testing.T) {
 			return "pwd", nil
 		},
 		logger,
+		nil,
 		fn,
 	)
 
@@ -396,6 +400,7 @@ func TestWithUnlockRetry_PromptPasswordError(t *testing.T) {
 			return "", promptErr
 		},
 		logger,
+		nil,
 		fn,
 	)
 
@@ -427,6 +432,7 @@ func TestWithUnlockRetry_UnlockAndLoginBothFail(t *testing.T) {
 			return "password", nil
 		},
 		logger,
+		nil,
 		fn,
 	)
 
@@ -465,6 +471,7 @@ func TestPushEnvCore_CreateNewItem(t *testing.T) {
 		cfg,
 		func() (string, error) { return "pwd", nil },
 		logger,
+		nil,
 	)
 
 	assert.NoError(t, err)
@@ -498,6 +505,7 @@ func TestPushEnvCore_UpdateExistingItem(t *testing.T) {
 		cfg,
 		func() (string, error) { return "pwd", nil },
 		logger,
+		nil,
 	)
 
 	assert.NoError(t, err)
@@ -529,6 +537,7 @@ func TestPushEnvCore_OnlyEnvLocal(t *testing.T) {
 		cfg,
 		func() (string, error) { return "pwd", nil },
 		logger,
+		nil,
 	)
 
 	assert.NoError(t, err)
@@ -552,6 +561,7 @@ func TestPushEnvCore_EnvFileNotFound(t *testing.T) {
 		cfg,
 		func() (string, error) { return "pwd", nil },
 		logger,
+		nil,
 	)
 
 	assert.Error(t, err)
@@ -582,6 +592,7 @@ func TestPushEnvCore_GetFolderIDError(t *testing.T) {
 		cfg,
 		func() (string, error) { return "pwd", nil },
 		logger,
+		nil,
 	)
 
 	assert.Error(t, err)
@@ -614,6 +625,7 @@ func TestPushEnvCore_CreateItemError(t *testing.T) {
 		cfg,
 		func() (string, error) { return "pwd", nil },
 		logger,
+		nil,
 	)
 
 	assert.Error(t, err)
@@ -645,6 +657,7 @@ func TestPullEnvCore_CreateNewEnvFile(t *testing.T) {
 		func() (string, error) { return "pwd", nil },
 		func(path string) (bool, error) { return true, nil },
 		logger,
+		nil,
 	)
 
 	assert.NoError(t, err)
@@ -673,6 +686,7 @@ func TestPullEnvCore_CreateOutputDirectory(t *testing.T) {
 		func() (string, error) { return "pwd", nil },
 		func(path string) (bool, error) { return true, nil },
 		logger,
+		nil,
 	)
 
 	assert.NoError(t, err)
@@ -701,6 +715,7 @@ func TestPullEnvCore_CurrentDirOutputDir(t *testing.T) {
 		func() (string, error) { return "pwd", nil },
 		func(path string) (bool, error) { return true, nil },
 		logger,
+		nil,
 	)
 
 	assert.NoError(t, err)
@@ -727,6 +742,7 @@ func TestPullEnvCore_ItemNotFound(t *testing.T) {
 		func() (string, error) { return "pwd", nil },
 		func(path string) (bool, error) { return true, nil },
 		logger,
+		nil,
 	)
 
 	assert.Error(t, err)
@@ -754,6 +770,7 @@ func TestPullEnvCore_OverwriteCancelled(t *testing.T) {
 		func() (string, error) { return "pwd", nil },
 		func(path string) (bool, error) { return false, nil }, // キャンセル
 		logger,
+		nil,
 	)
 
 	// キャンセルの場合はエラーなしで終了
@@ -785,6 +802,7 @@ func TestPullEnvCore_InvalidJSON(t *testing.T) {
 		func() (string, error) { return "pwd", nil },
 		func(path string) (bool, error) { return true, nil },
 		logger,
+		nil,
 	)
 
 	assert.Error(t, err)
@@ -813,6 +831,7 @@ func TestListDotenvsCore_ReturnsItems(t *testing.T) {
 		cfg,
 		func() (string, error) { return "pwd", nil },
 		logger,
+		nil,
 	)
 
 	assert.NoError(t, err)
@@ -836,6 +855,7 @@ func TestListDotenvsCore_ReturnsEmptySlice(t *testing.T) {
 		cfg,
 		func() (string, error) { return "pwd", nil },
 		logger,
+		nil,
 	)
 
 	assert.NoError(t, err)
@@ -857,6 +877,7 @@ func TestListDotenvsCore_FolderIDLockError(t *testing.T) {
 		cfg,
 		func() (string, error) { return "pwd", nil },
 		logger,
+		nil,
 	)
 
 	assert.Error(t, err)
@@ -877,6 +898,7 @@ func TestListDotenvsCore_ListItemsError(t *testing.T) {
 		cfg,
 		func() (string, error) { return "pwd", nil },
 		logger,
+		nil,
 	)
 
 	assert.Error(t, err)
@@ -1330,6 +1352,7 @@ func TestWithUnlockRetry_UnlockSuccessThenFnFails(t *testing.T) {
 		cfg,
 		func() (string, error) { return "password", nil },
 		logger,
+		nil,
 		fn,
 	)
 
@@ -1356,6 +1379,7 @@ func TestWithUnlockRetry_NilConfig(t *testing.T) {
 		nil, // cfg が nil
 		func() (string, error) { return "password", nil },
 		logger,
+		nil,
 		fn,
 	)
 
@@ -1382,6 +1406,7 @@ func TestWithUnlockRetry_EmptyEmail(t *testing.T) {
 		cfg,
 		func() (string, error) { return "password", nil },
 		logger,
+		nil,
 		fn,
 	)
 
@@ -1412,6 +1437,7 @@ func TestWithUnlockRetry_LoginThenFnSuccess(t *testing.T) {
 		cfg,
 		func() (string, error) { return "password", nil },
 		logger,
+		nil,
 		fn,
 	)
 
@@ -1455,6 +1481,7 @@ func TestPullEnvCore_ConfirmOverwriteError(t *testing.T) {
 		func() (string, error) { return "pwd", nil },
 		func(path string) (bool, error) { return false, errors.New("confirm error") },
 		logger,
+		nil,
 	)
 
 	assert.Error(t, err)
@@ -1483,6 +1510,7 @@ func TestPullEnvCore_MkdirAllError(t *testing.T) {
 		func() (string, error) { return "pwd", nil },
 		func(path string) (bool, error) { return true, nil },
 		logger,
+		nil,
 	)
 
 	assert.Error(t, err)
@@ -1511,6 +1539,7 @@ func TestPullEnvCore_WriteFileError(t *testing.T) {
 		func() (string, error) { return "pwd", nil },
 		func(path string) (bool, error) { return true, nil },
 		logger,
+		nil,
 	)
 
 	assert.Error(t, err)
@@ -1535,6 +1564,7 @@ func TestPullEnvCore_GetFolderIDError(t *testing.T) {
 		func() (string, error) { return "pwd", nil },
 		func(path string) (bool, error) { return true, nil },
 		logger,
+		nil,
 	)
 
 	assert.Error(t, err)
@@ -1560,6 +1590,7 @@ func TestPullEnvCore_GetItemByNameError(t *testing.T) {
 		func() (string, error) { return "pwd", nil },
 		func(path string) (bool, error) { return true, nil },
 		logger,
+		nil,
 	)
 
 	assert.Error(t, err)
@@ -1591,6 +1622,7 @@ func TestPushEnvCore_GetItemByNameError(t *testing.T) {
 		cfg,
 		func() (string, error) { return "pwd", nil },
 		logger,
+		nil,
 	)
 
 	assert.Error(t, err)
@@ -1623,6 +1655,7 @@ func TestPushEnvCore_UpdateItemError(t *testing.T) {
 		cfg,
 		func() (string, error) { return "pwd", nil },
 		logger,
+		nil,
 	)
 
 	assert.Error(t, err)
@@ -1747,6 +1780,7 @@ func TestPullEnvCore_DoubleDotOutputDir(t *testing.T) {
 		func() (string, error) { return "pwd", nil },
 		func(path string) (bool, error) { return true, nil },
 		logger,
+		nil,
 	)
 
 	assert.NoError(t, err)
@@ -1778,6 +1812,7 @@ func TestPushEnvCore_DoubleDotFromDir(t *testing.T) {
 		cfg,
 		func() (string, error) { return "pwd", nil },
 		logger,
+		nil,
 	)
 
 	assert.NoError(t, err)
@@ -1849,6 +1884,7 @@ func TestPushEnvCore_MultipleEnvFiles(t *testing.T) {
 		cfg,
 		func() (string, error) { return "pwd", nil },
 		logger,
+		nil,
 	)
 
 	assert.NoError(t, err)
@@ -1884,6 +1920,7 @@ func TestPushEnvCore_ExcludesExampleFiles(t *testing.T) {
 		cfg,
 		func() (string, error) { return "pwd", nil },
 		logger,
+		nil,
 	)
 
 	assert.NoError(t, err)
@@ -1914,6 +1951,7 @@ func TestPushEnvCore_NoEnvFiles(t *testing.T) {
 		cfg,
 		func() (string, error) { return "pwd", nil },
 		logger,
+		nil,
 	)
 
 	assert.Error(t, err)
@@ -1946,6 +1984,7 @@ func TestPullEnvCore_MultipleEnvFiles(t *testing.T) {
 		func() (string, error) { return "pwd", nil },
 		func(path string) (bool, error) { return true, nil },
 		logger,
+		nil,
 	)
 
 	assert.NoError(t, err)
@@ -1980,6 +2019,7 @@ func TestPullEnvCore_LegacyFormat(t *testing.T) {
 		func() (string, error) { return "pwd", nil },
 		func(path string) (bool, error) { return true, nil },
 		logger,
+		nil,
 	)
 
 	assert.NoError(t, err)
@@ -2019,6 +2059,7 @@ func TestPullEnvCore_PartialOverwriteCancel(t *testing.T) {
 			return true, nil
 		},
 		logger,
+		nil,
 	)
 
 	assert.NoError(t, err)
@@ -2070,6 +2111,7 @@ func TestGetPulledEnvFiles_Success(t *testing.T) {
 		cfg,
 		func() (string, error) { return "pwd", nil },
 		logger,
+		nil,
 	)
 
 	assert.NoError(t, err)
@@ -2094,6 +2136,7 @@ func TestGetPulledEnvFiles_LegacyFormat(t *testing.T) {
 		cfg,
 		func() (string, error) { return "pwd", nil },
 		logger,
+		nil,
 	)
 
 	assert.NoError(t, err)
@@ -2146,6 +2189,7 @@ func TestCleanEnvCore_MatchRemovesLocal(t *testing.T) {
 			return CleanActionAbort, nil
 		},
 		logger,
+		nil,
 	)
 
 	assert.NoError(t, err)
@@ -2182,6 +2226,7 @@ func TestCleanEnvCore_OverwriteRemoteThenClean(t *testing.T) {
 			return CleanActionOverwriteRemoteThenClean, nil
 		},
 		logger,
+		nil,
 	)
 
 	assert.NoError(t, err)
@@ -2216,6 +2261,7 @@ func TestCleanEnvCore_RemoveLocalOnly(t *testing.T) {
 			return CleanActionRemoveLocal, nil
 		},
 		logger,
+		nil,
 	)
 
 	assert.NoError(t, err)
@@ -2252,6 +2298,7 @@ func TestCleanEnvCore_RemoteItemMissing(t *testing.T) {
 			return CleanActionRemoveLocal, nil
 		},
 		logger,
+		nil,
 	)
 
 	assert.Error(t, err)
@@ -2285,6 +2332,7 @@ func TestCleanEnvCore_RemoteEmptyFiles(t *testing.T) {
 			return CleanActionRemoveLocal, nil
 		},
 		logger,
+		nil,
 	)
 
 	assert.Error(t, err)
@@ -2319,6 +2367,7 @@ func TestCleanEnvCore_AbortOnMismatch(t *testing.T) {
 			return CleanActionAbort, nil
 		},
 		logger,
+		nil,
 	)
 
 	assert.ErrorIs(t, err, ErrCleanAborted)
@@ -2364,6 +2413,7 @@ func TestCleanEnvCore_OneFileDiffTreatsAsMismatch(t *testing.T) {
 			return CleanActionAbort, nil
 		},
 		logger,
+		nil,
 	)
 
 	assert.ErrorIs(t, err, ErrCleanAborted)
@@ -2527,7 +2577,7 @@ func TestPushEnvCore_TfvarsOnly(t *testing.T) {
 
 	err := PushEnvCore(".", "my-project", fs, bw, &config.Config{}, func() (string, error) {
 		return "pwd", nil
-	}, logger)
+	}, logger, nil)
 	assert.NoError(t, err)
 	assert.Contains(t, bw.calls, "CreateNoteItem(folder-123,my-project)")
 }
@@ -2553,7 +2603,7 @@ func TestPushEnvCore_EnvAndTfvarsTogether(t *testing.T) {
 
 	err := PushEnvCore(".", "my-project", fs, bw, &config.Config{}, func() (string, error) {
 		return "pwd", nil
-	}, logger)
+	}, logger, nil)
 	assert.NoError(t, err)
 	assert.Contains(t, bw.calls, "UpdateNoteItem(item-1)")
 }
@@ -2575,7 +2625,7 @@ func TestPullEnvCore_RestoresTfvars(t *testing.T) {
 
 	err := PullEnvCore(".", "my-project", fs, bw, &config.Config{}, func() (string, error) {
 		return "pwd", nil
-	}, func(path string) (bool, error) { return true, nil }, logger)
+	}, func(path string) (bool, error) { return true, nil }, logger, nil)
 	assert.NoError(t, err)
 	assert.Equal(t, "KEY=value", string(fs.writtenFiles[".env"]))
 	assert.Equal(t, `region = "ap-northeast-1"`, string(fs.writtenFiles["terraform.tfvars"]))
@@ -2602,7 +2652,7 @@ func TestCleanEnvCore_RemovesMatchingTfvars(t *testing.T) {
 	}, func([]string) (CleanMismatchAction, error) {
 		t.Fatal("should not prompt")
 		return CleanActionAbort, nil
-	}, logger)
+	}, logger, nil)
 	assert.NoError(t, err)
 	assert.Contains(t, fs.calls, "Remove(terraform.tfvars)")
 }
@@ -2629,7 +2679,7 @@ func TestCleanEnvCore_MismatchOnTfvarsOnly(t *testing.T) {
 	}, func(mismatched []string) (CleanMismatchAction, error) {
 		got = append([]string{}, mismatched...)
 		return CleanActionAbort, nil
-	}, logger)
+	}, logger, nil)
 	assert.ErrorIs(t, err, ErrCleanAborted)
 	assert.Contains(t, got, "terraform.tfvars")
 	assert.Empty(t, fs.removedFiles)
@@ -2640,4 +2690,212 @@ func TestIsExampleFile_TfvarsExamples(t *testing.T) {
 	assert.True(t, isExampleFile("foo.tfvars.json.example"))
 	assert.False(t, isExampleFile("terraform.tfvars"))
 	assert.False(t, isExampleFile("vars.tfvars.json"))
+}
+
+// memorySessionStore is an in-memory SessionStore for tests.
+type memorySessionStore struct {
+	session string
+	getErr  error
+	setErr  error
+	delErr  error
+	gets    int
+	sets    []string
+	deletes int
+}
+
+func (m *memorySessionStore) Get() (string, error) {
+	m.gets++
+	if m.getErr != nil {
+		return "", m.getErr
+	}
+	return m.session, nil
+}
+
+func (m *memorySessionStore) Set(session string) error {
+	m.sets = append(m.sets, session)
+	if m.setErr != nil {
+		return m.setErr
+	}
+	m.session = session
+	return nil
+}
+
+func (m *memorySessionStore) Delete() error {
+	m.deletes++
+	if m.delErr != nil {
+		return m.delErr
+	}
+	m.session = ""
+	return nil
+}
+
+func TestWithUnlockRetry_RestoreSessionFromStore(t *testing.T) {
+	t.Setenv("BW_SESSION", "")
+	bw := &mockBwClient{}
+	logger := &mockLogger{}
+	cfg := &config.Config{}
+	store := &memorySessionStore{session: "stored-session"}
+
+	err := WithUnlockRetry(
+		bw,
+		cfg,
+		func() (string, error) {
+			return "", errors.New("prompt should not be called")
+		},
+		logger,
+		store,
+		func() error {
+			assert.Equal(t, "stored-session", os.Getenv("BW_SESSION"))
+			return nil
+		},
+	)
+	assert.NoError(t, err)
+	assert.Equal(t, 1, store.gets)
+	assert.Empty(t, store.sets)
+	assert.Equal(t, 0, store.deletes)
+}
+
+func TestWithUnlockRetry_EnvSessionTakesPrecedence(t *testing.T) {
+	t.Setenv("BW_SESSION", "env-session")
+	bw := &mockBwClient{}
+	logger := &mockLogger{}
+	cfg := &config.Config{}
+	store := &memorySessionStore{session: "stored-session"}
+
+	err := WithUnlockRetry(
+		bw,
+		cfg,
+		func() (string, error) {
+			return "", errors.New("prompt should not be called")
+		},
+		logger,
+		store,
+		func() error {
+			assert.Equal(t, "env-session", os.Getenv("BW_SESSION"))
+			return nil
+		},
+	)
+	assert.NoError(t, err)
+	assert.Equal(t, 0, store.gets)
+	assert.Equal(t, 0, store.deletes)
+}
+
+func TestWithUnlockRetry_InvalidStoredSessionFallsBack(t *testing.T) {
+	t.Setenv("BW_SESSION", "")
+	bw := &mockBwClient{}
+	logger := &mockLogger{}
+	cfg := &config.Config{Email: "test@example.com"}
+	store := &memorySessionStore{session: "stale-session"}
+
+	callCount := 0
+	err := WithUnlockRetry(
+		bw,
+		cfg,
+		func() (string, error) {
+			return "password123", nil
+		},
+		logger,
+		store,
+		func() error {
+			callCount++
+			if callCount == 1 {
+				return ErrBitwardenLocked
+			}
+			return nil
+		},
+	)
+	assert.NoError(t, err)
+	assert.Equal(t, 2, callCount)
+	assert.Equal(t, 1, store.deletes)
+	assert.Contains(t, bw.calls, "Unlock")
+}
+
+type mockBwClientSetsSession struct {
+	mockBwClient
+}
+
+func (m *mockBwClientSetsSession) Unlock(masterPassword string) error {
+	m.calls = append(m.calls, "Unlock")
+	if m.unlockErr != nil {
+		return m.unlockErr
+	}
+	_ = os.Setenv("BW_SESSION", "new-session-key")
+	return nil
+}
+
+func TestWithUnlockRetry_SaveSessionAfterUnlock(t *testing.T) {
+	t.Setenv("BW_SESSION", "")
+	bw := &mockBwClientSetsSession{}
+	logger := &mockLogger{}
+	cfg := &config.Config{}
+	store := &memorySessionStore{}
+
+	callCount := 0
+	err := WithUnlockRetry(
+		bw,
+		cfg,
+		func() (string, error) {
+			return "password123", nil
+		},
+		logger,
+		store,
+		func() error {
+			callCount++
+			if callCount == 1 {
+				return ErrBitwardenLocked
+			}
+			return nil
+		},
+	)
+	assert.NoError(t, err)
+	assert.Equal(t, []string{"new-session-key"}, store.sets)
+	assert.Equal(t, "new-session-key", store.session)
+}
+
+func TestWithUnlockRetry_GetErrorStillRuns(t *testing.T) {
+	t.Setenv("BW_SESSION", "")
+	bw := &mockBwClient{}
+	logger := &mockLogger{}
+	cfg := &config.Config{}
+	store := &memorySessionStore{getErr: errors.New("keychain unavailable")}
+
+	err := WithUnlockRetry(
+		bw,
+		cfg,
+		func() (string, error) {
+			return "", errors.New("prompt should not be called")
+		},
+		logger,
+		store,
+		func() error { return nil },
+	)
+	assert.NoError(t, err)
+}
+
+func TestWithUnlockRetry_SetErrorNonFatal(t *testing.T) {
+	t.Setenv("BW_SESSION", "")
+	bw := &mockBwClientSetsSession{}
+	logger := &mockLogger{}
+	cfg := &config.Config{}
+	store := &memorySessionStore{setErr: errors.New("cannot write keychain")}
+
+	callCount := 0
+	err := WithUnlockRetry(
+		bw,
+		cfg,
+		func() (string, error) {
+			return "password123", nil
+		},
+		logger,
+		store,
+		func() error {
+			callCount++
+			if callCount == 1 {
+				return ErrBitwardenLocked
+			}
+			return nil
+		},
+	)
+	assert.NoError(t, err)
+	assert.Equal(t, 2, callCount)
 }
