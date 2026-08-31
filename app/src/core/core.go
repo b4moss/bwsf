@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -68,6 +69,27 @@ type Logger interface {
 	Info(args ...interface{})
 }
 
+// SessionStore は BW_SESSION（セッションキー）の永続化を抽象化します。
+// マスターパスワードは扱いません。nil は no-op として扱います。
+type SessionStore interface {
+	Get() (string, error)
+	Set(session string) error
+	Delete() error
+}
+
+type noopSessionStore struct{}
+
+func (noopSessionStore) Get() (string, error) { return "", nil }
+func (noopSessionStore) Set(string) error     { return nil }
+func (noopSessionStore) Delete() error        { return nil }
+
+func resolveSessionStore(s SessionStore) SessionStore {
+	if s == nil {
+		return noopSessionStore{}
+	}
+	return s
+}
+
 // Item は dotenvs フォルダ内に保存される Bitwarden アイテムを表します。
 type Item struct {
 	ID   string
@@ -102,42 +124,60 @@ func IsLockedError(err error) bool {
 }
 
 // WithUnlockRetry は Bitwarden がロックされている場合に Unlock/Login を挟んでリトライする共通処理です。
+// SessionStore がある場合、BW_SESSION の自動 restore / save を行います（#130）。
 func WithUnlockRetry(
 	bw BwClient,
 	cfg *config.Config,
 	promptPassword func() (string, error),
 	logger Logger,
+	sessions SessionStore,
 	fn func() error,
 ) error {
-	// 最初に fn() を実行
+	sessions = resolveSessionStore(sessions)
+	restoredFromStore := false
+
+	// 環境変数 BW_SESSION が既にあれば優先し、SessionStore には触れない。
+	if strings.TrimSpace(os.Getenv("BW_SESSION")) == "" {
+		stored, getErr := sessions.Get()
+		if getErr != nil {
+			logger.Info("failed to restore session from store:", getErr)
+		} else if session := strings.TrimSpace(stored); session != "" {
+			_ = os.Setenv("BW_SESSION", session)
+			restoredFromStore = true
+		}
+	}
+
 	err := fn()
 	if err == nil {
 		return nil
 	}
 
-	// ロック関連エラーでなければそのまま返す
 	if !IsLockedError(err) {
 		return err
 	}
 
-	// ロック状態なのでアンロックを試みる
+	// ストアから復元したセッションが無効なら破棄してフォールバックする。
+	if restoredFromStore {
+		if delErr := sessions.Delete(); delErr != nil {
+			logger.Info("failed to delete invalid session from store:", delErr)
+		}
+		_ = os.Unsetenv("BW_SESSION")
+	}
+
 	logger.Info("Bitwarden CLI is locked. Please enter your master password to unlock.")
 
-	// パスワード入力
 	password, promptErr := promptPassword()
 	if promptErr != nil {
 		return fmt.Errorf("failed to get master password: %w", promptErr)
 	}
 
-	// Unlock を試行
 	unlockErr := bw.Unlock(password)
 	if unlockErr == nil {
-		// Unlock 成功、fn() を再実行
 		logger.Info("Bitwarden CLI unlocked successfully")
+		persistSession(sessions, logger)
 		return fn()
 	}
 
-	// Unlock 失敗、cfg があれば Login を試みる
 	if cfg != nil && cfg.Email != "" {
 		logger.Info("Unlock failed, trying login then unlock...")
 		loginErr := bw.Login(cfg.Email, password, cfg.SelfhostedURL)
@@ -146,18 +186,27 @@ func WithUnlockRetry(
 		}
 		logger.Info("Bitwarden CLI logged in successfully")
 
-		// Login 成功後、再度 Unlock を試行
 		unlockErr = bw.Unlock(password)
 		if unlockErr != nil {
 			return fmt.Errorf("failed to unlock Bitwarden CLI after login: %w", unlockErr)
 		}
 		logger.Info("Bitwarden CLI unlocked successfully")
-
-		// fn() を再実行
+		persistSession(sessions, logger)
 		return fn()
 	}
 
 	return fmt.Errorf("failed to unlock Bitwarden CLI: %w", unlockErr)
+}
+
+// persistSession はプロセス内の BW_SESSION を SessionStore へ保存します（失敗は非致命）。
+func persistSession(sessions SessionStore, logger Logger) {
+	session := strings.TrimSpace(os.Getenv("BW_SESSION"))
+	if session == "" {
+		return
+	}
+	if err := sessions.Set(session); err != nil {
+		logger.Info("failed to persist session to store:", err)
+	}
 }
 
 // PushEnvCore は管理対象ファイル（.env* / *.tfvars / *.tfvars.json）を Bitwarden にプッシュします。
@@ -169,6 +218,7 @@ func PushEnvCore(
 	cfg *config.Config,
 	promptPassword func() (string, error),
 	logger Logger,
+	sessions SessionStore,
 ) error {
 	envFiles, err := findEnvFilesFromFS(fs, fromDir)
 	if err != nil {
@@ -199,7 +249,7 @@ func PushEnvCore(
 
 	// dotenvs フォルダ ID を取得
 	var folderID string
-	err = WithUnlockRetry(bw, cfg, promptPassword, logger, func() error {
+	err = WithUnlockRetry(bw, cfg, promptPassword, logger, sessions, func() error {
 		var innerErr error
 		folderID, innerErr = bw.GetDotenvsFolderID()
 		return innerErr
@@ -210,7 +260,7 @@ func PushEnvCore(
 
 	// 既存アイテムを検索
 	var existingItem *FullItem
-	err = WithUnlockRetry(bw, cfg, promptPassword, logger, func() error {
+	err = WithUnlockRetry(bw, cfg, promptPassword, logger, sessions, func() error {
 		var innerErr error
 		existingItem, innerErr = bw.GetItemByName(folderID, projectName)
 		return innerErr
@@ -221,14 +271,14 @@ func PushEnvCore(
 
 	// 既存アイテムがあれば更新、なければ新規作成
 	if existingItem != nil {
-		err = WithUnlockRetry(bw, cfg, promptPassword, logger, func() error {
+		err = WithUnlockRetry(bw, cfg, promptPassword, logger, sessions, func() error {
 			return bw.UpdateNoteItem(existingItem.ID, jsonData)
 		})
 		if err != nil {
 			return fmt.Errorf("failed to update item: %w", err)
 		}
 	} else {
-		err = WithUnlockRetry(bw, cfg, promptPassword, logger, func() error {
+		err = WithUnlockRetry(bw, cfg, promptPassword, logger, sessions, func() error {
 			return bw.CreateNoteItem(folderID, projectName, jsonData)
 		})
 		if err != nil {
@@ -338,10 +388,11 @@ func PullEnvCore(
 	promptPassword func() (string, error),
 	confirmOverwrite func(path string) (bool, error),
 	logger Logger,
+	sessions SessionStore,
 ) error {
 	// dotenvs フォルダ ID を取得
 	var folderID string
-	err := WithUnlockRetry(bw, cfg, promptPassword, logger, func() error {
+	err := WithUnlockRetry(bw, cfg, promptPassword, logger, sessions, func() error {
 		var innerErr error
 		folderID, innerErr = bw.GetDotenvsFolderID()
 		return innerErr
@@ -352,7 +403,7 @@ func PullEnvCore(
 
 	// アイテムを取得
 	var item *FullItem
-	err = WithUnlockRetry(bw, cfg, promptPassword, logger, func() error {
+	err = WithUnlockRetry(bw, cfg, promptPassword, logger, sessions, func() error {
 		var innerErr error
 		item, innerErr = bw.GetItemByName(folderID, projectName)
 		return innerErr
@@ -426,6 +477,7 @@ func CleanEnvCore(
 	promptPassword func() (string, error),
 	selectMismatchAction func(mismatchedFiles []string) (CleanMismatchAction, error),
 	logger Logger,
+	sessions SessionStore,
 ) error {
 	envFiles, err := findEnvFilesFromFS(fs, targetDir)
 	if err != nil {
@@ -445,7 +497,7 @@ func CleanEnvCore(
 	}
 
 	var folderID string
-	err = WithUnlockRetry(bw, cfg, promptPassword, logger, func() error {
+	err = WithUnlockRetry(bw, cfg, promptPassword, logger, sessions, func() error {
 		var innerErr error
 		folderID, innerErr = bw.GetDotenvsFolderID()
 		return innerErr
@@ -455,7 +507,7 @@ func CleanEnvCore(
 	}
 
 	var item *FullItem
-	err = WithUnlockRetry(bw, cfg, promptPassword, logger, func() error {
+	err = WithUnlockRetry(bw, cfg, promptPassword, logger, sessions, func() error {
 		var innerErr error
 		item, innerErr = bw.GetItemByName(folderID, projectName)
 		return innerErr
@@ -495,7 +547,7 @@ func CleanEnvCore(
 	case CleanActionAbort:
 		return ErrCleanAborted
 	case CleanActionOverwriteRemoteThenClean:
-		if err := PushEnvCore(targetDir, projectName, fs, bw, cfg, promptPassword, logger); err != nil {
+		if err := PushEnvCore(targetDir, projectName, fs, bw, cfg, promptPassword, logger, sessions); err != nil {
 			return fmt.Errorf("failed to overwrite remote before clean: %w", err)
 		}
 		return removeLocalEnvFiles(fs, envFiles)
@@ -543,10 +595,11 @@ func GetPulledEnvFiles(
 	cfg *config.Config,
 	promptPassword func() (string, error),
 	logger Logger,
+	sessions SessionStore,
 ) ([]string, error) {
 	// dotenvs フォルダ ID を取得
 	var folderID string
-	err := WithUnlockRetry(bw, cfg, promptPassword, logger, func() error {
+	err := WithUnlockRetry(bw, cfg, promptPassword, logger, sessions, func() error {
 		var innerErr error
 		folderID, innerErr = bw.GetDotenvsFolderID()
 		return innerErr
@@ -557,7 +610,7 @@ func GetPulledEnvFiles(
 
 	// アイテムを取得
 	var item *FullItem
-	err = WithUnlockRetry(bw, cfg, promptPassword, logger, func() error {
+	err = WithUnlockRetry(bw, cfg, promptPassword, logger, sessions, func() error {
 		var innerErr error
 		item, innerErr = bw.GetItemByName(folderID, projectName)
 		return innerErr
@@ -614,10 +667,11 @@ func ListDotenvsCore(
 	cfg *config.Config,
 	promptPassword func() (string, error),
 	logger Logger,
+	sessions SessionStore,
 ) ([]Item, error) {
 	// dotenvs フォルダ ID を取得
 	var folderID string
-	err := WithUnlockRetry(bw, cfg, promptPassword, logger, func() error {
+	err := WithUnlockRetry(bw, cfg, promptPassword, logger, sessions, func() error {
 		var innerErr error
 		folderID, innerErr = bw.GetDotenvsFolderID()
 		return innerErr
@@ -628,7 +682,7 @@ func ListDotenvsCore(
 
 	// アイテム一覧を取得
 	var items []Item
-	err = WithUnlockRetry(bw, cfg, promptPassword, logger, func() error {
+	err = WithUnlockRetry(bw, cfg, promptPassword, logger, sessions, func() error {
 		var innerErr error
 		items, innerErr = bw.ListItemsInFolder(folderID)
 		return innerErr

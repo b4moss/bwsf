@@ -79,6 +79,7 @@ func runClean(cmd *cobra.Command, args []string) {
 		}
 	}
 
+	sessions := infra.NewSessionStore()
 	err = core.CleanEnvCore(
 		fromDir,
 		projectName,
@@ -88,6 +89,7 @@ func runClean(cmd *cobra.Command, args []string) {
 		utils.InputPassword,
 		selectMismatchAction,
 		logger,
+		sessions,
 	)
 	if err != nil {
 		if errors.Is(err, core.ErrCleanAborted) {
