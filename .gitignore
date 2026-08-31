@@ -27,6 +27,7 @@ docs/site/.nuxt/
 docs/site/.output/
 docs/site/.data/
 docs/site/node_modules/
+docs/site/site.meta.yaml
 
 # IDEs
 .cursor/
