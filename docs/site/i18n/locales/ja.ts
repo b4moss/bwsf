@@ -32,6 +32,10 @@ export default {
     "expand": "続きを表示",
     "collapse": "折りたたむ"
   },
+  "faq": {
+    "expandAll": "すべて展開",
+    "collapseAll": "すべて折りたたむ"
+  },
   "cookie": {
     "message": "当サイトでは、サイト分析と最適なユーザー体験を提供するためにCookieを使用しています。",
     "accept": "同意する",

@@ -22,3 +22,6 @@ logs
 .env
 .env.*
 !.env.example
+
+# Project-specific site metadata (copy from site.meta.yaml.example)
+site.meta.yaml

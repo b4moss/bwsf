@@ -47,6 +47,19 @@ func TestIsLockedError_WithOtherError(t *testing.T) {
 }
 
 // =============================================================================
+// isBwAuthRequiredMessage のテスト（#161）
+// =============================================================================
+
+func TestIsBwAuthRequiredMessage(t *testing.T) {
+	assert.True(t, isBwAuthRequiredMessage("Master password required"))
+	assert.True(t, isBwAuthRequiredMessage("Please enter your master password"))
+	assert.True(t, isBwAuthRequiredMessage("You are not logged in."))
+	assert.True(t, isBwAuthRequiredMessage("Vault is locked."))
+	assert.False(t, isBwAuthRequiredMessage("network timeout"))
+	assert.False(t, isBwAuthRequiredMessage(""))
+}
+
+// =============================================================================
 // Folder / Item 構造体のテスト
 // =============================================================================
 

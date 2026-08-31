@@ -112,7 +112,8 @@ type EnvData struct {
 // キーはファイル名（例: ".env", ".env.staging"）
 type MultiEnvData map[string]EnvData
 
-// IsLockedError はエラーがロック関連かどうかを判定します。
+// IsLockedError はエラーが認証リカバリ対象（ロック／未ログイン）かどうかを判定します。
+// 現行 bw CLI の "Vault is locked." / "You are not logged in." も含みます（#161）。
 func IsLockedError(err error) bool {
 	if err == nil {
 		return false
@@ -120,7 +121,9 @@ func IsLockedError(err error) bool {
 	errMsg := err.Error()
 	return strings.Contains(errMsg, "Bitwarden CLI is locked") ||
 		strings.Contains(errMsg, "Master password") ||
-		strings.Contains(errMsg, "master password")
+		strings.Contains(errMsg, "master password") ||
+		strings.Contains(errMsg, "You are not logged in") ||
+		strings.Contains(errMsg, "Vault is locked")
 }
 
 // WithUnlockRetry は Bitwarden がロックされている場合に Unlock/Login を挟んでリトライする共通処理です。
