@@ -30,13 +30,46 @@
   - 実際の処理はすべて「コアロジック層」の関数に委譲する。
 - **コアロジック層**
   - ビジネスロジック（Push/Pull/List/Setup/Clean）を環境依存のない形で実装する。
-  - I/O は `FileSystem` / `BwClient` / `Logger` インターフェースに抽象化する。
+  - I/O は `FileSystem` / `BwClient` / `Logger` / `SessionStore` インターフェースに抽象化する。
 - **インフラ層**
-  - `exec.Command` による `bw` CLI 呼び出しや、`os` ベースのファイル操作など、現行実装に近い具体クラスを持つ。
+  - `exec.Command` による `bw` CLI 呼び出しや、`os` ベースのファイル操作、OS 秘密ストア（Keychain 等）など、現行実装に近い具体クラスを持つ。
 
 ---
 
 ## 2. 抽象インターフェース
+
+### SessionStore インターフェース（#130）
+
+- `type SessionStore interface`
+  - `BW_SESSION`（セッションキー）の永続化を抽象化する。
+  - マスターパスワードは扱わない。
+  - メソッド:
+    - `Get() (string, error)` — 保存済みセッションを返す。未保存・未対応 OS では空文字と `nil`。
+    - `Set(session string) error` — セッションを単一スロットに保存（上書き可）。
+    - `Delete() error` — 保存済みセッションを破棄する。無い場合もエラーにしない。
+
+#### テストシナリオ（インターフェース利用側）
+
+- 正常系
+  - モック `SessionStore` を `WithUnlockRetry` に渡し、`Get` / `Set` / `Delete` の呼び出し有無がシナリオどおりであることを確認する。
+- 異常系
+  - `Get` / `Set` / `Delete` がエラーを返しても、呼び出し側がパニックせず、フォールバック（パスワード再入力）またはエラー伝播の仕様どおり動くことを確認する。
+
+#### 具象実装（インフラ層）
+
+- **darwin（macOS Keychain）**
+  - service=`bwsf` / account=`bw-session` の単一スロット。
+  - 再起動時の自動消去はベストエフォート（アプリ側の boot time 判定は行わない）。
+- **それ以外（Linux 等）**
+  - no-op: `Get` は常に `""`、`Set` / `Delete` は何もしないで `nil`。
+
+##### テストシナリオ（具象）
+
+- 正常系
+  - no-op 実装で `Get` → `""`、`Set` / `Delete` → `nil` であることを確認する。
+  - darwin 実装はビルドタグまたは実機／手動確認とし、CI（Linux）ではコンパイル可能なこと、および no-op 側の単体テストでカバレッジを確保する。
+- 異常系
+  - darwin で Keychain API が失敗した場合に、エラーが返る（または呼び出し側で無視してプロンプトへ進む）仕様をテストまたは手動手順で確認する。
 
 ### BwClient インターフェース
 
@@ -248,25 +281,40 @@
 ### WithUnlockRetry
 
 - シグネチャ（イメージ）:
-  - `func WithUnlockRetry(bw BwClient, cfg *config.Config, promptPassword func() (string, error), logger Logger, fn func() error) error`
+  - `func WithUnlockRetry(bw BwClient, cfg *config.Config, promptPassword func() (string, error), logger Logger, sessions SessionStore, fn func() error) error`
 - 処理内容:
+  - **セッション復元（#130）**
+    - 環境変数 `BW_SESSION` が既に非空なら Keychain／`SessionStore` には触れない（環境変数優先）。
+    - 空の場合のみ `sessions.Get()` を試し、非空なら `os.Setenv("BW_SESSION", ...)` する（Keychain からの復元）。
   - `fn()` を一度実行し、エラーが `ErrBitwardenLocked` またはロック関連エラーの場合のみ、アンロック／ログインを行う。
+  - ロック時:
+    - 直前に `SessionStore` から復元していた場合は、無効セッションとして `sessions.Delete()` し、必要なら `BW_SESSION` を unset する。
+    - 環境変数由来の `BW_SESSION` のみの場合は `SessionStore` を削除しない（触らない）。
   - アンロックフロー:
     - `promptPassword` を使ってマスターパスワードを取得する。
     - `bw.Unlock` を実行する。
     - 失敗した場合、`cfg` が存在すれば `bw.Login(cfg.Email, password, cfg.SelfhostedURL)` を試みる。
     - ログイン成功後に再度 `bw.Unlock` を実行する。
-  - アンロック／ログインに成功した場合、`fn()` を再実行し、その結果を返す。
+  - アンロック／ログインに成功した場合:
+    - プロセス内の `BW_SESSION`（`os.Getenv`）が非空なら `sessions.Set(session)` で保存する。
+    - `fn()` を再実行し、その結果を返す。
   - 途中でのパスワード取得失敗やアンロック／ログイン失敗は、適切なエラーメッセージをラップして返す。
+  - `--password` / `BWSF_PASSWORD` による非対話入力は従来どおり `promptPassword` 側で維持する（本関数は変更しない）。
 
 #### テストシナリオ
 
 - 正常系
   - `fn()` が 1 回目で成功する場合に、`promptPassword`／`bw.Unlock`／`bw.Login` が一切呼ばれないことを確認する。
   - `fn()` が 1 回目で `ErrBitwardenLocked` を返し、パスワード入力 → `bw.Unlock` 成功 → 2 回目の `fn()` が成功するフローを確認する。
+  - （#130）`BW_SESSION` 環境変数が空で、`SessionStore.Get` が有効セッションを返す場合に、それを環境へ設定したうえで `fn()` が成功し、`promptPassword` が呼ばれないことを確認する。
+  - （#130）`bw.Unlock` 成功後に `BW_SESSION` がプロセス環境に入っている場合、`SessionStore.Set` がその値で呼ばれることを確認する。
+  - （#130）`BW_SESSION` 環境変数が既にセットされている場合、`SessionStore.Get` / `Delete` が呼ばれず、既存の環境変数のまま `fn()` が実行されることを確認する。
 - 異常系
   - `promptPassword` がエラーを返した場合に、`bw.Unlock`／`bw.Login` が呼ばれず、そのエラーが `WithUnlockRetry` から返ることを確認する。
   - `bw.Unlock` と `bw.Login` の両方が失敗する場合に、その失敗理由を含んだエラーが返り、`fn()` が再実行されないことを確認する。
+  - （#130）`SessionStore` から復元したセッションで `fn()` がロックエラーになる場合、`SessionStore.Delete` が呼ばれたうえでパスワード入力 → unlock へフォールバックすることを確認する。
+  - （#130）`SessionStore.Get` がエラーを返した場合でも、空扱いで `fn()` へ進み（または仕様どおりプロンプトへ）、パニックしないことを確認する。
+  - （#130）`SessionStore.Set` がエラーを返しても、unlock 後の `fn()` 再実行自体は成功扱いにできる（保存失敗はログ程度／エラー非致命）ことを確認する。
 
 ### ParseEnvFile / EnvDataToJSON / RestoreEnvFileFromJSON / FindEnvFile
 
@@ -279,7 +327,7 @@
 ### PushEnvCore
 
 - シグネチャ（イメージ）:
-  - `func PushEnvCore(fromDir, projectName string, fs FileSystem, bw BwClient, cfg *config.Config, promptPassword func() (string, error), logger Logger) error`
+  - `func PushEnvCore(fromDir, projectName string, fs FileSystem, bw BwClient, cfg *config.Config, promptPassword func() (string, error), logger Logger, sessions SessionStore) error`
 - 処理:
   - `fromDir` と `projectName` に基づいて対象 `.env` ファイルパスを決定する。
     - `fromDir` が `"."` または `".."` の場合、`/project-root` へのフォールバックを含む。
@@ -308,7 +356,7 @@
 ### PullEnvCore
 
 - シグネチャ（イメージ）:
-  - `func PullEnvCore(outputDir, projectName string, fs FileSystem, bw BwClient, cfg *config.Config, promptPassword func() (string, error), confirmOverwrite func(path string) (bool, error), logger Logger) error`
+  - `func PullEnvCore(outputDir, projectName string, fs FileSystem, bw BwClient, cfg *config.Config, promptPassword func() (string, error), confirmOverwrite func(path string) (bool, error), logger Logger, sessions SessionStore) error`
 - 処理:
   - `outputDir` が `"."` または `".."` の場合、`/project-root` に正規化する。
   - `WithUnlockRetry` 経由で `bw.GetDotenvsFolderID()` を呼び出し、フォルダ ID を取得する。
@@ -334,7 +382,7 @@
 ### CleanEnvCore
 
 - シグネチャ（イメージ）:
-  - `func CleanEnvCore(targetDir, projectName string, fs FileSystem, bw BwClient, cfg *config.Config, promptPassword func() (string, error), selectMismatchAction func(mismatchedFiles []string) (CleanMismatchAction, error), logger Logger) error`
+  - `func CleanEnvCore(targetDir, projectName string, fs FileSystem, bw BwClient, cfg *config.Config, promptPassword func() (string, error), selectMismatchAction func(mismatchedFiles []string) (CleanMismatchAction, error), logger Logger, sessions SessionStore) error`
 - 処理:
   - `FindEnvFiles` と同一のルール（`.env*` かつ `.example` 除外）でローカル対象ファイルを検出する。
   - ローカルに対象ファイルが無い場合はエラーを返す。
@@ -361,7 +409,7 @@
 ### ListDotenvsCore
 
 - シグネチャ（イメージ）:
-  - `func ListDotenvsCore(bw BwClient, cfg *config.Config, promptPassword func() (string, error), logger Logger) ([]Item, error)`
+  - `func ListDotenvsCore(bw BwClient, cfg *config.Config, promptPassword func() (string, error), logger Logger, sessions SessionStore) ([]Item, error)`
 - 処理:
   - `WithUnlockRetry` 経由で `bw.GetDotenvsFolderID()` を実行し、フォルダ ID を取得する。
   - `WithUnlockRetry` 経由で `bw.ListItemsInFolder(folderID)` を実行し、アイテム一覧を取得する。
