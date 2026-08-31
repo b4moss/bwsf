@@ -1332,6 +1332,84 @@ func TestIsLockedError_MasterPasswordLower(t *testing.T) {
 	assert.True(t, result)
 }
 
+// IsLockedError: 現行 bw の "You are not logged in."（#161）
+func TestIsLockedError_NotLoggedIn(t *testing.T) {
+	assert.True(t, IsLockedError(errors.New("You are not logged in.")))
+	assert.True(t, IsLockedError(errors.New("failed to list folders: You are not logged in.")))
+}
+
+// IsLockedError: 現行 bw の "Vault is locked."（#161）
+func TestIsLockedError_VaultIsLocked(t *testing.T) {
+	assert.True(t, IsLockedError(errors.New("Vault is locked.")))
+	assert.True(t, IsLockedError(errors.New("failed to list folders: Vault is locked.")))
+}
+
+// IsLockedError: 無関係なエラーは false
+func TestIsLockedError_UnrelatedError(t *testing.T) {
+	assert.False(t, IsLockedError(errors.New("network timeout")))
+}
+
+// WithUnlockRetry: "Vault is locked." でも Unlock リトライする（#161）
+func TestWithUnlockRetry_VaultIsLockedThenUnlockSuccess(t *testing.T) {
+	bw := &mockBwClient{}
+	logger := &mockLogger{}
+	cfg := &config.Config{Email: "test@example.com"}
+
+	callCount := 0
+	fn := func() error {
+		callCount++
+		if callCount == 1 {
+			return errors.New("Vault is locked.")
+		}
+		return nil
+	}
+
+	err := WithUnlockRetry(
+		bw,
+		cfg,
+		func() (string, error) { return "password", nil },
+		logger,
+		nil,
+		fn,
+	)
+
+	assert.NoError(t, err)
+	assert.Equal(t, 2, callCount)
+	assert.Contains(t, bw.calls, "Unlock")
+}
+
+// WithUnlockRetry: "You are not logged in." なら Unlock 失敗後に Login する（#161）
+func TestWithUnlockRetry_NotLoggedInThenLoginSuccess(t *testing.T) {
+	bw := &mockBwClientWithUnlockCount{
+		mockBwClient: mockBwClient{},
+	}
+	logger := &mockLogger{}
+	cfg := &config.Config{Email: "test@example.com", SelfhostedURL: "https://bw.example.com"}
+
+	callCount := 0
+	fn := func() error {
+		callCount++
+		if callCount == 1 {
+			return errors.New("You are not logged in.")
+		}
+		return nil
+	}
+
+	err := WithUnlockRetry(
+		bw,
+		cfg,
+		func() (string, error) { return "password", nil },
+		logger,
+		nil,
+		fn,
+	)
+
+	assert.NoError(t, err)
+	assert.Equal(t, 2, callCount)
+	assert.Contains(t, bw.calls, "Unlock")
+	assert.Contains(t, bw.calls, "Login(test@example.com,https://bw.example.com)")
+}
+
 // WithUnlockRetry: Unlock 成功後に fn がエラーを返す場合
 func TestWithUnlockRetry_UnlockSuccessThenFnFails(t *testing.T) {
 	bw := &mockBwClient{}

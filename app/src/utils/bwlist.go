@@ -13,8 +13,16 @@ import (
 	"bwsf/src/config"
 )
 
-// ErrBitwardenLocked is returned when Bitwarden CLI is locked
+// ErrBitwardenLocked is returned when Bitwarden CLI is locked or unauthenticated
 var ErrBitwardenLocked = errors.New("Bitwarden CLI is locked")
+
+// isBwAuthRequiredMessage reports whether bw CLI output indicates auth is required (#161).
+func isBwAuthRequiredMessage(s string) bool {
+	return strings.Contains(s, "Master password") ||
+		strings.Contains(s, "master password") ||
+		strings.Contains(s, "You are not logged in") ||
+		strings.Contains(s, "Vault is locked")
+}
 
 // Folder represents a Bitwarden folder
 type Folder struct {
@@ -67,6 +75,9 @@ func GetFolderID(folderName string) (string, error) {
 		if errorMsg == "" {
 			errorMsg = err.Error()
 		}
+		if isBwAuthRequiredMessage(errorMsg) {
+			return "", ErrBitwardenLocked
+		}
 		return "", fmt.Errorf("failed to list folders: %s", errorMsg)
 	}
 
@@ -77,8 +88,8 @@ func GetFolderID(folderName string) (string, error) {
 		return "", fmt.Errorf("no output from bw list folders command")
 	}
 
-	// Check if Bitwarden CLI is locked (requires master password)
-	if strings.Contains(outputStr, "Master password") || strings.Contains(outputStr, "master password") {
+	// Check if Bitwarden CLI requires auth (locked / unauthenticated)
+	if isBwAuthRequiredMessage(outputStr) {
 		return "", ErrBitwardenLocked
 	}
 
@@ -191,6 +202,9 @@ func ListItemsInFolder(folderID string) ([]Item, error) {
 		if errorMsg == "" {
 			errorMsg = err.Error()
 		}
+		if isBwAuthRequiredMessage(errorMsg) {
+			return nil, ErrBitwardenLocked
+		}
 		return nil, fmt.Errorf("failed to list items: %s", errorMsg)
 	}
 
@@ -201,8 +215,8 @@ func ListItemsInFolder(folderID string) ([]Item, error) {
 		return nil, fmt.Errorf("no output from bw list items command")
 	}
 
-	// Check if Bitwarden CLI is locked (requires master password)
-	if strings.Contains(outputStr, "Master password") || strings.Contains(outputStr, "master password") {
+	// Check if Bitwarden CLI requires auth (locked / unauthenticated)
+	if isBwAuthRequiredMessage(outputStr) {
 		return nil, ErrBitwardenLocked
 	}
 
