@@ -32,6 +32,10 @@ export default {
     "expand": "Show more",
     "collapse": "Show less"
   },
+  "faq": {
+    "expandAll": "Expand all",
+    "collapseAll": "Collapse all"
+  },
   "cookie": {
     "message": "We use cookies to analyze site traffic and provide you with the best experience.",
     "accept": "Accept",

@@ -1,6 +1,8 @@
-import { copyFileSync, readFileSync } from "node:fs";
+import { copyFileSync, existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { parse as parseYaml } from "yaml";
+import { normalizeSiteMeta, type SiteMeta } from "./app/utils/siteMeta";
 
 /** Latest product version from app/src/cmd/version.go (single source of truth). */
 function readAppVersion(): string {
@@ -16,6 +18,28 @@ function readAppVersion(): string {
   return `v${match[1]}`;
 }
 
+function loadSiteMeta(rootDir: string): SiteMeta {
+  const candidates = [
+    join(rootDir, "site.meta.yaml"),
+    join(rootDir, "site.meta.yaml.example"),
+  ];
+  for (const path of candidates) {
+    if (!existsSync(path)) continue;
+    try {
+      const raw = parseYaml(readFileSync(path, "utf8")) as Record<
+        string,
+        unknown
+      > | null;
+      return normalizeSiteMeta(raw || undefined);
+    } catch (error) {
+      console.warn(`[doc-site] Failed to parse ${path}:`, error);
+    }
+  }
+  return normalizeSiteMeta(undefined);
+}
+
+const siteMeta = loadSiteMeta(process.cwd());
+
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
   modules: [
@@ -29,10 +53,15 @@ export default defineNuxtConfig({
   css: ["~/assets/css/main.css"],
   runtimeConfig: {
     public: {
-      siteName: "bwsf",
+      siteName: siteMeta.siteName,
+      siteUrl: siteMeta.siteUrl,
       siteVersion: readAppVersion(),
-      githubUrl: "https://github.com/b4moss/bwsf",
-      footerText: "MIT License · 2026 Bicycle for Mind LLC.",
+      description: siteMeta.description,
+      githubUrl: siteMeta.githubUrl,
+      footerText: siteMeta.footerText,
+      software: siteMeta.software,
+      organization: siteMeta.organization,
+      jsonLdExtra: siteMeta.jsonLdExtra,
     },
   },
   // GTM: set NUXT_PUBLIC_SCRIPTS_GOOGLE_TAG_MANAGER_ID=GTM-XXXXXXX (build-time for SSG).
@@ -55,11 +84,10 @@ export default defineNuxtConfig({
     experimental: { sqliteConnector: "native" },
     build: {
       markdown: {
+        // Always-dark code blocks (incl. light UI). High-contrast tokens so no
+        // near-black github-light colors remain on the dark pre background.
         highlight: {
-          theme: {
-            default: "github-light",
-            dark: "github-dark",
-          },
+          theme: "github-dark-high-contrast",
         },
       },
     },
@@ -76,6 +104,8 @@ export default defineNuxtConfig({
     },
   },
   i18n: {
+    // Absolute URLs for canonical / hreflang come from site.meta.yaml.
+    baseUrl: siteMeta.siteUrl,
     locales: [
       { code: "ja", name: "日本語", language: "ja-JP", file: "ja.ts" },
       { code: "en", name: "English", language: "en-US", file: "en.ts" },
@@ -135,6 +165,8 @@ export default defineNuxtConfig({
         "/en/guide/license-faq",
         "/ja/cookie-policy",
         "/en/cookie-policy",
+        "/sitemap.xml",
+        "/robots.txt",
       ],
     },
   },
