@@ -67,6 +67,9 @@ func GetItemByName(folderID, itemName string) (*FullItem, error) {
 		if errorMsg == "" {
 			errorMsg = err.Error()
 		}
+		if isBwAuthRequiredMessage(errorMsg) {
+			return nil, ErrBitwardenLocked
+		}
 		return nil, fmt.Errorf("failed to list items: %s", errorMsg)
 	}
 
@@ -77,8 +80,8 @@ func GetItemByName(folderID, itemName string) (*FullItem, error) {
 		return nil, fmt.Errorf("no output from bw list items command")
 	}
 
-	// Check if Bitwarden CLI is locked
-	if strings.Contains(outputStr, "Master password") || strings.Contains(outputStr, "master password") {
+	// Check if Bitwarden CLI requires auth (locked / unauthenticated)
+	if isBwAuthRequiredMessage(outputStr) {
 		return nil, ErrBitwardenLocked
 	}
 
@@ -125,6 +128,9 @@ func GetItemByID(itemID string) (*FullItem, error) {
 		if errorMsg == "" {
 			errorMsg = err.Error()
 		}
+		if isBwAuthRequiredMessage(errorMsg) {
+			return nil, ErrBitwardenLocked
+		}
 		return nil, fmt.Errorf("failed to get item: %s", errorMsg)
 	}
 
@@ -135,8 +141,8 @@ func GetItemByID(itemID string) (*FullItem, error) {
 		return nil, fmt.Errorf("no output from bw get item command")
 	}
 
-	// Check if Bitwarden CLI is locked
-	if strings.Contains(outputStr, "Master password") || strings.Contains(outputStr, "master password") {
+	// Check if Bitwarden CLI requires auth (locked / unauthenticated)
+	if isBwAuthRequiredMessage(outputStr) {
 		return nil, ErrBitwardenLocked
 	}
 
