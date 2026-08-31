@@ -69,7 +69,8 @@ DEBUG=true`
 			cfg,
 			promptPassword,
 			logger,
-		)
+		nil,
+	)
 		require.NoError(t, err, "PushEnvCore should succeed")
 
 		// アイテムが作成されたことを確認
@@ -85,7 +86,8 @@ DEBUG=true`
 			cfg,
 			promptPassword,
 			logger,
-		)
+		nil,
+	)
 		require.NoError(t, err, "ListDotenvsCore should succeed")
 
 		// アイテムが1つあることを確認
@@ -108,7 +110,8 @@ DEBUG=true`
 			promptPassword,
 			confirmOverwrite,
 			logger,
-		)
+		nil,
+	)
 		require.NoError(t, err, "PullEnvCore should succeed")
 
 		// .envファイルが作成されたことを確認
@@ -143,12 +146,12 @@ func TestE2E_PushUpdate(t *testing.T) {
 
 	// 最初のPush
 	fs.SetFile("/project/.env", []byte("KEY=value1"))
-	err := core.PushEnvCore("/project", projectName, fs, bw, cfg, promptPassword, logger)
+	err := core.PushEnvCore("/project", projectName, fs, bw, cfg, promptPassword, logger, nil)
 	require.NoError(t, err)
 
 	// 2回目のPush（更新）
 	fs.SetFile("/project/.env", []byte("KEY=value2\nNEW_KEY=newvalue"))
-	err = core.PushEnvCore("/project", projectName, fs, bw, cfg, promptPassword, logger)
+	err = core.PushEnvCore("/project", projectName, fs, bw, cfg, promptPassword, logger, nil)
 	require.NoError(t, err)
 
 	// アイテム数は変わらないはず（更新なので）
@@ -156,7 +159,7 @@ func TestE2E_PushUpdate(t *testing.T) {
 
 	// Pullして内容を確認
 	confirmOverwrite := func(path string) (bool, error) { return true, nil }
-	err = core.PullEnvCore("/output", projectName, fs, bw, cfg, promptPassword, confirmOverwrite, logger)
+	err = core.PullEnvCore("/output", projectName, fs, bw, cfg, promptPassword, confirmOverwrite, logger, nil)
 	require.NoError(t, err)
 
 	pulledContent, _ := fs.GetFile("/output/.env")
@@ -193,19 +196,19 @@ func TestE2E_MultipleProjects(t *testing.T) {
 
 	for _, p := range projects {
 		fs.SetFile("/project/.env", []byte(p.content))
-		err := core.PushEnvCore("/project", p.name, fs, bw, cfg, promptPassword, logger)
+		err := core.PushEnvCore("/project", p.name, fs, bw, cfg, promptPassword, logger, nil)
 		require.NoError(t, err, "Push should succeed for %s", p.name)
 	}
 
 	// Listで全てのプロジェクトが見えることを確認
-	items, err := core.ListDotenvsCore(bw, cfg, promptPassword, logger)
+	items, err := core.ListDotenvsCore(bw, cfg, promptPassword, logger, nil)
 	require.NoError(t, err)
 	assert.Len(t, items, 3, "Should have 3 projects")
 
 	// 各プロジェクトをPullして内容を確認
 	confirmOverwrite := func(path string) (bool, error) { return true, nil }
 	for _, p := range projects {
-		err := core.PullEnvCore("/output", p.name, fs, bw, cfg, promptPassword, confirmOverwrite, logger)
+		err := core.PullEnvCore("/output", p.name, fs, bw, cfg, promptPassword, confirmOverwrite, logger, nil)
 		require.NoError(t, err, "Pull should succeed for %s", p.name)
 
 		pulledContent, _ := fs.GetFile("/output/.env")
@@ -235,7 +238,7 @@ func TestE2E_PullNotFound(t *testing.T) {
 	}
 
 	// 存在しないプロジェクトをPull
-	err := core.PullEnvCore("/output", "nonexistent-project", fs, bw, cfg, promptPassword, confirmOverwrite, logger)
+	err := core.PullEnvCore("/output", "nonexistent-project", fs, bw, cfg, promptPassword, confirmOverwrite, logger, nil)
 	assert.Error(t, err, "Pull should fail for nonexistent project")
 	assert.Contains(t, err.Error(), "not found")
 }
@@ -272,7 +275,7 @@ FEATURE_BETA=false`
 
 	fs.SetFile("/project/.env", []byte(complexEnv))
 
-	err := core.PushEnvCore("/project", "complex-project", fs, bw, cfg, promptPassword, logger)
+	err := core.PushEnvCore("/project", "complex-project", fs, bw, cfg, promptPassword, logger, nil)
 	require.NoError(t, err)
 
 	// 内部でJSONに変換されていることを確認（GetItemByNameで取得）
@@ -290,7 +293,7 @@ FEATURE_BETA=false`
 
 	// Pullして内容が復元されることを確認
 	confirmOverwrite := func(path string) (bool, error) { return true, nil }
-	err = core.PullEnvCore("/output", "complex-project", fs, bw, cfg, promptPassword, confirmOverwrite, logger)
+	err = core.PullEnvCore("/output", "complex-project", fs, bw, cfg, promptPassword, confirmOverwrite, logger, nil)
 	require.NoError(t, err)
 
 	pulledContent, _ := fs.GetFile("/output/.env")
@@ -322,7 +325,7 @@ func TestE2E_LockedVault(t *testing.T) {
 	fs.SetFile("/project/.env", []byte("KEY=value"))
 
 	// ロック状態でもPushが成功する（自動アンロック）
-	err := core.PushEnvCore("/project", "locked-test", fs, bw, cfg, promptPassword, logger)
+	err := core.PushEnvCore("/project", "locked-test", fs, bw, cfg, promptPassword, logger, nil)
 	require.NoError(t, err, "Push should succeed after unlock")
 }
 

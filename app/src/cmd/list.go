@@ -45,11 +45,13 @@ func runList(cmd *cobra.Command, args []string) {
 	logger := infra.NewLogger()
 
 	// Call core logic
+	sessions := infra.NewSessionStore()
 	items, err := core.ListDotenvsCore(
 		bw,
 		cfg,
 		utils.InputPassword,
 		logger,
+		sessions,
 	)
 	if err != nil {
 		utils.Errorln("[ERROR]", err)
