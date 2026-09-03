@@ -107,7 +107,7 @@ Issue: [#134](https://github.com/b4moss/bwsf/issues/134)
 
 ## 5. 明示的にテストしない／先送り
 
-- `bwsf.config.json` / `override_project_name` / `ignore`（#133）
+- プロジェクト設定 `.bwsf/config.(json|jsonc)` / `override_project_name` / `save_files` / `not_save_files`（#133 / `docs/tests/config/project_local.md`）
 - `list` / `setup` / `config` の仕様変更
 - core の MultiEnvData 形式そのもの（Dir/Name の渡し方が変わっても、渡した後の push/pull/clean ロジックは現行のまま）
 

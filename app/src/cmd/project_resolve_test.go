@@ -10,6 +10,15 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func samePath(t *testing.T, expected, actual string) {
+	t.Helper()
+	e, err := filepath.EvalSymlinks(expected)
+	require.NoError(t, err)
+	a, err := filepath.EvalSymlinks(actual)
+	require.NoError(t, err)
+	assert.Equal(t, e, a)
+}
+
 func TestResolveProjectAndFileDir_WithGitSubdir(t *testing.T) {
 	// T-A2 via cmd helper: Name/Dir from git root when flag unset
 	repo := t.TempDir()
@@ -25,10 +34,10 @@ func TestResolveProjectAndFileDir_WithGitSubdir(t *testing.T) {
 	c := &cobra.Command{}
 	c.Flags().String("from", ".", "from")
 
-	name, dir, err := resolveProjectAndFileDir(c, "from")
+	name, dir, _, err := resolveProjectAndFileDir(c, "from")
 	require.NoError(t, err)
 	assert.Equal(t, filepath.Base(repo), name)
-	assert.Equal(t, repo, dir)
+	samePath(t, repo, dir)
 }
 
 func TestResolveProjectAndFileDir_WithGitFlagOverridesDir(t *testing.T) {
@@ -47,10 +56,10 @@ func TestResolveProjectAndFileDir_WithGitFlagOverridesDir(t *testing.T) {
 	c.Flags().String("from", ".", "from")
 	require.NoError(t, c.Flags().Set("from", sub))
 
-	name, dir, err := resolveProjectAndFileDir(c, "from")
+	name, dir, _, err := resolveProjectAndFileDir(c, "from")
 	require.NoError(t, err)
 	assert.Equal(t, filepath.Base(repo), name)
-	assert.Equal(t, sub, dir)
+	samePath(t, sub, dir)
 }
 
 func TestResolveProjectAndFileDir_WithoutGitFallback(t *testing.T) {
@@ -65,8 +74,36 @@ func TestResolveProjectAndFileDir_WithoutGitFallback(t *testing.T) {
 	c := &cobra.Command{}
 	c.Flags().String("from", ".", "from")
 
-	name, fileDir, err := resolveProjectAndFileDir(c, "from")
+	name, fileDir, _, err := resolveProjectAndFileDir(c, "from")
 	require.NoError(t, err)
 	assert.Equal(t, filepath.Base(dir), name)
-	assert.Equal(t, dir, fileDir)
+	samePath(t, dir, fileDir)
+}
+
+func TestResolveProjectAndFileDir_OverrideProjectName(t *testing.T) {
+	repo := t.TempDir()
+	require.NoError(t, os.Mkdir(filepath.Join(repo, ".git"), 0o755))
+	sub := filepath.Join(repo, "app")
+	require.NoError(t, os.MkdirAll(filepath.Join(repo, ".bwsf"), 0o755))
+	require.NoError(t, os.Mkdir(sub, 0o755))
+	require.NoError(t, os.WriteFile(
+		filepath.Join(repo, ".bwsf", "config.json"),
+		[]byte(`{"override_project_name":"my-api"}`),
+		0o600,
+	))
+
+	orig, err := os.Getwd()
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = os.Chdir(orig) })
+	require.NoError(t, os.Chdir(sub))
+
+	c := &cobra.Command{}
+	c.Flags().String("from", ".", "from")
+
+	name, dir, filter, err := resolveProjectAndFileDir(c, "from")
+	require.NoError(t, err)
+	assert.Equal(t, "my-api", name)
+	samePath(t, repo, dir)
+	assert.Empty(t, filter.SaveFiles)
+	assert.Empty(t, filter.NotSaveFiles)
 }

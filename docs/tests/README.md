@@ -37,7 +37,7 @@
 |------|------|
 | [`project/git_root.md`](./project/git_root.md) | `.git` 有無・サブディレクトリ・フラグ有無での Name/Dir/Warn 振る舞い（現行との差分） |
 
-合意正本: [#134](https://github.com/b4moss/bwsf/issues/134)（Q1〜Q3, Q7）。`override_project_name` 実装は [#133](https://github.com/b4moss/bwsf/issues/133) へ先送り（空スロットのみ）
+合意正本: [#134](https://github.com/b4moss/bwsf/issues/134)（Q1〜Q3, Q7）。`override_project_name` は [#133](https://github.com/b4moss/bwsf/issues/133) / [`config/project_local.md`](./config/project_local.md)
 
 ## Issue #155 / v0.18.0 — 設定ファイルの JSONC 対応（hujson）
 
@@ -46,3 +46,11 @@
 | [`config/jsonc_load.md`](./config/jsonc_load.md) | `LoadConfig` の JSONC 読み込み、末尾カンマ、`SaveConfig` は strict JSON、Vault 対象外 |
 
 合意正本: [#155](https://github.com/b4moss/bwsf/issues/155)。`.jsonc` 拡張子・`.bwsf/` は [#133](https://github.com/b4moss/bwsf/issues/133)
+
+## Issue #133 / v0.18.0 — `.bwsf/config.(json|jsonc)` プロジェクト設定
+
+| 文書 | 内容 |
+|------|------|
+| [`config/project_local.md`](./config/project_local.md) | 探索・0/1/複数選択、`override_project_name`、`save_files`/`not_save_files`、core フィルタ |
+
+合意正本: [#133](https://github.com/b4moss/bwsf/issues/133)。キー命名は Issue コメントの決定。グローバル同系は [#177](https://github.com/b4moss/bwsf/issues/177)

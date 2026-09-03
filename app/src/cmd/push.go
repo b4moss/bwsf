@@ -29,7 +29,7 @@ func runPush(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	projectName, fromDir, err := resolveProjectAndFileDir(cmd, "from")
+	projectName, fromDir, filter, err := resolveProjectAndFileDir(cmd, "from")
 	if err != nil {
 		utils.Errorln("[ERROR] Failed to resolve project directory:", err)
 		os.Exit(1)
@@ -48,7 +48,7 @@ func runPush(cmd *cobra.Command, args []string) {
 	fs := infra.NewFileSystem()
 	logger := infra.NewLogger()
 
-	envFiles, err := core.GetPushedEnvFiles(fromDir, fs)
+	envFiles, err := core.GetPushedEnvFiles(fromDir, filter, fs)
 	if err != nil {
 		utils.Errorln("[ERROR] Failed to find managed files:", err)
 		os.Exit(1)
@@ -68,6 +68,7 @@ func runPush(cmd *cobra.Command, args []string) {
 	err = core.PushEnvCore(
 		fromDir,
 		projectName,
+		filter,
 		fs,
 		bw,
 		cfg,

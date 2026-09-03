@@ -164,3 +164,27 @@ func SelectCleanMismatchAction(mismatchedFiles []string) (string, error) {
 		return CleanMismatchAbort, nil
 	}
 }
+
+// SelectProjectConfigPath prompts when multiple `.bwsf/config.(json|jsonc)` candidates exist (#133).
+// Non-interactive (non-TTY) sessions return an error instead of hanging.
+func SelectProjectConfigPath(paths []string) (string, error) {
+	if len(paths) == 0 {
+		return "", fmt.Errorf("no project config paths to select")
+	}
+	if len(paths) == 1 {
+		return paths[0], nil
+	}
+	if !term.IsTerminal(int(syscall.Stdin)) {
+		return "", fmt.Errorf("multiple project configs found; cannot select interactively (non-TTY): %s", strings.Join(paths, ", "))
+	}
+
+	prompt := promptui.Select{
+		Label: "Select project config",
+		Items: paths,
+	}
+	_, result, err := prompt.Run()
+	if err != nil {
+		return "", fmt.Errorf("failed to select project config: %w", err)
+	}
+	return result, nil
+}
