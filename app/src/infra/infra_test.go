@@ -1,9 +1,11 @@
 package infra
 
 import (
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // =============================================================================
@@ -111,4 +113,53 @@ func TestRealFileInfo_IsNotExist_False(t *testing.T) {
 	info := &realFileInfo{notExist: false}
 
 	assert.False(t, info.IsNotExist())
+}
+
+func TestRealFileSystem_CRUD(t *testing.T) {
+	dir := t.TempDir()
+	fs := NewFileSystem()
+	path := filepath.Join(dir, "a.env")
+
+	require.NoError(t, fs.WriteFile(path, []byte("A=1\n"), 0o644))
+	data, err := fs.ReadFile(path)
+	require.NoError(t, err)
+	assert.Equal(t, "A=1\n", string(data))
+
+	data, err = fs.OpenEnvFile(path)
+	require.NoError(t, err)
+	assert.Equal(t, "A=1\n", string(data))
+
+	info, err := fs.Stat(path)
+	require.NoError(t, err)
+	assert.False(t, info.IsNotExist())
+
+	missing, err := fs.Stat(filepath.Join(dir, "missing"))
+	require.NoError(t, err)
+	assert.True(t, missing.IsNotExist())
+
+	sub := filepath.Join(dir, "sub")
+	require.NoError(t, fs.MkdirAll(sub, 0o755))
+	require.NoError(t, fs.WriteFile(filepath.Join(sub, "b.env"), []byte("B=2\n"), 0o644))
+	entries, err := fs.ReadDir(dir)
+	require.NoError(t, err)
+	names := map[string]bool{}
+	for _, e := range entries {
+		names[e.Name()] = true
+	}
+	assert.True(t, names["a.env"])
+	assert.True(t, names["sub"])
+
+	require.NoError(t, fs.Remove(path))
+	missing2, err := fs.Stat(path)
+	require.NoError(t, err)
+	assert.True(t, missing2.IsNotExist())
+}
+
+func TestRealLogger_Methods(t *testing.T) {
+	t.Setenv("NO_COLOR", "1")
+	l := NewLogger()
+	l.Error("err")
+	l.Info("info")
+	l.Success("ok")
+	l.Warning("warn")
 }

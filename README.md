@@ -5,42 +5,17 @@
 [![Go Reference](https://pkg.go.dev/badge/github.com/b4moss/bwsf.svg)](https://pkg.go.dev/github.com/b4moss/bwsf)
 [![Release](https://img.shields.io/github/v/release/b4moss/bwsf)](https://github.com/b4moss/bwsf/releases)
 [![License](https://img.shields.io/github/license/b4moss/bwsf)](https://github.com/b4moss/bwsf/blob/main/LICENSE)
-[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/b4moss/bwsf/badge)](https://securityscorecards.dev/viewer/?uri=github.com/b4moss/bwsf)
+[![OpenSSF Scorecard](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fapi.scorecard.dev%2Fprojects%2Fgithub.com%2Fb4moss%2Fbwsf&query=%24.score&label=OpenSSF%20Scorecard&suffix=%2F10)](https://scorecard.dev/viewer/?uri=github.com/b4moss/bwsf)
 
 bwsf (Bitwarden Secured Files) is a CLI tool that uses [Bitwarden](https://bitwarden.com/) to manage `.env*` files and Terraform `*.tfvars` / `*.tfvars.json`.
 
 [Official site](https://bwsf.oss.b4m.jp/)
 
-## 🚨🚨 BREAKING CHANGE 🚨🚨
+## 🚨🚨 Important notice 🚨🚨
 
-### Changed CLI Name
+Login to Bitwarden may fail on v0.17.0 and v0.17.1.
 
-From v0.11.0, `bwenv` is re-named as `bwsf`. This is cause some bwenv commands already existed. We decieded to change our CLI name to avoid confusing.
-
-#### MIGRATE
-
-Rename youre setting directory.
-
-```bash
-mv ~/.config/bwenv ~/.config/bwsf
-```
-
-Uninstall your current version, and re-install latest version.
-
-```bash
-brew uninstall bwenv
-brew install bwsf
-```
-
-### Multiple `.env.enviroment` files
-
-From v0.9.0, bwsf stores multiple enviroment .env files, like `.env | .env.staging | .env.production`.
-
-Cause with this, stored data at Bitwarden Note item structure is changed.
-
-Stored data before v0.8.0 is no compatiblity after v0.9.0.
-
-We will not provide migration system.
+If you are on the v0.17 line, please upgrade to v0.17.2 (released 2026-09-03 JST) or later.
 
 ## Overview
 
@@ -86,10 +61,12 @@ This project migrates our hand-maded shell scripts to modern CLI command with Go
 
 > Note: Linux requires [Homebrew on Linux](https://docs.brew.sh/Homebrew-on-Linux) to be installed first.
 
-Install a past release (all published versions are on the tap):
+Install a past release from the tap. Versioned formulas cover every patch of the
+current minor plus the latest patch of the previous minor (older formulas are
+pruned). Other releases remain on [GitHub Releases](https://github.com/b4moss/bwsf/releases).
 
 ```shell
-brew install bwsf@0.15.0
+brew install bwsf@0.17.3
 ```
 
 ## Verify installation

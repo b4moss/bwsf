@@ -5,43 +5,18 @@
 [![Go Reference](https://pkg.go.dev/badge/github.com/b4moss/bwsf.svg)](https://pkg.go.dev/github.com/b4moss/bwsf)
 [![Release](https://img.shields.io/github/v/release/b4moss/bwsf)](https://github.com/b4moss/bwsf/releases)
 [![License](https://img.shields.io/github/license/b4moss/bwsf)](https://github.com/b4moss/bwsf/blob/main/LICENSE)
-[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/b4moss/bwsf/badge)](https://securityscorecards.dev/viewer/?uri=github.com/b4moss/bwsf)
+[![OpenSSF Scorecard](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fapi.scorecard.dev%2Fprojects%2Fgithub.com%2Fb4moss%2Fbwsf&query=%24.score&label=OpenSSF%20Scorecard&suffix=%2F10)](https://scorecard.dev/viewer/?uri=github.com/b4moss/bwsf)
 
 bwsf（Bitwarden Secured Files）は、[Bitwarden](https://bitwarden.com/)を使用して `.env*` および Terraform の `*.tfvars` / `*.tfvars.json` を管理するCLIツールです。
 [Official site](https://bwsf.oss.b4m.jp/)
 
 [English version is here.](./README.md)
 
-## 🚨🚨 破壊的変更 🚨🚨
+## 🚨🚨重要なお知らせ🚨🚨
 
-### CLI名の変更
+v0.17.0、v0.17.1では、正常に Bitwarden にログインできない事象が確認されています。
 
-v0.11.0から、`bwenv`は`bwsf`に名前が変更されました。これは、既にbwenvコマンドが存在していたためです。混乱を避けるため、CLI名を変更することにしました。
-
-#### 移行方法
-
-設定ディレクトリの名前を変更してください。
-
-```bash
-mv ~/.config/bwenv ~/.config/bwsf
-```
-
-現在のバージョンをアンインストールし、最新バージョンを再インストールしてください。
-
-```bash
-brew uninstall bwenv
-brew install bwsf
-```
-
-### 複数の`.env.environment`ファイル
-
-v0.9.0から、bwsfは`.env | .env.staging | .env.production`のような複数の環境用.envファイルを保存できるようになりました。
-
-これに伴い、BitwardenのNoteアイテムに保存されるデータ構造が変更されました。
-
-v0.8.0以前に保存されたデータは、v0.9.0以降では互換性がありません。
-
-移行システムは提供しません。
+v0.17系統をご利用の方は、v0.17.2(日本時間2026/9/3リリース)にアップデートをお願いします。
 
 ## 概要
 
@@ -84,10 +59,10 @@ bwsf は Bitwarden 上でプロジェクトファイル（`.env*` / `*.tfvars` /
 |----|----|
 | macOS / Linux| brew tap b4m-oss/tap && brew install bwsf |
 
-過去バージョンのインストール（公開済みの全リリースが tap にあります）:
+過去バージョンのインストール。versioned formula は「現行 minor の全 patch」と「1つ前の minor の最新 patch」のみ tap に残します（それ以外は削除）。それより古い版は [GitHub Releases](https://github.com/b4moss/bwsf/releases) を参照してください。
 
 ```shell
-brew install bwsf@0.15.0
+brew install bwsf@0.17.3
 ```
 
 ## インストールの確認
