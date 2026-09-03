@@ -37,7 +37,7 @@ func runUnlock(cmd *cobra.Command, args []string) {
 		return
 	}
 
-	store := infra.NewKeyringStore()
+	store := newSecretStore()
 	_, err := infra.LoadAPICredentials(store, host.ID)
 	if err != nil {
 		if errors.Is(err, infra.ErrSecretNotFound) {
@@ -63,7 +63,7 @@ func runUnlock(cmd *cobra.Command, args []string) {
 		return
 	}
 
-	client := infra.NewApiBwClientForHost(cfg, host)
+	client := newUnlockClient(cfg, host, store)
 	defer client.ClearSession()
 
 	if err := client.Unlock(password); err != nil {

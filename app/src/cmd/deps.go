@@ -3,6 +3,7 @@ package cmd
 import (
 	"os"
 
+	"bwsf/src/config"
 	"bwsf/src/core"
 	"bwsf/src/infra"
 	"bwsf/src/utils"

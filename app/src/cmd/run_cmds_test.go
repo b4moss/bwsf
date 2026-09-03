@@ -37,6 +37,8 @@ func stubCmdDeps(t *testing.T, bw core.BwClient, fs core.FileSystem) *exitRecord
 	origFS := newFileSystem
 	origLog := newLogger
 	origSess := newSessionStore
+	origStore := newSecretStore
+	origUnlock := newUnlockClient
 	origExit := exitFunc
 	origConfirm := confirmOverwrite
 	origSelect := selectCleanMismatch
@@ -74,6 +76,8 @@ func stubCmdDeps(t *testing.T, bw core.BwClient, fs core.FileSystem) *exitRecord
 		newFileSystem = origFS
 		newLogger = origLog
 		newSessionStore = origSess
+		newSecretStore = origStore
+		newUnlockClient = origUnlock
 		exitFunc = origExit
 		confirmOverwrite = origConfirm
 		selectCleanMismatch = origSelect

@@ -37,7 +37,7 @@ func runLock(cmd *cobra.Command, args []string) {
 	}
 
 	cfg := loadConfigOrEmpty()
-	store := infra.NewKeyringStore()
+	store := newSecretStore()
 
 	if lockAll {
 		if len(cfg.Settings.Hosts) == 0 {
