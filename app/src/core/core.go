@@ -189,6 +189,14 @@ func WithUnlockRetry(
 		}
 		logger.Info("Bitwarden CLI logged in successfully")
 
+		// bw login --raw（および already-logged-in 時の unlock）は BW_SESSION を設定する。
+		// 続けて Unlock すると既存セッションが無効化され、失敗時にロック状態へ戻る。
+		if strings.TrimSpace(os.Getenv("BW_SESSION")) != "" {
+			logger.Info("Bitwarden CLI unlocked successfully")
+			persistSession(sessions, logger)
+			return fn()
+		}
+
 		unlockErr = bw.Unlock(password)
 		if unlockErr != nil {
 			return fmt.Errorf("failed to unlock Bitwarden CLI after login: %w", unlockErr)
