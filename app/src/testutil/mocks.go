@@ -1,4 +1,4 @@
-package infra
+package testutil
 
 import (
 	"bwsf/src/core"

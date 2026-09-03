@@ -13,6 +13,7 @@
 | [`cmd/`](./cmd/) | CLI コマンド層（cobra 登録・ユーザー向け出力契約） |
 | [`config/`](./config/) | 設定ファイル読み書き（グローバル config、JSONC 等） |
 | [`project/`](./project/) | プロジェクトルート／名前解決（`.git` 基準） |
+| [`utils/`](./utils/) | `bw` CLI ラッパの実行差し替え境界・単体ケース |
 
 ## Issue #102 / v0.15.0 — `*.tfvars` 対応
 
@@ -54,3 +55,11 @@
 | [`config/project_local.md`](./config/project_local.md) | 探索・0/1/複数選択、`override_project_name`、`save_files`/`not_save_files`、core フィルタ |
 
 合意正本: [#133](https://github.com/b4moss/bwsf/issues/133)。キー命名は Issue コメントの決定。グローバル同系は [#177](https://github.com/b4moss/bwsf/issues/177)
+
+## Issue #160 / v0.18.0 — coverage 75%+（Phase 2: `bw` 実行差し替え）
+
+| 文書 | 内容 |
+|------|------|
+| [`utils/bw_exec_mock.md`](./utils/bw_exec_mock.md) | `runBw` 境界、ユニットで固定する分岐、e2e 委譲、モック非対象 |
+
+合意正本: [#160](https://github.com/b4moss/bwsf/issues/160)。Phase 1（cmd DI・input 等）は既存契約の実装漏れ埋めのため本ディレクトリへの追加なし。

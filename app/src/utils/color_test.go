@@ -173,3 +173,18 @@ func TestColorQuestion(t *testing.T) {
 
 
 
+
+func TestPrintHelpers_NoColor(t *testing.T) {
+	t.Setenv("NO_COLOR", "1")
+	// Smoke: should not panic when writing to stdout/stderr
+	Error("e %s", "x")
+	Errorln("eln")
+	Success("s %s", "x")
+	Successln("sln")
+	Warning("w %s", "x")
+	Warningln("wln")
+	Info("i %s", "x")
+	Infoln("iln")
+	Question("q %s", "x")
+	Questionln("qln")
+}

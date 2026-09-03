@@ -3,10 +3,8 @@ package cmd
 import (
 	"bwsf/src/config"
 	"bwsf/src/core"
-	"bwsf/src/infra"
 	"bwsf/src/utils"
 	"fmt"
-	"os"
 
 	"github.com/spf13/cobra"
 )
@@ -23,42 +21,40 @@ func init() {
 }
 
 func runList(cmd *cobra.Command, args []string) {
-	// Check if bw command is installed
-	installed, _ := utils.CheckBwCommand()
+	installed, _ := checkBwInstalled()
 	if !installed {
 		utils.Errorln("[ERROR] ❌ bw command is not installed...")
-		os.Exit(1)
+		exitFunc(1)
+		return
 	}
 
-	// Load config
 	cfg, err := config.LoadConfig()
 	if err != nil {
 		utils.Errorln("[ERROR] Failed to load config:", err)
-		os.Exit(1)
+		exitFunc(1)
+		return
 	}
 	if cfg == nil {
 		cfg = &config.Config{}
 	}
 
-	// Create dependencies
-	bw := infra.NewBwClient()
-	logger := infra.NewLogger()
+	bw := newBwClient()
+	logger := newLogger()
 
-	// Call core logic
-	sessions := infra.NewSessionStore()
+	sessions := newSessionStore()
 	items, err := core.ListDotenvsCore(
 		bw,
 		cfg,
-		utils.InputPassword,
+		inputPassword,
 		logger,
 		sessions,
 	)
 	if err != nil {
 		utils.Errorln("[ERROR]", err)
-		os.Exit(1)
+		exitFunc(1)
+		return
 	}
 
-	// Output item names (one per line)
 	if len(items) == 0 {
 		folderName := config.ResolveFolderName(cfg)
 		fmt.Printf("No items found in %s folder\n", folderName)
