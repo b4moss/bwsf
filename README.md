@@ -11,36 +11,11 @@ bwsf (Bitwarden Secured Files) is a CLI tool that uses [Bitwarden](https://bitwa
 
 [Official site](https://bwsf.oss.b4m.jp/)
 
-## 🚨🚨 BREAKING CHANGE 🚨🚨
+## 🚨🚨 Important notice 🚨🚨
 
-### Changed CLI Name
+Login to Bitwarden may fail on v0.17.0 and v0.17.1.
 
-From v0.11.0, `bwenv` is re-named as `bwsf`. This is cause some bwenv commands already existed. We decieded to change our CLI name to avoid confusing.
-
-#### MIGRATE
-
-Rename youre setting directory.
-
-```bash
-mv ~/.config/bwenv ~/.config/bwsf
-```
-
-Uninstall your current version, and re-install latest version.
-
-```bash
-brew uninstall bwenv
-brew install bwsf
-```
-
-### Multiple `.env.enviroment` files
-
-From v0.9.0, bwsf stores multiple enviroment .env files, like `.env | .env.staging | .env.production`.
-
-Cause with this, stored data at Bitwarden Note item structure is changed.
-
-Stored data before v0.8.0 is no compatiblity after v0.9.0.
-
-We will not provide migration system.
+If you are on the v0.17 line, please upgrade to v0.17.2 (released 2026-09-03 JST) or later.
 
 ## Overview
 
