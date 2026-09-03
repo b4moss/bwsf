@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"context"
 	"io"
 	"net/http"
 	"os"
@@ -181,7 +180,7 @@ func TestRunUnlock_FailedUnlockKeepsExistingBlob(t *testing.T) {
 	require.NoError(t, infra.SaveAPICredentials(store, config.DefaultHostID, infra.APICredentials{ClientID: "id", ClientSecret: "sec"}))
 	require.NoError(t, infra.SaveVaultUnlock(store, config.DefaultHostID, "keep-me"))
 
-	crypto := &infra.MockCryptoSession{UnlockErr: context.DeadlineExceeded}
+	crypto := &infra.MockCryptoSession{UnlockErr: assertErr("bad password")}
 	rec := stubCmdDeps(t, nil, nil)
 	newSecretStore = func() infra.SecretStore { return store }
 	newUnlockClient = func(cfg *config.Config, host *config.Host, s infra.SecretStore) unlockClient {
@@ -189,8 +188,6 @@ func TestRunUnlock_FailedUnlockKeepsExistingBlob(t *testing.T) {
 			HTTPClient: &http.Client{Transport: roundTripOK()},
 		}, crypto)
 	}
-	// Use a real error from UnlockWithPassword
-	crypto.UnlockErr = assertErr("bad password")
 
 	runUnlock(unlockCmd, nil)
 	assert.True(t, rec.called)

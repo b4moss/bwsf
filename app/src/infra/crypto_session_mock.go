@@ -78,6 +78,9 @@ func (m *MockCryptoSession) RestoreUnlockBlob(ctx context.Context, blob, serverU
 	if blob == "invalid" || strings.HasPrefix(blob, "bad:") {
 		return fmt.Errorf("invalid unlock blob")
 	}
+	if strings.HasPrefix(blob, "v") && !strings.HasPrefix(blob, "v1:") {
+		return fmt.Errorf("unknown unlock blob version")
+	}
 	m.unlocked = true
 	return nil
 }
