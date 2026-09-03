@@ -1,0 +1,6 @@
+{
+  // mixed JSONC features
+  "host_type": "cloud",
+  "selfhosted_url": "",
+  "email": "user@example.com", // trailing comma next
+}
