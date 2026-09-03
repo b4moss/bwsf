@@ -88,7 +88,7 @@ Step 4 の実装計画正本: [Issue #53 Step 4 実装計画](https://github.com
 |------|------|
 | [`config/project_local.md`](./config/project_local.md) | 探索・0/1/複数選択、`override_project_name`、`save_files`/`not_save_files`、core フィルタ |
 
-合意正本: [#133](https://github.com/b4moss/bwsf/issues/133)。キー命名は Issue コメントの決定。グローバル同系は [#177](https://github.com/b4moss/bwsf/issues/177)
+合意正本: [#133](https://github.com/b4moss/bwsf/issues/133)。グローバル同系（v0.20.0 多ホスト）は製品仕様 [`../specs/v0.20.0-multi-host.md`](../specs/v0.20.0-multi-host.md)（[#177](https://github.com/b4moss/bwsf/issues/177)）
 
 ## Issue #160 / v0.18.0 — coverage 75%+（Phase 2: `bw` 実行差し替え）
 
