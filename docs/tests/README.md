@@ -11,6 +11,7 @@
 |------|------|
 | [`core/`](./core/) | コア層（管理対象ファイル検出、push/pull/list/clean） |
 | [`cmd/`](./cmd/) | CLI コマンド層（cobra 登録・ユーザー向け出力契約） |
+| [`config/`](./config/) | 設定ファイル読み書き（グローバル config、JSONC 等） |
 | [`project/`](./project/) | プロジェクトルート／名前解決（`.git` 基準） |
 
 ## Issue #102 / v0.15.0 — `*.tfvars` 対応
@@ -37,3 +38,11 @@
 | [`project/git_root.md`](./project/git_root.md) | `.git` 有無・サブディレクトリ・フラグ有無での Name/Dir/Warn 振る舞い（現行との差分） |
 
 合意正本: [#134](https://github.com/b4moss/bwsf/issues/134)（Q1〜Q3, Q7）。`override_project_name` 実装は [#133](https://github.com/b4moss/bwsf/issues/133) へ先送り（空スロットのみ）
+
+## Issue #155 / v0.18.0 — 設定ファイルの JSONC 対応（hujson）
+
+| 文書 | 内容 |
+|------|------|
+| [`config/jsonc_load.md`](./config/jsonc_load.md) | `LoadConfig` の JSONC 読み込み、末尾カンマ、`SaveConfig` は strict JSON、Vault 対象外 |
+
+合意正本: [#155](https://github.com/b4moss/bwsf/issues/155)。`.jsonc` 拡張子・`.bwsf/` は [#133](https://github.com/b4moss/bwsf/issues/133)
