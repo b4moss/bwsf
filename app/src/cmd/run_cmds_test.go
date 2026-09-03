@@ -32,6 +32,7 @@ func stubCmdDeps(t *testing.T, bw core.BwClient, fs core.FileSystem) *exitRecord
 
 	origCheck := checkBwInstalled
 	origBw := newBwClient
+	origBwFromCfg := newBwClientFromConfig
 	origFS := newFileSystem
 	origLog := newLogger
 	origSess := newSessionStore
@@ -44,6 +45,7 @@ func stubCmdDeps(t *testing.T, bw core.BwClient, fs core.FileSystem) *exitRecord
 	checkBwInstalled = func() (bool, string) { return true, "/mock/bw" }
 	if bw != nil {
 		newBwClient = func() core.BwClient { return bw }
+		newBwClientFromConfig = func(cfg *config.Config) core.BwClient { return bw }
 	}
 	if fs != nil {
 		newFileSystem = func() core.FileSystem { return fs }
@@ -65,6 +67,7 @@ func stubCmdDeps(t *testing.T, bw core.BwClient, fs core.FileSystem) *exitRecord
 	t.Cleanup(func() {
 		checkBwInstalled = origCheck
 		newBwClient = origBw
+		newBwClientFromConfig = origBwFromCfg
 		newFileSystem = origFS
 		newLogger = origLog
 		newSessionStore = origSess
@@ -105,6 +108,12 @@ func chdirTempProject(t *testing.T) (dir, projectName string) {
 }
 
 func TestRunList_BwNotInstalled(t *testing.T) {
+	withTempHome(t)
+	require.NoError(t, config.SaveConfig(&config.Config{
+		HostType: "cloud",
+		Email:    "test@example.com",
+		Backend:  config.BackendBW,
+	}))
 	rec := stubCmdDeps(t, nil, nil)
 	checkBwInstalled = func() (bool, string) { return false, "" }
 

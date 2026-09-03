@@ -1,10 +1,10 @@
 package cmd
 
 import (
+	"fmt"
+
 	"bwsf/src/config"
 	"bwsf/src/core"
-	"bwsf/src/utils"
-	"fmt"
 
 	"github.com/spf13/cobra"
 )
@@ -21,24 +21,11 @@ func init() {
 }
 
 func runList(cmd *cobra.Command, args []string) {
-	installed, _ := checkBwInstalled()
-	if !installed {
-		utils.Errorln("[ERROR] ❌ bw command is not installed...")
-		exitFunc(1)
-		return
-	}
+	cfg := loadConfigOrEmpty()
+	requireBwCLIIfNeeded(cfg)
 
-	cfg, err := config.LoadConfig()
-	if err != nil {
-		utils.Errorln("[ERROR] Failed to load config:", err)
-		exitFunc(1)
-		return
-	}
-	if cfg == nil {
-		cfg = &config.Config{}
-	}
-
-	bw := newBwClient()
+	bw := newBwClientFromConfig(cfg)
+	defer clearAPISession(bw)
 	logger := newLogger()
 
 	sessions := newSessionStore()
@@ -50,7 +37,7 @@ func runList(cmd *cobra.Command, args []string) {
 		sessions,
 	)
 	if err != nil {
-		utils.Errorln("[ERROR]", err)
+		reportCommandError(err)
 		exitFunc(1)
 		return
 	}

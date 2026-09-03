@@ -26,6 +26,8 @@ Simple usage below:
 | command | |
 |----|----|
 | bwsf setup | Configure Bitwarden host and account |
+| bwsf auth | Store Personal API Key and authenticate (`api` backend) |
+| bwsf backend | Show or set Bitwarden backend (`bw` CLI or `api`) |
 | bwsf config show | Show current local configuration |
 | bwsf push | Push managed files to your Bitwarden host |
 | bwsf pull | Pull managed files from your Bitwarden host |
@@ -40,11 +42,25 @@ This project migrates our hand-maded shell scripts to modern CLI command with Go
 
 ## Requirements
 
-**`bw`** command is needed to be installed your machine.
+### Default backend (`api`)
 
-[To install bw command, please read this document.](https://bitwarden.com/help/cli/#download-and-install)
+No Bitwarden CLI (`bw`) install is required when using the default **API** backend.
 
-**Homebrew**: Need to install bwsf.
+You need:
+
+- A Bitwarden account (Cloud or self-hosted / Vaultwarden)
+- A **Personal API Key** (Account Settings → Security → Keys)
+- OS secret store access (**macOS Keychain** / **Linux secret service**) for storing the API key
+
+### Optional backend (`bw`)
+
+If you switch with `bwsf backend --set bw`, the **`bw`** CLI must be installed.
+
+[Install bw](https://bitwarden.com/help/cli/#download-and-install)
+
+### Homebrew
+
+Homebrew is used to install bwsf itself.
 
 ### Machine OS
 
@@ -137,6 +153,42 @@ bwsf clean
 ```
 
 Removes local managed files after verifying the remote Bitwarden backup.
+
+### Show or set Bitwarden backend
+
+```shell
+bwsf backend
+bwsf backend --set api
+bwsf backend --set bw
+```
+
+Default backend is **`api`** (Personal API Key + in-process vault unlock). The `bw` backend remains available for migration or preference.
+
+### API backend (recommended)
+
+Typical flow without installing the Bitwarden CLI:
+
+```shell
+bwsf setup                 # host type / URL / email (+ optional folder)
+bwsf auth                  # store Personal API Key; obtain Identity token
+bwsf push                  # prompts master password to unlock, then syncs
+bwsf pull
+bwsf list
+```
+
+`bwsf auth` prompts for `client_id` / `client_secret`, stores them in the OS secret store (**macOS Keychain** / **Linux secret service**), and obtains an Identity access token (kept in memory for the process). Use `bwsf auth --clear` to remove the stored key.
+
+Create a Personal API Key in the Bitwarden web vault under Account Settings → Security → Keys.
+
+On each `push` / `pull` / `list`, bwsf prompts for your **master password** to unlock vault keys in memory, then discards keys and tokens when the command exits.
+
+Caveat: unlock uses the Community SDK password-login path with config email + master password for key material. Identity Personal API Key tokens remain separate.
+
+If you previously relied on an unset `backend` field meaning `bw`, set it explicitly:
+
+```shell
+bwsf backend --set bw
+```
 
 ## Uninstall
 

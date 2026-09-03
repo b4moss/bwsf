@@ -126,8 +126,33 @@ func IsLockedError(err error) bool {
 		strings.Contains(errMsg, "Vault is locked")
 }
 
+// IsNotAuthenticatedError は API 未認証（bwsf auth が必要）かを判定します。
+func IsNotAuthenticatedError(err error) bool {
+	if err == nil {
+		return false
+	}
+	if strings.Contains(err.Error(), "API backend is not authenticated") {
+		return true
+	}
+	return false
+}
+
+// IsNotUnlockedError は復号鍵が無い／unlock が必要かを判定します。
+func IsNotUnlockedError(err error) bool {
+	if err == nil {
+		return false
+	}
+	if IsLockedError(err) {
+		return true
+	}
+	errMsg := err.Error()
+	return strings.Contains(errMsg, "API vault is locked") ||
+		strings.Contains(errMsg, "Enter your master password to unlock")
+}
+
 // WithUnlockRetry は Bitwarden がロックされている場合に Unlock/Login を挟んでリトライする共通処理です。
 // SessionStore がある場合、BW_SESSION の自動 restore / save を行います（#130）。
+// 認証切れはパスワードでは回復できないため、プロンプトせずそのまま返します。
 func WithUnlockRetry(
 	bw BwClient,
 	cfg *config.Config,
@@ -155,7 +180,11 @@ func WithUnlockRetry(
 		return nil
 	}
 
-	if !IsLockedError(err) {
+	if IsNotAuthenticatedError(err) {
+		return err
+	}
+
+	if !IsNotUnlockedError(err) {
 		return err
 	}
 
@@ -167,7 +196,7 @@ func WithUnlockRetry(
 		_ = os.Unsetenv("BW_SESSION")
 	}
 
-	logger.Info("Bitwarden CLI is locked. Please enter your master password to unlock.")
+	logger.Info("Vault is locked. Please enter your master password to unlock.")
 
 	password, promptErr := promptPassword()
 	if promptErr != nil {
@@ -176,14 +205,19 @@ func WithUnlockRetry(
 
 	unlockErr := bw.Unlock(password)
 	if unlockErr == nil {
-		logger.Info("Bitwarden CLI unlocked successfully")
+		logger.Info("Vault unlocked successfully")
 		persistSession(sessions, logger)
 		return fn()
 	}
 
+	// bw 経路互換: Unlock 失敗後に Login → Unlock
 	if cfg != nil && cfg.Email != "" {
 		loginErr := bw.Login(cfg.Email, password, cfg.SelfhostedURL)
 		if loginErr != nil {
+			// api Login は API Key 認証なので、ここでの失敗は認証切れとして返す
+			if IsNotAuthenticatedError(loginErr) {
+				return loginErr
+			}
 			return fmt.Errorf("failed to login Bitwarden CLI: %w", loginErr)
 		}
 		logger.Info("Bitwarden CLI logged in successfully")
@@ -191,21 +225,21 @@ func WithUnlockRetry(
 		// bw login --raw（および already-logged-in 時の unlock）は BW_SESSION を設定する。
 		// 続けて Unlock すると既存セッションが無効化され、失敗時にロック状態へ戻る。
 		if strings.TrimSpace(os.Getenv("BW_SESSION")) != "" {
-			logger.Info("Bitwarden CLI unlocked successfully")
+			logger.Info("Vault unlocked successfully")
 			persistSession(sessions, logger)
 			return fn()
 		}
 
 		unlockErr = bw.Unlock(password)
 		if unlockErr != nil {
-			return fmt.Errorf("failed to unlock Bitwarden CLI after login: %w", unlockErr)
+			return fmt.Errorf("failed to unlock after login: %w", unlockErr)
 		}
-		logger.Info("Bitwarden CLI unlocked successfully")
+		logger.Info("Vault unlocked successfully")
 		persistSession(sessions, logger)
 		return fn()
 	}
 
-	return fmt.Errorf("failed to unlock Bitwarden CLI: %w", unlockErr)
+	return fmt.Errorf("failed to unlock vault: %w", unlockErr)
 }
 
 // persistSession はプロセス内の BW_SESSION を SessionStore へ保存します（失敗は非致命）。
@@ -712,6 +746,138 @@ func ListDotenvsCore(
 	return items, nil
 }
 
+// collectHostEmailConfig prompts for host type, optional self-hosted URL, and email.
+func collectHostEmailConfig(
+	selectHostType func() (string, error),
+	inputURL func() (string, error),
+	inputEmail func() (string, error),
+) (hostType, selfhostedURL, email string, err error) {
+	hostType, err = selectHostType()
+	if err != nil {
+		return "", "", "", fmt.Errorf("failed to select host type: %w", err)
+	}
+
+	if hostType == "selfhosted" {
+		selfhostedURL, err = inputURL()
+		if err != nil {
+			return "", "", "", fmt.Errorf("failed to get URL: %w", err)
+		}
+		if strings.TrimSpace(selfhostedURL) == "" {
+			return "", "", "", fmt.Errorf("self-hosted URL cannot be empty")
+		}
+	}
+
+	email, err = inputEmail()
+	if err != nil {
+		return "", "", "", fmt.Errorf("failed to get email: %w", err)
+	}
+	if strings.TrimSpace(email) == "" {
+		return "", "", "", fmt.Errorf("email cannot be empty")
+	}
+
+	return hostType, selfhostedURL, email, nil
+}
+
+// preserveSetupFields copies fields that setup must not wipe (backend, device id, folder).
+func preserveSetupFields(newConfig, existing *config.Config) {
+	if existing == nil {
+		return
+	}
+	newConfig.Backend = existing.Backend
+	newConfig.DeviceIdentifier = existing.DeviceIdentifier
+	if newConfig.FolderName == "" {
+		newConfig.FolderName = existing.FolderName
+	}
+}
+
+// SetupAPIConfigCore configures host/email for the API backend without Login.
+// Authentication is performed separately via `bwsf auth`.
+// Folder creation is handled by EnsureConfiguredFolderCore after auth/unlock is available.
+func SetupAPIConfigCore(
+	logger Logger,
+	selectHostType func() (string, error),
+	inputURL func() (string, error),
+	inputEmail func() (string, error),
+) error {
+	existingConfig, err := config.LoadConfig()
+	if err != nil {
+		return fmt.Errorf("failed to load existing config: %w", err)
+	}
+	if existingConfig != nil {
+		logger.Info("Existing configuration found. Host/email settings will be updated.")
+	}
+
+	hostType, selfhostedURL, email, err := collectHostEmailConfig(selectHostType, inputURL, inputEmail)
+	if err != nil {
+		return err
+	}
+
+	newConfig := &config.Config{
+		HostType:      hostType,
+		SelfhostedURL: selfhostedURL,
+		Email:         email,
+		Backend:       config.BackendAPI,
+	}
+	preserveSetupFields(newConfig, existingConfig)
+	// Ensure API backend remains selected even when no prior config existed.
+	if newConfig.Backend == "" {
+		newConfig.Backend = config.BackendAPI
+	}
+
+	if err := config.SaveConfig(newConfig); err != nil {
+		return fmt.Errorf("failed to save configuration: %w", err)
+	}
+
+	logger.Info("Configuration saved. Run `bwsf auth` to authenticate with a Personal API Key.")
+	return nil
+}
+
+// EnsureConfiguredFolderCore checks the configured Bitwarden folder and optionally creates it.
+// Does not auto-create from push/pull/list; intended for setup flows (bw and api).
+func EnsureConfiguredFolderCore(
+	bw BwClient,
+	cfg *config.Config,
+	logger Logger,
+	promptPassword func() (string, error),
+	confirmCreateFolder func() (bool, error),
+) error {
+	if bw == nil {
+		return fmt.Errorf("bitwarden client is required")
+	}
+	resolvedFolder := config.ResolveFolderName(cfg)
+
+	var exists bool
+	err := WithUnlockRetry(bw, cfg, promptPassword, logger, nil, func() error {
+		var innerErr error
+		exists, innerErr = bw.DotenvsFolderExists()
+		return innerErr
+	})
+	if err != nil {
+		return fmt.Errorf("failed to check %s folder: %w", resolvedFolder, err)
+	}
+	if exists {
+		return nil
+	}
+
+	confirmed, confirmErr := confirmCreateFolder()
+	if confirmErr != nil {
+		return fmt.Errorf("failed to confirm folder creation: %w", confirmErr)
+	}
+	if !confirmed {
+		logger.Info(resolvedFolder, " folder was not created")
+		return nil
+	}
+
+	err = WithUnlockRetry(bw, cfg, promptPassword, logger, nil, func() error {
+		return bw.CreateDotenvsFolder()
+	})
+	if err != nil {
+		return fmt.Errorf("failed to create %s folder: %w", resolvedFolder, err)
+	}
+	logger.Info(resolvedFolder, " folder created successfully")
+	return nil
+}
+
 // SetupBitwardenCore は Bitwarden のセットアップを行うコアロジックです。
 func SetupBitwardenCore(
 	fs FileSystem,
@@ -732,25 +898,9 @@ func SetupBitwardenCore(
 		logger.Info("Existing configuration found. It will be overwritten.")
 	}
 
-	// ホストタイプを選択
-	hostType, err := selectHostType()
+	hostType, selfhostedURL, email, err := collectHostEmailConfig(selectHostType, inputURL, inputEmail)
 	if err != nil {
-		return fmt.Errorf("failed to select host type: %w", err)
-	}
-
-	// Self-hosted の場合は URL を入力
-	var selfhostedURL string
-	if hostType == "selfhosted" {
-		selfhostedURL, err = inputURL()
-		if err != nil {
-			return fmt.Errorf("failed to get URL: %w", err)
-		}
-	}
-
-	// メールアドレスを入力
-	email, err := inputEmail()
-	if err != nil {
-		return fmt.Errorf("failed to get email: %w", err)
+		return err
 	}
 
 	// パスワードを入力
@@ -764,7 +914,7 @@ func SetupBitwardenCore(
 		return fmt.Errorf("failed to login: %w", err)
 	}
 
-	// 設定を保存（folder_name は既存値を維持。setup --folder で事前保存された値を含む）
+	// 設定を保存（folder_name / backend / device_identifier は既存値を維持）
 	folderName := ""
 	if existingConfig != nil {
 		folderName = existingConfig.FolderName
@@ -775,6 +925,7 @@ func SetupBitwardenCore(
 		Email:         email,
 		FolderName:    folderName,
 	}
+	preserveSetupFields(newConfig, existingConfig)
 	if err := config.SaveConfig(newConfig); err != nil {
 		return fmt.Errorf("failed to save configuration: %w", err)
 	}
