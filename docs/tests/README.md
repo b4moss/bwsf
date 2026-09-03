@@ -110,6 +110,14 @@ Step 4 の実装計画正本: [Issue #53 Step 4 実装計画](https://github.com
 | [`config/host_resolve.md`](./config/host_resolve.md) | §1.1 解決順、`push`/`pull`/`list`/`clean` の `--host` |
 | [`cmd/setup_v2.md`](./cmd/setup_v2.md) | setup の host スキップ／既存 host 操作／`save_files` 対話、bw setup 廃止 |
 
+## Issue #193 / v0.20.0 — `bwsf init`（§5）
+
+製品正本: [`../specs/v0.20.0-multi-host.md`](../specs/v0.20.0-multi-host.md) §5。前提は #177（グローバル設定ファイル。`hosts: []` 可）。
+
+| 文書 | 内容 |
+|------|------|
+| [`cmd/init.md`](./cmd/init.md) | `bwsf init` 対話、`.bwsf/config.jsonc` 生成、host / save_files / override、上書きと `--yes` |
+
 ### 旧テスト仕様との関係（v0.20 実装時）
 
 | 旧文書 | 扱い |

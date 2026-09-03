@@ -76,7 +76,7 @@ Issue: [#177](https://github.com/b4moss/bwsf/issues/177)
 
 - Keychain の host 単位キー（#153）
 - auth / unlock の CLI 登録（#174 / #153）
-- `bwsf init` が書くプロジェクト `host`（#193）。本仕様は「読んだときの解決」のみ
+- `bwsf init` が書くプロジェクト `host` → [`../cmd/init.md`](../cmd/init.md)（#193）。本仕様は「読んだときの解決」のみ
 
 ---
 
