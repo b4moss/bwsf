@@ -1,9 +1,11 @@
 # cmd: `bwsf config show`（Issue #125 / v0.15.0）
 
+> **v0.20.0 / #177:** 表示対象フィールド（hosts / save_files 等）は [`../config/global_v2.md`](../config/global_v2.md) §5 が優先。本文書の **親 `config` + 子 `show`・未設定エラー・読み取り専用** は維持。
+
 対象パッケージ: `app/src/cmd`（必要なら薄い表示整形を `app/src/config` に置く）  
 Issue: [#125](https://github.com/b4moss/bwsf/issues/125) — 現在の config 値を確認するコマンド。
 
-関連: 既存 `LoadConfig` / `Config` / `ResolveFolderName`（`docs/TEST.md` §6、`app/src/config`）。
+関連: 既存 `LoadConfig` / `Config` / `ResolveFolderName`（`docs/TEST.md` §6、`app/src/config`）。v0.20: [`../config/global_v2.md`](../config/global_v2.md)。
 
 ---
 
