@@ -39,10 +39,14 @@ func stubCmdDeps(t *testing.T, bw core.BwClient, fs core.FileSystem) *exitRecord
 	origSess := newSessionStore
 	origStore := newSecretStore
 	origUnlock := newUnlockClient
+	origAuth := newAuthClient
 	origExit := exitFunc
 	origConfirm := confirmOverwrite
 	origSelect := selectCleanMismatch
 	origPass := inputPassword
+	origReuse := confirmAPIKeyReuse
+	origCID := inputAPIClientID
+	origCSec := inputAPIClientSecret
 
 	rec := &exitRecorder{}
 	checkBwInstalled = func() (bool, string) { return true, "/mock/bw" }
@@ -67,6 +71,9 @@ func stubCmdDeps(t *testing.T, bw core.BwClient, fs core.FileSystem) *exitRecord
 	selectCleanMismatch = func(mismatchedFiles []string) (string, error) {
 		return utils.CleanMismatchAbort, nil
 	}
+	confirmAPIKeyReuse = func(string) (bool, error) { return false, nil }
+	inputAPIClientID = func() (string, error) { return "test.client.id", nil }
+	inputAPIClientSecret = func() (string, error) { return "test-client-secret", nil }
 
 	t.Cleanup(func() {
 		checkBwInstalled = origCheck
@@ -78,10 +85,14 @@ func stubCmdDeps(t *testing.T, bw core.BwClient, fs core.FileSystem) *exitRecord
 		newSessionStore = origSess
 		newSecretStore = origStore
 		newUnlockClient = origUnlock
+		newAuthClient = origAuth
 		exitFunc = origExit
 		confirmOverwrite = origConfirm
 		selectCleanMismatch = origSelect
 		inputPassword = origPass
+		confirmAPIKeyReuse = origReuse
+		inputAPIClientID = origCID
+		inputAPIClientSecret = origCSec
 	})
 	return rec
 }

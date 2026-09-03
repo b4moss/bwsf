@@ -9,8 +9,10 @@
 
 | コマンド | 役割 | 主なフラグ |
 |---|---|---|
-| `bwsf setup` | ホスト / グローバル `save_files` 設定（Login なし。認証は `auth`） | `--folder` `--host-type` `--url` `--email` `--skip-host` `--save-files` `--yes` |
-| `bwsf auth` | Personal API Key の保存・認証 | `--clear` `--host` |
+| `bwsf setup` | ホスト / グローバル `save_files` 設定（Login なし。認証は `auth login`） | `--folder` `--host-type` `--url` `--email` `--skip-host` `--save-files` `--yes` |
+| `bwsf auth` | サブコマンド親（引数なしはヘルプのみ） | （なし） |
+| `bwsf auth login` | Personal API Key 保存 → Identity 確認 → unlock まで一気通貫 | `--host` |
+| `bwsf auth logout` | API Key + `vault_unlock` を削除 | `--host` `--all` |
 | `bwsf unlock` | 解決 host の vault セッションを Unlock し `vault_unlock` を Keychain に保存 | `--host` |
 | `bwsf lock` | 解決 host の `vault_unlock` を削除（API Key は残す） | `--host` `--all` |
 | `bwsf config show` | ローカル設定（`~/.config/bwsf/config.jsonc`）の表示 | （なし） |

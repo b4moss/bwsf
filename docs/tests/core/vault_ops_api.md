@@ -62,7 +62,7 @@
 ### WithAuthAndUnlockRetry との組み合わせ（退行）
 
 - api で vault が実装されたあと、未 unlock エラーは従来どおり MP → Unlock → 再実行。
-- 認証切れは `bwsf auth` 案内のまま（Step 3）。
+- 認証切れは `bwsf auth login` 案内のまま（Step 3 / #174）。
 - vault 業務エラー（not found / 競合 / 同名複数）で Unlock 再試行ループに入らない。
 
 #### テスト：正常系

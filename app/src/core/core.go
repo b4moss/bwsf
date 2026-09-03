@@ -126,7 +126,7 @@ func IsLockedError(err error) bool {
 		strings.Contains(errMsg, "Vault is locked")
 }
 
-// IsNotAuthenticatedError は API 未認証（bwsf auth が必要）かを判定します。
+// IsNotAuthenticatedError は API 未認証（bwsf auth login が必要）かを判定します。
 func IsNotAuthenticatedError(err error) bool {
 	if err == nil {
 		return false
@@ -911,7 +911,7 @@ func UpsertDefaultHost(cfg *config.Config, host config.Host) {
 }
 
 // SetupAPIConfigCore configures a default host (type/url/email) without Login.
-// Authentication is performed separately via `bwsf auth`.
+// Authentication is performed separately via `bwsf auth login`.
 // Folder creation is handled by EnsureConfiguredFolderCore after auth/unlock is available.
 func SetupAPIConfigCore(
 	logger Logger,
@@ -975,7 +975,7 @@ func SetupAPIConfigCoreWithFolder(
 		return fmt.Errorf("failed to save configuration: %w", err)
 	}
 
-	logger.Info("Configuration saved. Run `bwsf auth` to authenticate with a Personal API Key.")
+	logger.Info("Configuration saved. Run `bwsf auth login` to authenticate with a Personal API Key.")
 	return nil
 }
 
@@ -1041,7 +1041,7 @@ func SetupBitwardenCore(
 ) error {
 	_, _, _, _, _, _, _ = fs, bw, logger, selectHostType, inputURL, inputEmail, inputPassword
 	_ = confirmCreateFolder
-	return fmt.Errorf("bw CLI setup path removed; v0.20+ uses API only — run `bwsf setup` then `bwsf auth`")
+	return fmt.Errorf("bw CLI setup path removed; v0.20+ uses API only — run `bwsf setup` then `bwsf auth login`")
 }
 
 // parseEnvContent は .env ファイルの内容をパースします。

@@ -27,7 +27,8 @@ bwsf は Bitwarden 上でプロジェクトファイル（`.env*` / `*.tfvars` /
 | コマンド | |
 |----|----|
 | bwsf setup | ホストとグローバル `save_files` の設定（API のみ） |
-| bwsf auth | Personal API Key の保存と認証 |
+| bwsf auth login | API Key 保存 → Identity 確認 → unlock |
+| bwsf auth logout | API Key と vault セッションを削除 |
 | bwsf config show | 現在のローカル設定を表示 |
 | bwsf push | 管理対象ファイルを Bitwarden ホストにプッシュ |
 | bwsf pull | Bitwarden ホストから管理対象ファイルをプル |
@@ -147,17 +148,17 @@ bwsf clean
 
 ```shell
 bwsf setup                 # ホスト + 任意の save_files（＋任意で folder）
-bwsf auth                  # Personal API Key を保存し Identity トークン取得
-bwsf push                  # マスターパスワードで unlock して同期
+bwsf auth login            # Personal API Key を保存し vault を unlock（vault_unlock）
+bwsf push                  # vault_unlock があれば restore、なければ MP プロンプト
 bwsf pull
 bwsf list
 ```
 
-`bwsf auth` は `client_id` / `client_secret` の入力を求め、OS の秘密保管（**macOS Keychain** / **Linux secret service**）に保存し、Identity のアクセストークンを取得します（トークンはプロセスのメモリ上のみ）。削除は `bwsf auth --clear` です。
+`bwsf auth login` は `client_id` / `client_secret` の入力を求め、OS の秘密保管（**macOS Keychain** / **Linux secret service**）に保存し、Identity を確認したうえで vault を unlock して `vault_unlock` を残します。削除は `bwsf auth logout`（API Key + セッション）。セッションのみ消す場合は `bwsf lock`。引数なしの `bwsf auth` はヘルプのみです。
 
 Personal API Key は Bitwarden Web 保管庫の アカウント設定 → セキュリティ → キー から作成できます。
 
-`push` / `pull` / `list` のたびに **マスターパスワード** の入力を求め、メモリ上でボルト鍵を復元し、コマンド終了時に鍵・トークンを破棄します。
+`push` / `pull` / `list` は `vault_unlock` があれば restore し、無ければ **マスターパスワード** を求め、コマンド終了時にメモリ上の鍵・トークンを破棄します。
 
 補足: unlock は Community SDK のパスワード login 経路（config の email + マスターパスワード）で鍵を復元します。Identity の Personal API Key トークンとは別管理です。
 

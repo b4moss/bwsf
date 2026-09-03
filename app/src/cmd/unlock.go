@@ -19,7 +19,7 @@ var unlockCmd = &cobra.Command{
 	Long: `Unlock the Bitwarden vault for the resolved host and persist an opaque
 session blob in the OS secret store (vault_unlock).
 
-This does not store or change Personal API Keys — use bwsf auth for that.
+This does not store or change Personal API Keys — use bwsf auth login / logout for that.
 Host resolution: --host → project .bwsf host → global is_default.`,
 	Run: runUnlock,
 }
@@ -42,7 +42,7 @@ func runUnlock(cmd *cobra.Command, args []string) {
 	if err != nil {
 		if errors.Is(err, infra.ErrSecretNotFound) {
 			utils.Errorln("[ERROR] No Personal API Key stored for host", host.ID)
-			utils.Infoln("[INFO] Run: bwsf auth")
+			utils.Infoln("[INFO] Run: bwsf auth login")
 			exitFunc(1)
 			return
 		}
@@ -51,22 +51,10 @@ func runUnlock(cmd *cobra.Command, args []string) {
 		return
 	}
 
-	password, err := inputPassword()
-	if err != nil {
-		utils.Errorln("[ERROR]", err)
-		exitFunc(1)
-		return
-	}
-	if password == "" {
-		utils.Errorln("[ERROR] master password cannot be empty")
-		exitFunc(1)
-		return
-	}
-
 	client := newUnlockClient(cfg, host, store)
 	defer client.ClearSession()
 
-	if err := client.Unlock(password); err != nil {
+	if err := unlockVaultForHost(client); err != nil {
 		utils.Errorln("[ERROR]", err)
 		exitFunc(1)
 		return
@@ -74,6 +62,19 @@ func runUnlock(cmd *cobra.Command, args []string) {
 
 	utils.Successln("[INFO] ✅ Vault unlocked for host " + host.ID)
 	utils.Infoln("[INFO] Session persisted in OS secret store until bwsf lock (or auth logout)")
+}
+
+// unlockVaultForHost prompts for the master password and unlocks via client.
+// Caller owns ClearSession (defer). Does not print success messages.
+func unlockVaultForHost(client unlockClient) error {
+	password, err := inputPassword()
+	if err != nil {
+		return err
+	}
+	if password == "" {
+		return errors.New("master password cannot be empty")
+	}
+	return client.Unlock(password)
 }
 
 // loadProjectHostID returns project config host id when present (non-interactive).
