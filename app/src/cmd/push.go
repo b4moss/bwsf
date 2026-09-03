@@ -2,10 +2,7 @@ package cmd
 
 import (
 	"bwsf/src/core"
-	"bwsf/src/infra"
 	"bwsf/src/utils"
-	"os"
-	"path/filepath"
 
 	"github.com/spf13/cobra"
 )
@@ -26,59 +23,53 @@ func runPush(cmd *cobra.Command, args []string) {
 	cfg := loadConfigOrEmpty()
 	requireBwCLIIfNeeded(cfg)
 
-	// Get --from flag value
-	fromDir, err := cmd.Flags().GetString("from")
+	projectName, fromDir, filter, err := resolveProjectAndFileDir(cmd, "from")
 	if err != nil {
-		utils.Errorln("[ERROR] Failed to get --from flag:", err)
-		os.Exit(1)
+		utils.Errorln("[ERROR] Failed to resolve project directory:", err)
+		exitFunc(1)
+		return
 	}
 
-	// Get current working directory name as project name
-	wd, err := os.Getwd()
-	if err != nil {
-		utils.Errorln("[ERROR] Failed to get current working directory:", err)
-		os.Exit(1)
-	}
-	projectName := filepath.Base(wd)
-
-	// Create dependencies
 	bw := newBwClientFromConfig(cfg)
 	defer clearAPISession(bw)
-	fs := infra.NewFileSystem()
-	logger := infra.NewLogger()
+	fs := newFileSystem()
+	logger := newLogger()
 
-	// Get list of env files to be pushed
-	envFiles, err := core.GetPushedEnvFiles(fromDir, fs)
+	envFiles, err := core.GetPushedEnvFiles(fromDir, filter, fs)
 	if err != nil {
-		utils.Errorln("[ERROR] Failed to find .env files:", err)
-		os.Exit(1)
+		utils.Errorln("[ERROR] Failed to find managed files:", err)
+		exitFunc(1)
+		return
 	}
 
 	if len(envFiles) == 0 {
-		utils.Errorln("[ERROR] No .env files found")
-		os.Exit(1)
+		utils.Errorln("[ERROR] No managed files found")
+		exitFunc(1)
+		return
 	}
 
-	// Display files to be pushed
-	utils.Infoln("[INFO] Found", len(envFiles), "env file(s) to push:")
+	utils.Infoln("[INFO] Found", len(envFiles), "managed file(s) to push:")
 	for _, f := range envFiles {
 		utils.Infoln("  -", f)
 	}
 
-	// Call core logic
+	sessions := newSessionStore()
 	err = core.PushEnvCore(
 		fromDir,
 		projectName,
+		filter,
 		fs,
 		bw,
 		cfg,
-		utils.InputPassword,
+		inputPassword,
 		logger,
+		sessions,
 	)
 	if err != nil {
 		reportCommandError(err)
-		os.Exit(1)
+		exitFunc(1)
+		return
 	}
 
-	utils.Successln("[INFO] ✅", len(envFiles), "env file(s) pushed successfully!")
+	utils.Successln("[INFO] ✅", len(envFiles), "managed file(s) pushed successfully!")
 }

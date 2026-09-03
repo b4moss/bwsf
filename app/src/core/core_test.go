@@ -157,6 +157,10 @@ type mockFileSystem struct {
 	writtenFiles map[string][]byte // 複数ファイル用
 	writeErr     error
 
+	// Remove の挙動制御
+	removedFiles []string
+	removeErr    error
+
 	// Stat の挙動制御
 	statInfo    FileInfo
 	statInfoMap map[string]FileInfo // ファイルパスごとの情報
@@ -200,6 +204,15 @@ func (m *mockFileSystem) WriteFile(path string, data []byte, perm uint32) error 
 	}
 	m.writtenFiles[path] = data
 	return m.writeErr
+}
+
+func (m *mockFileSystem) Remove(path string) error {
+	m.calls = append(m.calls, fmt.Sprintf("Remove(%s)", path))
+	m.removedFiles = append(m.removedFiles, path)
+	if m.readContentMap != nil {
+		delete(m.readContentMap, path)
+	}
+	return m.removeErr
 }
 
 func (m *mockFileSystem) Stat(path string) (FileInfo, error) {
@@ -293,6 +306,7 @@ func TestWithUnlockRetry_SuccessWithoutRetry(t *testing.T) {
 			return "", errors.New("prompt should not be called")
 		},
 		logger,
+		nil,
 		fn,
 	)
 
@@ -326,6 +340,7 @@ func TestWithUnlockRetry_LockThenUnlockSuccess(t *testing.T) {
 			return "password123", nil
 		},
 		logger,
+		nil,
 		fn,
 	)
 
@@ -353,6 +368,7 @@ func TestWithUnlockRetry_NonLockErrorPropagates(t *testing.T) {
 			return "pwd", nil
 		},
 		logger,
+		nil,
 		fn,
 	)
 
@@ -378,6 +394,7 @@ func TestWithUnlockRetry_NotAuthenticatedNoPrompt(t *testing.T) {
 			return "pwd", nil
 		},
 		logger,
+		nil,
 		func() error { return authErr },
 	)
 
@@ -399,6 +416,7 @@ func TestWithUnlockRetry_APINotUnlockedThenSuccess(t *testing.T) {
 		cfg,
 		func() (string, error) { return "pwd", nil },
 		logger,
+		nil,
 		func() error {
 			callCount++
 			if callCount == 1 {
@@ -437,6 +455,7 @@ func TestWithUnlockRetry_PromptPasswordError(t *testing.T) {
 			return "", promptErr
 		},
 		logger,
+		nil,
 		fn,
 	)
 
@@ -468,6 +487,7 @@ func TestWithUnlockRetry_UnlockAndLoginBothFail(t *testing.T) {
 			return "password", nil
 		},
 		logger,
+		nil,
 		fn,
 	)
 
@@ -501,11 +521,13 @@ func TestPushEnvCore_CreateNewItem(t *testing.T) {
 	err := PushEnvCore(
 		".",
 		"my-project",
+		ManagedFileFilter{},
 		fs,
 		bw,
 		cfg,
 		func() (string, error) { return "pwd", nil },
 		logger,
+		nil,
 	)
 
 	assert.NoError(t, err)
@@ -534,11 +556,13 @@ func TestPushEnvCore_UpdateExistingItem(t *testing.T) {
 	err := PushEnvCore(
 		".",
 		"my-project",
+		ManagedFileFilter{},
 		fs,
 		bw,
 		cfg,
 		func() (string, error) { return "pwd", nil },
 		logger,
+		nil,
 	)
 
 	assert.NoError(t, err)
@@ -565,11 +589,13 @@ func TestPushEnvCore_OnlyEnvLocal(t *testing.T) {
 	err := PushEnvCore(
 		".",
 		"my-project",
+		ManagedFileFilter{},
 		fs,
 		bw,
 		cfg,
 		func() (string, error) { return "pwd", nil },
 		logger,
+		nil,
 	)
 
 	assert.NoError(t, err)
@@ -587,16 +613,16 @@ func TestPushEnvCore_EnvFileNotFound(t *testing.T) {
 
 	err := PushEnvCore(
 		"/some/path", // "." でも ".." でもないのでフォールバックしない
-		"my-project",
-		fs,
+		"my-project", ManagedFileFilter{}, fs,
 		bw,
 		cfg,
 		func() (string, error) { return "pwd", nil },
 		logger,
+		nil,
 	)
 
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "no .env files found")
+	assert.Contains(t, err.Error(), "no managed files found")
 }
 
 // 異常系: GetDotenvsFolderID がエラーを返す
@@ -618,11 +644,13 @@ func TestPushEnvCore_GetFolderIDError(t *testing.T) {
 	err := PushEnvCore(
 		".",
 		"my-project",
+		ManagedFileFilter{},
 		fs,
 		bw,
 		cfg,
 		func() (string, error) { return "pwd", nil },
 		logger,
+		nil,
 	)
 
 	assert.Error(t, err)
@@ -650,11 +678,13 @@ func TestPushEnvCore_CreateItemError(t *testing.T) {
 	err := PushEnvCore(
 		".",
 		"my-project",
+		ManagedFileFilter{},
 		fs,
 		bw,
 		cfg,
 		func() (string, error) { return "pwd", nil },
 		logger,
+		nil,
 	)
 
 	assert.Error(t, err)
@@ -686,6 +716,7 @@ func TestPullEnvCore_CreateNewEnvFile(t *testing.T) {
 		func() (string, error) { return "pwd", nil },
 		func(path string) (bool, error) { return true, nil },
 		logger,
+		nil,
 	)
 
 	assert.NoError(t, err)
@@ -714,6 +745,7 @@ func TestPullEnvCore_CreateOutputDirectory(t *testing.T) {
 		func() (string, error) { return "pwd", nil },
 		func(path string) (bool, error) { return true, nil },
 		logger,
+		nil,
 	)
 
 	assert.NoError(t, err)
@@ -742,6 +774,7 @@ func TestPullEnvCore_CurrentDirOutputDir(t *testing.T) {
 		func() (string, error) { return "pwd", nil },
 		func(path string) (bool, error) { return true, nil },
 		logger,
+		nil,
 	)
 
 	assert.NoError(t, err)
@@ -768,6 +801,7 @@ func TestPullEnvCore_ItemNotFound(t *testing.T) {
 		func() (string, error) { return "pwd", nil },
 		func(path string) (bool, error) { return true, nil },
 		logger,
+		nil,
 	)
 
 	assert.Error(t, err)
@@ -795,6 +829,7 @@ func TestPullEnvCore_OverwriteCancelled(t *testing.T) {
 		func() (string, error) { return "pwd", nil },
 		func(path string) (bool, error) { return false, nil }, // キャンセル
 		logger,
+		nil,
 	)
 
 	// キャンセルの場合はエラーなしで終了
@@ -826,6 +861,7 @@ func TestPullEnvCore_InvalidJSON(t *testing.T) {
 		func() (string, error) { return "pwd", nil },
 		func(path string) (bool, error) { return true, nil },
 		logger,
+		nil,
 	)
 
 	assert.Error(t, err)
@@ -854,6 +890,7 @@ func TestListDotenvsCore_ReturnsItems(t *testing.T) {
 		cfg,
 		func() (string, error) { return "pwd", nil },
 		logger,
+		nil,
 	)
 
 	assert.NoError(t, err)
@@ -877,6 +914,7 @@ func TestListDotenvsCore_ReturnsEmptySlice(t *testing.T) {
 		cfg,
 		func() (string, error) { return "pwd", nil },
 		logger,
+		nil,
 	)
 
 	assert.NoError(t, err)
@@ -898,6 +936,7 @@ func TestListDotenvsCore_FolderIDLockError(t *testing.T) {
 		cfg,
 		func() (string, error) { return "pwd", nil },
 		logger,
+		nil,
 	)
 
 	assert.Error(t, err)
@@ -918,6 +957,7 @@ func TestListDotenvsCore_ListItemsError(t *testing.T) {
 		cfg,
 		func() (string, error) { return "pwd", nil },
 		logger,
+		nil,
 	)
 
 	assert.Error(t, err)
@@ -1351,6 +1391,121 @@ func TestIsLockedError_MasterPasswordLower(t *testing.T) {
 	assert.True(t, result)
 }
 
+// IsLockedError: 現行 bw の "You are not logged in."（#161）
+func TestIsLockedError_NotLoggedIn(t *testing.T) {
+	assert.True(t, IsLockedError(errors.New("You are not logged in.")))
+	assert.True(t, IsLockedError(errors.New("failed to list folders: You are not logged in.")))
+}
+
+// IsLockedError: 現行 bw の "Vault is locked."（#161）
+func TestIsLockedError_VaultIsLocked(t *testing.T) {
+	assert.True(t, IsLockedError(errors.New("Vault is locked.")))
+	assert.True(t, IsLockedError(errors.New("failed to list folders: Vault is locked.")))
+}
+
+// IsLockedError: 無関係なエラーは false
+func TestIsLockedError_UnrelatedError(t *testing.T) {
+	assert.False(t, IsLockedError(errors.New("network timeout")))
+}
+
+// WithUnlockRetry: "Vault is locked." でも Unlock リトライする（#161）
+func TestWithUnlockRetry_VaultIsLockedThenUnlockSuccess(t *testing.T) {
+	bw := &mockBwClient{}
+	logger := &mockLogger{}
+	cfg := &config.Config{Email: "test@example.com"}
+
+	callCount := 0
+	fn := func() error {
+		callCount++
+		if callCount == 1 {
+			return errors.New("Vault is locked.")
+		}
+		return nil
+	}
+
+	err := WithUnlockRetry(
+		bw,
+		cfg,
+		func() (string, error) { return "password", nil },
+		logger,
+		nil,
+		fn,
+	)
+
+	assert.NoError(t, err)
+	assert.Equal(t, 2, callCount)
+	assert.Contains(t, bw.calls, "Unlock")
+}
+
+// WithUnlockRetry: "You are not logged in." なら Unlock 失敗後に Login する（#161）。
+// Login が BW_SESSION を設定した場合は再 Unlock しない。
+func TestWithUnlockRetry_NotLoggedInThenLoginSuccess(t *testing.T) {
+	bw := &mockBwClientWithUnlockCount{
+		mockBwClient: mockBwClient{},
+	}
+	logger := &mockLogger{}
+	cfg := &config.Config{Email: "test@example.com", SelfhostedURL: "https://bw.example.com"}
+
+	callCount := 0
+	fn := func() error {
+		callCount++
+		if callCount == 1 {
+			return errors.New("You are not logged in.")
+		}
+		return nil
+	}
+
+	t.Setenv("BW_SESSION", "")
+	err := WithUnlockRetry(
+		bw,
+		cfg,
+		func() (string, error) { return "password", nil },
+		logger,
+		nil,
+		fn,
+	)
+
+	assert.NoError(t, err)
+	assert.Equal(t, 2, callCount)
+	assert.Equal(t, 1, bw.unlockCallCount) // Login がセッションを渡すので再 Unlock しない
+	assert.Contains(t, bw.calls, "Unlock")
+	assert.Contains(t, bw.calls, "Login(test@example.com,https://bw.example.com)")
+	assert.NotEmpty(t, os.Getenv("BW_SESSION"))
+}
+
+// WithUnlockRetry: Login 後に BW_SESSION が無い場合のみ Unlock を再試行する
+func TestWithUnlockRetry_LoginWithoutSessionThenUnlock(t *testing.T) {
+	bw := &mockBwClientWithUnlockCount{
+		mockBwClient:      mockBwClient{},
+		skipLoginSession: true,
+	}
+	logger := &mockLogger{}
+	cfg := &config.Config{Email: "test@example.com"}
+
+	callCount := 0
+	fn := func() error {
+		callCount++
+		if callCount == 1 {
+			return ErrBitwardenLocked
+		}
+		return nil
+	}
+
+	t.Setenv("BW_SESSION", "")
+	err := WithUnlockRetry(
+		bw,
+		cfg,
+		func() (string, error) { return "password", nil },
+		logger,
+		nil,
+		fn,
+	)
+
+	assert.NoError(t, err)
+	assert.Equal(t, 2, callCount)
+	assert.Equal(t, 2, bw.unlockCallCount)
+}
+
 // WithUnlockRetry: Unlock 成功後に fn がエラーを返す場合
 func TestWithUnlockRetry_UnlockSuccessThenFnFails(t *testing.T) {
 	bw := &mockBwClient{}
@@ -1371,6 +1526,7 @@ func TestWithUnlockRetry_UnlockSuccessThenFnFails(t *testing.T) {
 		cfg,
 		func() (string, error) { return "password", nil },
 		logger,
+		nil,
 		fn,
 	)
 
@@ -1397,6 +1553,7 @@ func TestWithUnlockRetry_NilConfig(t *testing.T) {
 		nil, // cfg が nil
 		func() (string, error) { return "password", nil },
 		logger,
+		nil,
 		fn,
 	)
 
@@ -1423,6 +1580,7 @@ func TestWithUnlockRetry_EmptyEmail(t *testing.T) {
 		cfg,
 		func() (string, error) { return "password", nil },
 		logger,
+		nil,
 		fn,
 	)
 
@@ -1431,7 +1589,7 @@ func TestWithUnlockRetry_EmptyEmail(t *testing.T) {
 	assert.NotContains(t, bw.calls, "Login")
 }
 
-// WithUnlockRetry: Login 成功後に fn が成功する場合
+// WithUnlockRetry: Login 成功後、BW_SESSION があれば再 Unlock せず fn を実行する
 func TestWithUnlockRetry_LoginThenFnSuccess(t *testing.T) {
 	bw := &mockBwClientWithUnlockCount{
 		mockBwClient: mockBwClient{},
@@ -1448,22 +1606,28 @@ func TestWithUnlockRetry_LoginThenFnSuccess(t *testing.T) {
 		return nil
 	}
 
+	t.Setenv("BW_SESSION", "")
 	err := WithUnlockRetry(
 		bw,
 		cfg,
 		func() (string, error) { return "password", nil },
 		logger,
+		nil,
 		fn,
 	)
 
 	assert.NoError(t, err)
 	assert.Equal(t, 2, callCount)
+	assert.Equal(t, 1, bw.unlockCallCount)
+	assert.Contains(t, bw.calls, "Login(test@example.com,https://bw.example.com)")
 }
 
-// mockBwClientWithUnlockCount は Unlock の呼び出し回数をカウントするモック
+// mockBwClientWithUnlockCount は Unlock の呼び出し回数をカウントするモック。
+// Login 時に BW_SESSION を立てる（実際の bw login --raw 相当）。
 type mockBwClientWithUnlockCount struct {
 	mockBwClient
-	unlockCallCount int
+	unlockCallCount  int
+	skipLoginSession bool // true のとき Login で BW_SESSION を設定しない
 }
 
 func (m *mockBwClientWithUnlockCount) Unlock(masterPassword string) error {
@@ -1471,6 +1635,18 @@ func (m *mockBwClientWithUnlockCount) Unlock(masterPassword string) error {
 	m.unlockCallCount++
 	if m.unlockCallCount == 1 {
 		return errors.New("unlock failed first time")
+	}
+	_ = os.Setenv("BW_SESSION", "test-session-key-from-unlock-abcdefghijklmnopqrstuvwxyz0123456789")
+	return nil
+}
+
+func (m *mockBwClientWithUnlockCount) Login(email, password, serverURL string) error {
+	m.calls = append(m.calls, fmt.Sprintf("Login(%s,%s)", email, serverURL))
+	if m.loginErr != nil {
+		return m.loginErr
+	}
+	if !m.skipLoginSession {
+		_ = os.Setenv("BW_SESSION", "test-session-key-from-login-abcdefghijklmnopqrstuvwxyz0123456789")
 	}
 	return nil
 }
@@ -1496,6 +1672,7 @@ func TestPullEnvCore_ConfirmOverwriteError(t *testing.T) {
 		func() (string, error) { return "pwd", nil },
 		func(path string) (bool, error) { return false, errors.New("confirm error") },
 		logger,
+		nil,
 	)
 
 	assert.Error(t, err)
@@ -1524,6 +1701,7 @@ func TestPullEnvCore_MkdirAllError(t *testing.T) {
 		func() (string, error) { return "pwd", nil },
 		func(path string) (bool, error) { return true, nil },
 		logger,
+		nil,
 	)
 
 	assert.Error(t, err)
@@ -1552,6 +1730,7 @@ func TestPullEnvCore_WriteFileError(t *testing.T) {
 		func() (string, error) { return "pwd", nil },
 		func(path string) (bool, error) { return true, nil },
 		logger,
+		nil,
 	)
 
 	assert.Error(t, err)
@@ -1576,6 +1755,7 @@ func TestPullEnvCore_GetFolderIDError(t *testing.T) {
 		func() (string, error) { return "pwd", nil },
 		func(path string) (bool, error) { return true, nil },
 		logger,
+		nil,
 	)
 
 	assert.Error(t, err)
@@ -1601,6 +1781,7 @@ func TestPullEnvCore_GetItemByNameError(t *testing.T) {
 		func() (string, error) { return "pwd", nil },
 		func(path string) (bool, error) { return true, nil },
 		logger,
+		nil,
 	)
 
 	assert.Error(t, err)
@@ -1627,11 +1808,13 @@ func TestPushEnvCore_GetItemByNameError(t *testing.T) {
 	err := PushEnvCore(
 		".",
 		"my-project",
+		ManagedFileFilter{},
 		fs,
 		bw,
 		cfg,
 		func() (string, error) { return "pwd", nil },
 		logger,
+		nil,
 	)
 
 	assert.Error(t, err)
@@ -1659,11 +1842,13 @@ func TestPushEnvCore_UpdateItemError(t *testing.T) {
 	err := PushEnvCore(
 		".",
 		"my-project",
+		ManagedFileFilter{},
 		fs,
 		bw,
 		cfg,
 		func() (string, error) { return "pwd", nil },
 		logger,
+		nil,
 	)
 
 	assert.Error(t, err)
@@ -1788,6 +1973,7 @@ func TestPullEnvCore_DoubleDotOutputDir(t *testing.T) {
 		func() (string, error) { return "pwd", nil },
 		func(path string) (bool, error) { return true, nil },
 		logger,
+		nil,
 	)
 
 	assert.NoError(t, err)
@@ -1814,11 +2000,13 @@ func TestPushEnvCore_DoubleDotFromDir(t *testing.T) {
 	err := PushEnvCore(
 		"..",
 		"my-project",
+		ManagedFileFilter{},
 		fs,
 		bw,
 		cfg,
 		func() (string, error) { return "pwd", nil },
 		logger,
+		nil,
 	)
 
 	assert.NoError(t, err)
@@ -1832,7 +2020,7 @@ func TestPushEnvCore_DoubleDotFromDir(t *testing.T) {
 // 正常系: MultiEnvData を JSON に変換して復元
 func TestMultiEnvData_RoundTrip(t *testing.T) {
 	original := MultiEnvData{
-		".env": EnvData{Lines: []string{"KEY1=value1", "KEY2=value2"}},
+		".env":         EnvData{Lines: []string{"KEY1=value1", "KEY2=value2"}},
 		".env.staging": EnvData{Lines: []string{"KEY1=staging1", "KEY2=staging2"}},
 	}
 
@@ -1885,11 +2073,13 @@ func TestPushEnvCore_MultipleEnvFiles(t *testing.T) {
 	err := PushEnvCore(
 		".",
 		"my-project",
+		ManagedFileFilter{},
 		fs,
 		bw,
 		cfg,
 		func() (string, error) { return "pwd", nil },
 		logger,
+		nil,
 	)
 
 	assert.NoError(t, err)
@@ -1920,11 +2110,13 @@ func TestPushEnvCore_ExcludesExampleFiles(t *testing.T) {
 	err := PushEnvCore(
 		".",
 		"my-project",
+		ManagedFileFilter{},
 		fs,
 		bw,
 		cfg,
 		func() (string, error) { return "pwd", nil },
 		logger,
+		nil,
 	)
 
 	assert.NoError(t, err)
@@ -1950,15 +2142,17 @@ func TestPushEnvCore_NoEnvFiles(t *testing.T) {
 	err := PushEnvCore(
 		"/some/path",
 		"my-project",
+		ManagedFileFilter{},
 		fs,
 		bw,
 		cfg,
 		func() (string, error) { return "pwd", nil },
 		logger,
+		nil,
 	)
 
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "no .env files found")
+	assert.Contains(t, err.Error(), "no managed files found")
 }
 
 // =============================================================================
@@ -1987,6 +2181,7 @@ func TestPullEnvCore_MultipleEnvFiles(t *testing.T) {
 		func() (string, error) { return "pwd", nil },
 		func(path string) (bool, error) { return true, nil },
 		logger,
+		nil,
 	)
 
 	assert.NoError(t, err)
@@ -2021,6 +2216,7 @@ func TestPullEnvCore_LegacyFormat(t *testing.T) {
 		func() (string, error) { return "pwd", nil },
 		func(path string) (bool, error) { return true, nil },
 		logger,
+		nil,
 	)
 
 	assert.NoError(t, err)
@@ -2060,6 +2256,7 @@ func TestPullEnvCore_PartialOverwriteCancel(t *testing.T) {
 			return true, nil
 		},
 		logger,
+		nil,
 	)
 
 	assert.NoError(t, err)
@@ -2086,7 +2283,7 @@ func TestGetPushedEnvFiles_Success(t *testing.T) {
 		},
 	}
 
-	files, err := GetPushedEnvFiles(".", fs)
+	files, err := GetPushedEnvFiles(".", ManagedFileFilter{}, fs)
 
 	assert.NoError(t, err)
 	assert.Len(t, files, 2)
@@ -2111,6 +2308,7 @@ func TestGetPulledEnvFiles_Success(t *testing.T) {
 		cfg,
 		func() (string, error) { return "pwd", nil },
 		logger,
+		nil,
 	)
 
 	assert.NoError(t, err)
@@ -2135,11 +2333,275 @@ func TestGetPulledEnvFiles_LegacyFormat(t *testing.T) {
 		cfg,
 		func() (string, error) { return "pwd", nil },
 		logger,
+		nil,
 	)
 
 	assert.NoError(t, err)
 	assert.Len(t, files, 1)
 	assert.Equal(t, ".env", files[0])
+}
+
+// =============================================================================
+// CleanEnvCore のテスト
+// =============================================================================
+
+func multiEnvNotes(files map[string][]string) string {
+	data := make(MultiEnvData)
+	for name, lines := range files {
+		data[name] = EnvData{Lines: lines}
+	}
+	jsonStr, err := multiEnvDataToJSON(data)
+	if err != nil {
+		panic(err)
+	}
+	return jsonStr
+}
+
+// 正常系: 内容一致なら確認なしでローカル削除
+func TestCleanEnvCore_MatchRemovesLocal(t *testing.T) {
+	notes := multiEnvNotes(map[string][]string{".env": {"KEY=value"}})
+	bw := &mockBwClient{
+		folderID:   "folder-123",
+		itemByName: &FullItem{ID: "item-456", Name: "my-project", Notes: notes},
+	}
+	fs := &mockFileSystem{
+		dirEntries: []DirEntry{&mockDirEntry{name: ".env"}},
+		readContentMap: map[string][]byte{
+			".env": []byte("KEY=value"),
+		},
+	}
+	logger := &mockLogger{}
+	cfg := &config.Config{}
+	selectCalled := false
+
+	err := CleanEnvCore(
+		".", "my-project", ManagedFileFilter{}, fs,
+		bw,
+		cfg,
+		func() (string, error) { return "pwd", nil },
+		func(mismatched []string) (CleanMismatchAction, error) {
+			selectCalled = true
+			return CleanActionAbort, nil
+		},
+		logger,
+		nil,
+	)
+
+	assert.NoError(t, err)
+	assert.False(t, selectCalled)
+	assert.Contains(t, fs.calls, "Remove(.env)")
+	assert.NotContains(t, bw.calls, "UpdateNoteItem(item-456)")
+}
+
+// 正常系: 差分ありで overwrite then clean
+func TestCleanEnvCore_OverwriteRemoteThenClean(t *testing.T) {
+	notes := multiEnvNotes(map[string][]string{".env": {"KEY=remote"}})
+	bw := &mockBwClient{
+		folderID:   "folder-123",
+		itemByName: &FullItem{ID: "item-456", Name: "my-project", Notes: notes},
+	}
+	fs := &mockFileSystem{
+		dirEntries: []DirEntry{&mockDirEntry{name: ".env"}},
+		readContentMap: map[string][]byte{
+			".env": []byte("KEY=local"),
+		},
+	}
+	logger := &mockLogger{}
+	cfg := &config.Config{}
+
+	err := CleanEnvCore(
+		".", "my-project", ManagedFileFilter{}, fs,
+		bw,
+		cfg,
+		func() (string, error) { return "pwd", nil },
+		func(mismatched []string) (CleanMismatchAction, error) {
+			assert.Contains(t, mismatched, ".env")
+			return CleanActionOverwriteRemoteThenClean, nil
+		},
+		logger,
+		nil,
+	)
+
+	assert.NoError(t, err)
+	assert.Contains(t, bw.calls, "UpdateNoteItem(item-456)")
+	assert.Contains(t, fs.calls, "Remove(.env)")
+}
+
+// 正常系: 差分ありで remove local のみ
+func TestCleanEnvCore_RemoveLocalOnly(t *testing.T) {
+	notes := multiEnvNotes(map[string][]string{".env": {"KEY=remote"}})
+	bw := &mockBwClient{
+		folderID:   "folder-123",
+		itemByName: &FullItem{ID: "item-456", Name: "my-project", Notes: notes},
+	}
+	fs := &mockFileSystem{
+		dirEntries: []DirEntry{&mockDirEntry{name: ".env"}},
+		readContentMap: map[string][]byte{
+			".env": []byte("KEY=local"),
+		},
+	}
+	logger := &mockLogger{}
+	cfg := &config.Config{}
+
+	err := CleanEnvCore(
+		".", "my-project", ManagedFileFilter{}, fs,
+		bw,
+		cfg,
+		func() (string, error) { return "pwd", nil },
+		func(mismatched []string) (CleanMismatchAction, error) {
+			return CleanActionRemoveLocal, nil
+		},
+		logger,
+		nil,
+	)
+
+	assert.NoError(t, err)
+	assert.Contains(t, fs.calls, "Remove(.env)")
+	for _, call := range bw.calls {
+		assert.NotContains(t, call, "UpdateNoteItem")
+		assert.NotContains(t, call, "CreateNoteItem")
+	}
+}
+
+// 異常系: リモートアイテム無し
+func TestCleanEnvCore_RemoteItemMissing(t *testing.T) {
+	bw := &mockBwClient{
+		folderID:   "folder-123",
+		itemByName: nil,
+	}
+	fs := &mockFileSystem{
+		dirEntries: []DirEntry{&mockDirEntry{name: ".env"}},
+		readContentMap: map[string][]byte{
+			".env": []byte("KEY=value"),
+		},
+	}
+	logger := &mockLogger{}
+	cfg := &config.Config{}
+
+	err := CleanEnvCore(
+		".", "my-project", ManagedFileFilter{}, fs,
+		bw,
+		cfg,
+		func() (string, error) { return "pwd", nil },
+		func(mismatched []string) (CleanMismatchAction, error) {
+			return CleanActionRemoveLocal, nil
+		},
+		logger,
+		nil,
+	)
+
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "not found")
+	assert.Empty(t, fs.removedFiles)
+}
+
+// 異常系: リモートに管理対象ファイルが空
+func TestCleanEnvCore_RemoteEmptyFiles(t *testing.T) {
+	bw := &mockBwClient{
+		folderID:   "folder-123",
+		itemByName: &FullItem{ID: "item-456", Name: "my-project", Notes: `{}`},
+	}
+	fs := &mockFileSystem{
+		dirEntries: []DirEntry{&mockDirEntry{name: ".env"}},
+		readContentMap: map[string][]byte{
+			".env": []byte("KEY=value"),
+		},
+	}
+	logger := &mockLogger{}
+	cfg := &config.Config{}
+
+	err := CleanEnvCore(
+		".", "my-project", ManagedFileFilter{}, fs,
+		bw,
+		cfg,
+		func() (string, error) { return "pwd", nil },
+		func(mismatched []string) (CleanMismatchAction, error) {
+			return CleanActionRemoveLocal, nil
+		},
+		logger,
+		nil,
+	)
+
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "no env files")
+	assert.Empty(t, fs.removedFiles)
+}
+
+// 異常系: 差分ありで Abort
+func TestCleanEnvCore_AbortOnMismatch(t *testing.T) {
+	notes := multiEnvNotes(map[string][]string{".env": {"KEY=remote"}})
+	bw := &mockBwClient{
+		folderID:   "folder-123",
+		itemByName: &FullItem{ID: "item-456", Name: "my-project", Notes: notes},
+	}
+	fs := &mockFileSystem{
+		dirEntries: []DirEntry{&mockDirEntry{name: ".env"}},
+		readContentMap: map[string][]byte{
+			".env": []byte("KEY=local"),
+		},
+	}
+	logger := &mockLogger{}
+	cfg := &config.Config{}
+
+	err := CleanEnvCore(
+		".", "my-project", ManagedFileFilter{}, fs,
+		bw,
+		cfg,
+		func() (string, error) { return "pwd", nil },
+		func(mismatched []string) (CleanMismatchAction, error) {
+			return CleanActionAbort, nil
+		},
+		logger,
+		nil,
+	)
+
+	assert.ErrorIs(t, err, ErrCleanAborted)
+	assert.Empty(t, fs.removedFiles)
+	for _, call := range bw.calls {
+		assert.NotContains(t, call, "UpdateNoteItem")
+	}
+}
+
+// 正常系: 複数ファイルのうち1つでも差分があれば差分扱い
+func TestCleanEnvCore_OneFileDiffTreatsAsMismatch(t *testing.T) {
+	notes := multiEnvNotes(map[string][]string{
+		".env":         {"KEY=value"},
+		".env.staging": {"ENV=staging"},
+	})
+	bw := &mockBwClient{
+		folderID:   "folder-123",
+		itemByName: &FullItem{ID: "item-456", Name: "my-project", Notes: notes},
+	}
+	fs := &mockFileSystem{
+		dirEntries: []DirEntry{
+			&mockDirEntry{name: ".env"},
+			&mockDirEntry{name: ".env.staging"},
+		},
+		readContentMap: map[string][]byte{
+			".env":         []byte("KEY=value"),
+			".env.staging": []byte("ENV=changed"),
+		},
+	}
+	logger := &mockLogger{}
+	cfg := &config.Config{}
+	var gotMismatched []string
+
+	err := CleanEnvCore(
+		".", "my-project", ManagedFileFilter{}, fs,
+		bw,
+		cfg,
+		func() (string, error) { return "pwd", nil },
+		func(mismatched []string) (CleanMismatchAction, error) {
+			gotMismatched = mismatched
+			return CleanActionAbort, nil
+		},
+		logger,
+		nil,
+	)
+
+	assert.ErrorIs(t, err, ErrCleanAborted)
+	assert.Contains(t, gotMismatched, ".env.staging")
+	assert.Empty(t, fs.removedFiles)
 }
 
 // =============================================================================
@@ -2430,9 +2892,9 @@ func TestPushEnvCore_FolderNotFoundDoesNotCreate(t *testing.T) {
 	}
 	logger := &mockLogger{}
 
-	err := PushEnvCore(".", "my-project", fs, bw, &config.Config{}, func() (string, error) {
+	err := PushEnvCore(".", "my-project", ManagedFileFilter{}, fs, bw, &config.Config{}, func() (string, error) {
 		return "", errors.New("no unlock")
-	}, logger)
+	}, logger, nil)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to get dotenvs folder")
 	assert.NotContains(t, bw.calls, "CreateDotenvsFolder")
@@ -2453,9 +2915,9 @@ func TestPushEnvCore_DuplicateNoteStops(t *testing.T) {
 	}
 	logger := &mockLogger{}
 
-	err := PushEnvCore(".", "my-project", fs, bw, &config.Config{}, func() (string, error) {
+	err := PushEnvCore(".", "my-project", ManagedFileFilter{}, fs, bw, &config.Config{}, func() (string, error) {
 		return "mp", nil
-	}, logger)
+	}, logger, nil)
 	assert.Error(t, err)
 	assert.NotContains(t, strings.Join(bw.calls, ","), "CreateNoteItem")
 	assert.NotContains(t, strings.Join(bw.calls, ","), "UpdateNoteItem")
@@ -2468,7 +2930,7 @@ func TestWithUnlockRetry_DoesNotRetryDuplicateNote(t *testing.T) {
 	err := WithUnlockRetry(bw, &config.Config{}, func() (string, error) {
 		t.Fatal("should not prompt")
 		return "", nil
-	}, logger, func() error {
+	}, logger, nil, func() error {
 		calls++
 		return errors.New("multiple secure notes with the same name")
 	})
@@ -2483,7 +2945,7 @@ func TestWithUnlockRetry_DoesNotRetryFolderNotFound(t *testing.T) {
 	err := WithUnlockRetry(bw, &config.Config{}, func() (string, error) {
 		t.Fatal("should not prompt")
 		return "", nil
-	}, logger, func() error {
+	}, logger, nil, func() error {
 		calls++
 		return errors.New("configured Bitwarden folder not found")
 	})
@@ -2505,8 +2967,445 @@ func TestPullEnvCore_FolderNotFoundDoesNotCreate(t *testing.T) {
 		func() (string, error) { return "mp", nil },
 		func(path string) (bool, error) { return true, nil },
 		logger,
+		nil,
 	)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to get dotenvs folder")
 	assert.NotContains(t, bw.calls, "CreateDotenvsFolder")
+}
+
+// =============================================================================
+// managed files / tfvars（docs/tests/core/managed_files_tfvars.md, ops_tfvars.md）
+// =============================================================================
+
+func managedBaseNames(t *testing.T, fs *mockFileSystem, dir string) []string {
+	t.Helper()
+	paths, err := findEnvFilesFromFS(fs, dir, ManagedFileFilter{})
+	assert.NoError(t, err)
+	var names []string
+	for _, p := range paths {
+		names = append(names, filepath.Base(p))
+	}
+	return names
+}
+
+func TestFindManagedFiles_DetectsEnvAndTfvars(t *testing.T) {
+	fs := &mockFileSystem{
+		dirEntries: []DirEntry{
+			&mockDirEntry{name: ".env"},
+			&mockDirEntry{name: ".env.staging"},
+			&mockDirEntry{name: "terraform.tfvars"},
+			&mockDirEntry{name: "prod.auto.tfvars"},
+			&mockDirEntry{name: "vars.tfvars.json"},
+			&mockDirEntry{name: "prod.auto.tfvars.json"},
+			&mockDirEntry{name: "main.tf"},
+			&mockDirEntry{name: "README.md"},
+			&mockDirEntry{name: "notes.tfvars.bak"},
+			&mockDirEntry{name: "subdir", isDir: true},
+		},
+	}
+
+	names := managedBaseNames(t, fs, ".")
+	assert.Equal(t, []string{
+		".env",
+		".env.staging",
+		"prod.auto.tfvars",
+		"prod.auto.tfvars.json",
+		"terraform.tfvars",
+		"vars.tfvars.json",
+	}, names)
+}
+
+func TestFindManagedFiles_TfvarsOnly(t *testing.T) {
+	fs := &mockFileSystem{
+		dirEntries: []DirEntry{
+			&mockDirEntry{name: "terraform.tfvars"},
+		},
+	}
+	names := managedBaseNames(t, fs, ".")
+	assert.Equal(t, []string{"terraform.tfvars"}, names)
+}
+
+func TestFindManagedFiles_ExcludesExampleAndUnrelated(t *testing.T) {
+	fs := &mockFileSystem{
+		dirEntries: []DirEntry{
+			&mockDirEntry{name: ".env.example"},
+			&mockDirEntry{name: ".env.staging.example"},
+			&mockDirEntry{name: "terraform.tfvars.example"},
+			&mockDirEntry{name: "foo.tfvars.json.example"},
+			&mockDirEntry{name: "main.tf"},
+			&mockDirEntry{name: "notes.tfvars.bak"},
+		},
+	}
+	names := managedBaseNames(t, fs, ".")
+	assert.Empty(t, names)
+}
+
+func TestFindManagedFiles_TfvarsOnlySortAlphabetical(t *testing.T) {
+	fs := &mockFileSystem{
+		dirEntries: []DirEntry{
+			&mockDirEntry{name: "z.tfvars"},
+			&mockDirEntry{name: "a.tfvars"},
+			&mockDirEntry{name: "m.tfvars.json"},
+		},
+	}
+	names := managedBaseNames(t, fs, ".")
+	assert.Equal(t, []string{"a.tfvars", "m.tfvars.json", "z.tfvars"}, names)
+}
+
+func TestFindManagedFiles_ReadDirError(t *testing.T) {
+	fs := &mockFileSystem{readDirErr: errors.New("permission denied")}
+	_, err := findEnvFilesFromFS(fs, ".", ManagedFileFilter{})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to read directory")
+}
+
+func TestGetPushedEnvFiles_IncludesTfvars(t *testing.T) {
+	fs := &mockFileSystem{
+		dirEntries: []DirEntry{
+			&mockDirEntry{name: ".env"},
+			&mockDirEntry{name: "terraform.tfvars"},
+			&mockDirEntry{name: "terraform.tfvars.example"},
+		},
+	}
+	names, err := GetPushedEnvFiles(".", ManagedFileFilter{}, fs)
+	assert.NoError(t, err)
+	assert.Equal(t, []string{".env", "terraform.tfvars"}, names)
+}
+
+func TestPushEnvCore_TfvarsOnly(t *testing.T) {
+	bw := &mockBwClient{folderID: "folder-123"}
+	fs := &mockFileSystem{
+		dirEntries: []DirEntry{
+			&mockDirEntry{name: "terraform.tfvars"},
+		},
+		readContentMap: map[string][]byte{
+			"terraform.tfvars": []byte("region = \"ap-northeast-1\"\n"),
+		},
+	}
+	logger := &mockLogger{}
+
+	err := PushEnvCore(".", "my-project", ManagedFileFilter{}, fs, bw, &config.Config{}, func() (string, error) {
+		return "pwd", nil
+	}, logger, nil)
+	assert.NoError(t, err)
+	assert.Contains(t, bw.calls, "CreateNoteItem(folder-123,my-project)")
+}
+
+func TestPushEnvCore_EnvAndTfvarsTogether(t *testing.T) {
+	bw := &mockBwClient{
+		folderID:   "folder-123",
+		itemByName: &FullItem{ID: "item-1", Name: "my-project", Notes: "{}"},
+	}
+	fs := &mockFileSystem{
+		dirEntries: []DirEntry{
+			&mockDirEntry{name: ".env"},
+			&mockDirEntry{name: "terraform.tfvars"},
+			&mockDirEntry{name: "secret.tfvars.json"},
+		},
+		readContentMap: map[string][]byte{
+			".env":               []byte("KEY=value\n"),
+			"terraform.tfvars":   []byte("a = 1\n"),
+			"secret.tfvars.json": []byte("{\"b\":2}\n"),
+		},
+	}
+	logger := &mockLogger{}
+
+	err := PushEnvCore(".", "my-project", ManagedFileFilter{}, fs, bw, &config.Config{}, func() (string, error) {
+		return "pwd", nil
+	}, logger, nil)
+	assert.NoError(t, err)
+	assert.Contains(t, bw.calls, "UpdateNoteItem(item-1)")
+}
+
+func TestPullEnvCore_RestoresTfvars(t *testing.T) {
+	notes := `{"terraform.tfvars":{"lines":["region = \"ap-northeast-1\""]},".env":{"lines":["KEY=value"]}}`
+	bw := &mockBwClient{
+		folderID:   "folder-123",
+		itemByName: &FullItem{ID: "item-1", Name: "my-project", Notes: notes},
+	}
+	fs := &mockFileSystem{
+		statInfoMap: map[string]FileInfo{
+			".env":             &mockFileInfo{notExist: true},
+			"terraform.tfvars": &mockFileInfo{notExist: true},
+		},
+		writtenFiles: map[string][]byte{},
+	}
+	logger := &mockLogger{}
+
+	err := PullEnvCore(".", "my-project", fs, bw, &config.Config{}, func() (string, error) {
+		return "pwd", nil
+	}, func(path string) (bool, error) { return true, nil }, logger, nil)
+	assert.NoError(t, err)
+	assert.Equal(t, "KEY=value", string(fs.writtenFiles[".env"]))
+	assert.Equal(t, `region = "ap-northeast-1"`, string(fs.writtenFiles["terraform.tfvars"]))
+}
+
+func TestCleanEnvCore_RemovesMatchingTfvars(t *testing.T) {
+	notes := multiEnvNotes(map[string][]string{
+		"terraform.tfvars": {`region = "ap-northeast-1"`},
+	})
+	bw := &mockBwClient{
+		folderID:   "folder-123",
+		itemByName: &FullItem{ID: "item-1", Name: "my-project", Notes: notes},
+	}
+	fs := &mockFileSystem{
+		dirEntries: []DirEntry{&mockDirEntry{name: "terraform.tfvars"}},
+		readContentMap: map[string][]byte{
+			"terraform.tfvars": []byte("region = \"ap-northeast-1\""),
+		},
+	}
+	logger := &mockLogger{}
+
+	err := CleanEnvCore(".", "my-project", ManagedFileFilter{}, fs, bw, &config.Config{}, func() (string, error) {
+		return "pwd", nil
+	}, func([]string) (CleanMismatchAction, error) {
+		t.Fatal("should not prompt")
+		return CleanActionAbort, nil
+	}, logger, nil)
+	assert.NoError(t, err)
+	assert.Contains(t, fs.calls, "Remove(terraform.tfvars)")
+}
+
+func TestCleanEnvCore_MismatchOnTfvarsOnly(t *testing.T) {
+	notes := multiEnvNotes(map[string][]string{
+		"terraform.tfvars": {`region = "remote"`},
+	})
+	bw := &mockBwClient{
+		folderID:   "folder-123",
+		itemByName: &FullItem{ID: "item-1", Name: "my-project", Notes: notes},
+	}
+	fs := &mockFileSystem{
+		dirEntries: []DirEntry{&mockDirEntry{name: "terraform.tfvars"}},
+		readContentMap: map[string][]byte{
+			"terraform.tfvars": []byte("region = \"local\""),
+		},
+	}
+	logger := &mockLogger{}
+	var got []string
+
+	err := CleanEnvCore(".", "my-project", ManagedFileFilter{}, fs, bw, &config.Config{}, func() (string, error) {
+		return "pwd", nil
+	}, func(mismatched []string) (CleanMismatchAction, error) {
+		got = append([]string{}, mismatched...)
+		return CleanActionAbort, nil
+	}, logger, nil)
+	assert.ErrorIs(t, err, ErrCleanAborted)
+	assert.Contains(t, got, "terraform.tfvars")
+	assert.Empty(t, fs.removedFiles)
+}
+
+func TestIsExampleFile_TfvarsExamples(t *testing.T) {
+	assert.True(t, isExampleFile("terraform.tfvars.example"))
+	assert.True(t, isExampleFile("foo.tfvars.json.example"))
+	assert.False(t, isExampleFile("terraform.tfvars"))
+	assert.False(t, isExampleFile("vars.tfvars.json"))
+}
+
+// memorySessionStore is an in-memory SessionStore for tests.
+type memorySessionStore struct {
+	session string
+	getErr  error
+	setErr  error
+	delErr  error
+	gets    int
+	sets    []string
+	deletes int
+}
+
+func (m *memorySessionStore) Get() (string, error) {
+	m.gets++
+	if m.getErr != nil {
+		return "", m.getErr
+	}
+	return m.session, nil
+}
+
+func (m *memorySessionStore) Set(session string) error {
+	m.sets = append(m.sets, session)
+	if m.setErr != nil {
+		return m.setErr
+	}
+	m.session = session
+	return nil
+}
+
+func (m *memorySessionStore) Delete() error {
+	m.deletes++
+	if m.delErr != nil {
+		return m.delErr
+	}
+	m.session = ""
+	return nil
+}
+
+func TestWithUnlockRetry_RestoreSessionFromStore(t *testing.T) {
+	t.Setenv("BW_SESSION", "")
+	bw := &mockBwClient{}
+	logger := &mockLogger{}
+	cfg := &config.Config{}
+	store := &memorySessionStore{session: "stored-session"}
+
+	err := WithUnlockRetry(
+		bw,
+		cfg,
+		func() (string, error) {
+			return "", errors.New("prompt should not be called")
+		},
+		logger,
+		store,
+		func() error {
+			assert.Equal(t, "stored-session", os.Getenv("BW_SESSION"))
+			return nil
+		},
+	)
+	assert.NoError(t, err)
+	assert.Equal(t, 1, store.gets)
+	assert.Empty(t, store.sets)
+	assert.Equal(t, 0, store.deletes)
+}
+
+func TestWithUnlockRetry_EnvSessionTakesPrecedence(t *testing.T) {
+	t.Setenv("BW_SESSION", "env-session")
+	bw := &mockBwClient{}
+	logger := &mockLogger{}
+	cfg := &config.Config{}
+	store := &memorySessionStore{session: "stored-session"}
+
+	err := WithUnlockRetry(
+		bw,
+		cfg,
+		func() (string, error) {
+			return "", errors.New("prompt should not be called")
+		},
+		logger,
+		store,
+		func() error {
+			assert.Equal(t, "env-session", os.Getenv("BW_SESSION"))
+			return nil
+		},
+	)
+	assert.NoError(t, err)
+	assert.Equal(t, 0, store.gets)
+	assert.Equal(t, 0, store.deletes)
+}
+
+func TestWithUnlockRetry_InvalidStoredSessionFallsBack(t *testing.T) {
+	t.Setenv("BW_SESSION", "")
+	bw := &mockBwClient{}
+	logger := &mockLogger{}
+	cfg := &config.Config{Email: "test@example.com"}
+	store := &memorySessionStore{session: "stale-session"}
+
+	callCount := 0
+	err := WithUnlockRetry(
+		bw,
+		cfg,
+		func() (string, error) {
+			return "password123", nil
+		},
+		logger,
+		store,
+		func() error {
+			callCount++
+			if callCount == 1 {
+				return ErrBitwardenLocked
+			}
+			return nil
+		},
+	)
+	assert.NoError(t, err)
+	assert.Equal(t, 2, callCount)
+	assert.Equal(t, 1, store.deletes)
+	assert.Contains(t, bw.calls, "Unlock")
+}
+
+type mockBwClientSetsSession struct {
+	mockBwClient
+}
+
+func (m *mockBwClientSetsSession) Unlock(masterPassword string) error {
+	m.calls = append(m.calls, "Unlock")
+	if m.unlockErr != nil {
+		return m.unlockErr
+	}
+	_ = os.Setenv("BW_SESSION", "new-session-key")
+	return nil
+}
+
+func TestWithUnlockRetry_SaveSessionAfterUnlock(t *testing.T) {
+	t.Setenv("BW_SESSION", "")
+	bw := &mockBwClientSetsSession{}
+	logger := &mockLogger{}
+	cfg := &config.Config{}
+	store := &memorySessionStore{}
+
+	callCount := 0
+	err := WithUnlockRetry(
+		bw,
+		cfg,
+		func() (string, error) {
+			return "password123", nil
+		},
+		logger,
+		store,
+		func() error {
+			callCount++
+			if callCount == 1 {
+				return ErrBitwardenLocked
+			}
+			return nil
+		},
+	)
+	assert.NoError(t, err)
+	assert.Equal(t, []string{"new-session-key"}, store.sets)
+	assert.Equal(t, "new-session-key", store.session)
+}
+
+func TestWithUnlockRetry_GetErrorStillRuns(t *testing.T) {
+	t.Setenv("BW_SESSION", "")
+	bw := &mockBwClient{}
+	logger := &mockLogger{}
+	cfg := &config.Config{}
+	store := &memorySessionStore{getErr: errors.New("keychain unavailable")}
+
+	err := WithUnlockRetry(
+		bw,
+		cfg,
+		func() (string, error) {
+			return "", errors.New("prompt should not be called")
+		},
+		logger,
+		store,
+		func() error { return nil },
+	)
+	assert.NoError(t, err)
+}
+
+func TestWithUnlockRetry_SetErrorNonFatal(t *testing.T) {
+	t.Setenv("BW_SESSION", "")
+	bw := &mockBwClientSetsSession{}
+	logger := &mockLogger{}
+	cfg := &config.Config{}
+	store := &memorySessionStore{setErr: errors.New("cannot write keychain")}
+
+	callCount := 0
+	err := WithUnlockRetry(
+		bw,
+		cfg,
+		func() (string, error) {
+			return "password123", nil
+		},
+		logger,
+		store,
+		func() error {
+			callCount++
+			if callCount == 1 {
+				return ErrBitwardenLocked
+			}
+			return nil
+		},
+	)
+	assert.NoError(t, err)
+	assert.Equal(t, 2, callCount)
 }

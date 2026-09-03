@@ -27,18 +27,51 @@
 ### レイヤ構造の方針
 
 - **CLI 層**
-  - Cobra コマンド (`runPush`, `runPull`, `runList`, `runSetup`) からなる。
+  - Cobra コマンド (`runPush`, `runPull`, `runList`, `runSetup`, `runClean`) からなる。
   - 引数／フラグのパースと、エラー時の Exit/メッセージ表示のみを担当する「薄いラッパー」とする。
   - 実際の処理はすべて「コアロジック層」の関数に委譲する。
 - **コアロジック層**
-  - ビジネスロジック（Push/Pull/List/Setup）を環境依存のない形で実装する。
-  - I/O は `FileSystem` / `BwClient` / `Logger` インターフェースに抽象化する。
+  - ビジネスロジック（Push/Pull/List/Setup/Clean）を環境依存のない形で実装する。
+  - I/O は `FileSystem` / `BwClient` / `Logger` / `SessionStore` インターフェースに抽象化する。
 - **インフラ層**
-  - `exec.Command` による `bw` CLI 呼び出しや、`os` ベースのファイル操作など、現行実装に近い具体クラスを持つ。
+  - `exec.Command` による `bw` CLI 呼び出しや、`os` ベースのファイル操作、OS 秘密ストア（Keychain 等）など、現行実装に近い具体クラスを持つ。
 
 ---
 
 ## 2. 抽象インターフェース
+
+### SessionStore インターフェース（#130）
+
+- `type SessionStore interface`
+  - `BW_SESSION`（セッションキー）の永続化を抽象化する。
+  - マスターパスワードは扱わない。
+  - メソッド:
+    - `Get() (string, error)` — 保存済みセッションを返す。未保存・未対応 OS では空文字と `nil`。
+    - `Set(session string) error` — セッションを単一スロットに保存（上書き可）。
+    - `Delete() error` — 保存済みセッションを破棄する。無い場合もエラーにしない。
+
+#### テストシナリオ（インターフェース利用側）
+
+- 正常系
+  - モック `SessionStore` を `WithUnlockRetry` に渡し、`Get` / `Set` / `Delete` の呼び出し有無がシナリオどおりであることを確認する。
+- 異常系
+  - `Get` / `Set` / `Delete` がエラーを返しても、呼び出し側がパニックせず、フォールバック（パスワード再入力）またはエラー伝播の仕様どおり動くことを確認する。
+
+#### 具象実装（インフラ層）
+
+- **darwin（macOS Keychain）**
+  - service=`bwsf` / account=`bw-session` の単一スロット。
+  - 再起動時の自動消去はベストエフォート（アプリ側の boot time 判定は行わない）。
+- **それ以外（Linux 等）**
+  - no-op: `Get` は常に `""`、`Set` / `Delete` は何もしないで `nil`。
+
+##### テストシナリオ（具象）
+
+- 正常系
+  - no-op 実装で `Get` → `""`、`Set` / `Delete` → `nil` であることを確認する。
+  - darwin 実装はビルドタグまたは実機／手動確認とし、CI（Linux）ではコンパイル可能なこと、および no-op 側の単体テストでカバレッジを確保する。
+- 異常系
+  - darwin で Keychain API が失敗した場合に、エラーが返る（または呼び出し側で無視してプロンプトへ進む）仕様をテストまたは手動手順で確認する。
 
 ### BwClient インターフェース
 
@@ -57,7 +90,7 @@
 
 - "dotenvs" フォルダの ID を取得する。
 - フォルダが存在しない場合は `"dotenvs folder not found"` に相当するエラーを返す。
-- Bitwarden CLI がロックされている場合は、`ErrBitwardenLocked` を含むエラーを返す。
+- Bitwarden CLI がロック／未ログインの場合は、`ErrBitwardenLocked`（または同等の認証リカバリ対象メッセージを含むエラー）を返す（#161）。
 
 ##### テストシナリオ
 
@@ -65,13 +98,13 @@
   - CLI 出力に "dotenvs" フォルダが含まれている場合に、該当フォルダの ID が返されることを確認する。
 - 異常系
   - CLI 出力に "dotenvs" フォルダが含まれない場合に、`"dotenvs folder not found"` 相当のエラーが返ることを確認する。
-  - CLI 出力に "Master password" を含めた場合に、`ErrBitwardenLocked` が返ることを確認する。
+  - CLI 出力／エラーに `"Master password"` / `"Vault is locked"` / `"You are not logged in"` のいずれかを含む場合に、`ErrBitwardenLocked`（または `IsLockedError` が true になるエラー）が返ることを確認する（#161）。
 
 #### ListItemsInFolder
 
 - 指定フォルダ ID 内のアイテム一覧を `[]Item` として返す。
 - フォルダが空の場合でも、空スライスと `nil` エラーを返す。
-- CLI ロック時は `ErrBitwardenLocked` を含むエラーを返す。
+- CLI ロック／未ログイン時は `ErrBitwardenLocked`（または同等の認証リカバリ対象エラー）を返す（#161）。
 
 ##### テストシナリオ
 
@@ -80,13 +113,13 @@
   - CLI 出力が空配列 `[]` の場合に、空スライスと `nil` エラーが返ることを確認する。
 - 異常系
   - CLI 出力が JSON ではない文字列の場合に、パースエラーが返ることを確認する。
-  - 出力に "Master password" を含めた場合に、`ErrBitwardenLocked` が返ることを確認する。
+  - 出力／エラーに `"Master password"` / `"Vault is locked"` / `"You are not logged in"` のいずれかを含む場合に、`ErrBitwardenLocked`（または `IsLockedError` が true になるエラー）が返ることを確認する（#161）。
 
 #### GetItemByName
 
 - 指定フォルダ ID 内から、名前が一致するアイテムを検索して `*FullItem` を返す。
 - 見つからない場合は `nil, nil` を返す。
-- ロック状態の場合は `ErrBitwardenLocked` を含むエラーを返す。
+- ロック／未ログイン状態の場合は `ErrBitwardenLocked`（または同等の認証リカバリ対象エラー）を返す（#161）。
 
 ##### テストシナリオ
 
@@ -94,14 +127,14 @@
   - CLI 出力に対象 `Name` を持つアイテムが含まれているときに、該当 `FullItem` が返ることを確認する（内部で `GetItemByID` が呼ばれる前提）。
   - CLI 出力が空、またはマッチする `Name` が無い場合に、`nil, nil` が返ることを確認する。
 - 異常系
-  - CLI 出力に "Master password" を含めた場合に、`ErrBitwardenLocked` が返ることを確認する。
+  - CLI 出力／エラーに `"Master password"` / `"Vault is locked"` / `"You are not logged in"` のいずれかを含む場合に、`ErrBitwardenLocked`（または `IsLockedError` が true になるエラー）が返ることを確認する（#161）。
   - CLI 出力が JSON ではない（`[ ...` で始まらない）場合に、JSON 形式エラーが返ることを確認する。
 
 #### GetItemByID
 
 - 指定 ID のアイテムを取得して `*FullItem` を返す。
 - 存在しない ID の場合は適切なエラーを返す。
-- ロック状態の場合は `ErrBitwardenLocked` を含むエラーを返す。
+- ロック／未ログイン状態の場合は `ErrBitwardenLocked`（または同等の認証リカバリ対象エラー）を返す（#161）。
 
 ##### テストシナリオ
 
@@ -109,7 +142,7 @@
   - CLI 出力が単一のアイテム JSON の場合に、`FullItem` に正しくパースされることを確認する。
 - 異常系
   - CLI 出力が空文字列の場合に、`"no output from bw get item command"` 相当のエラーを返すことを確認する。
-  - CLI 出力に "Master password" を含めた場合に、`ErrBitwardenLocked` が返ることを確認する。
+  - CLI 出力／エラーに `"Master password"` / `"Vault is locked"` / `"You are not logged in"` のいずれかを含む場合に、`ErrBitwardenLocked`（または `IsLockedError` が true になるエラー）が返ることを確認する（#161）。
 
 #### CreateNoteItem
 
@@ -128,7 +161,7 @@
 
 - アイテム ID と新しいノート文字列を受け取り、既存アイテムの `notes` フィールドを更新する。
 - 成功時は `nil` を返す。
-- ロック状態の場合は `ErrBitwardenLocked` を含むエラーを返す。
+- ロック／未ログイン状態の場合は `ErrBitwardenLocked`（または同等の認証リカバリ対象エラー）を返す（#161）。
 
 ##### テストシナリオ
 
@@ -188,6 +221,11 @@
 - 任意パスに文字列を保存する。
 - パーミッションは呼び出し側（コアロジック）から指定できるようにする。
 
+#### Remove
+
+- 任意パスのファイルを削除する。
+- 存在しない場合はエラーを返す（呼び出し側で必要なら事前に存在確認する）。
+
 #### Stat
 
 - 任意パスの存在確認／属性取得を行う。
@@ -203,8 +241,10 @@
 - 正常系
   - 既存ディレクトリに対して `MkdirAll` を呼び出してもエラーが発生しないことを確認する。
   - `WriteFile` 後に `ReadFile` で同じ内容が取得できることを確認する。
+  - `WriteFile` 後に `Remove` すると、以降の `Stat` / `ReadFile` で存在しない扱いになることを確認する。
 - 異常系
   - 読み取り専用ディレクトリ配下に `WriteFile` を試みた際にエラーが返ることを確認する（実環境ではスキップ可・モックで代用可）。
+  - 存在しないパスに対する `Remove` がエラーを返すことを確認する。
 
 ### Logger インターフェース
 
@@ -243,25 +283,49 @@
 ### WithUnlockRetry
 
 - シグネチャ（イメージ）:
-  - `func WithUnlockRetry(bw BwClient, cfg *config.Config, promptPassword func() (string, error), logger Logger, fn func() error) error`
+  - `func WithUnlockRetry(bw BwClient, cfg *config.Config, promptPassword func() (string, error), logger Logger, sessions SessionStore, fn func() error) error`
 - 処理内容:
-  - `fn()` を一度実行し、エラーが `ErrBitwardenLocked` またはロック関連エラーの場合のみ、アンロック／ログインを行う。
+  - **セッション復元（#130）**
+    - 環境変数 `BW_SESSION` が既に非空なら Keychain／`SessionStore` には触れない（環境変数優先）。
+    - 空の場合のみ `sessions.Get()` を試し、非空なら `os.Setenv("BW_SESSION", ...)` する（Keychain からの復元）。
+  - `fn()` を一度実行し、エラーが `IsLockedError` 相当（認証リカバリ対象）の場合のみ、アンロック／ログインを行う。
+  - **認証リカバリ対象（#161）**: `ErrBitwardenLocked` に加え、現行 `bw` が出す次のメッセージを含むエラーも対象とする（ラップ済み文字列でも部分一致でよい）。
+    - `"Bitwarden CLI is locked"`
+    - `"Master password"` / `"master password"`
+    - `"You are not logged in"`
+    - `"Vault is locked"`
+  - ロック／未ログイン時:
+    - 直前に `SessionStore` から復元していた場合は、無効セッションとして `sessions.Delete()` し、必要なら `BW_SESSION` を unset する。
+    - 環境変数由来の `BW_SESSION` のみの場合は `SessionStore` を削除しない（触らない）。
   - アンロックフロー:
     - `promptPassword` を使ってマスターパスワードを取得する。
     - `bw.Unlock` を実行する。
-    - 失敗した場合、`cfg` が存在すれば `bw.Login(cfg.Email, password, cfg.SelfhostedURL)` を試みる。
+    - 失敗した場合、`cfg` が存在し `Email` があれば `bw.Login(cfg.Email, password, cfg.SelfhostedURL)` を試みる（未ログイン時のフォールバック）。
     - ログイン成功後に再度 `bw.Unlock` を実行する。
-  - アンロック／ログインに成功した場合、`fn()` を再実行し、その結果を返す。
+  - アンロック／ログインに成功した場合:
+    - プロセス内の `BW_SESSION`（`os.Getenv`）が非空なら `sessions.Set(session)` で保存する。
+    - `fn()` を再実行し、その結果を返す。
   - 途中でのパスワード取得失敗やアンロック／ログイン失敗は、適切なエラーメッセージをラップして返す。
+  - **コマンド内のパスワード再入力ループは行わない**（失敗したら終了。再実行時に再び `IsLockedError` なら再プロンプトする）（#161）。
+  - `--password` / `BWSF_PASSWORD` による非対話入力は従来どおり `promptPassword` 側で維持する（本関数は変更しない）。
 
 #### テストシナリオ
 
 - 正常系
   - `fn()` が 1 回目で成功する場合に、`promptPassword`／`bw.Unlock`／`bw.Login` が一切呼ばれないことを確認する。
   - `fn()` が 1 回目で `ErrBitwardenLocked` を返し、パスワード入力 → `bw.Unlock` 成功 → 2 回目の `fn()` が成功するフローを確認する。
+  - （#161）`fn()` が 1 回目で `"Vault is locked."` を含むエラーを返し、パスワード入力 → `bw.Unlock` 成功 → 2 回目の `fn()` が成功するフローを確認する。
+  - （#161）`fn()` が 1 回目で `"You are not logged in."` を含むエラーを返し、パスワード入力 → `bw.Unlock` 失敗 → `bw.Login` 成功 → `bw.Unlock` 成功 → 2 回目の `fn()` が成功するフローを確認する。
+  - （#130）`BW_SESSION` 環境変数が空で、`SessionStore.Get` が有効セッションを返す場合に、それを環境へ設定したうえで `fn()` が成功し、`promptPassword` が呼ばれないことを確認する。
+  - （#130）`bw.Unlock` 成功後に `BW_SESSION` がプロセス環境に入っている場合、`SessionStore.Set` がその値で呼ばれることを確認する。
+  - （#130）`BW_SESSION` 環境変数が既にセットされている場合、`SessionStore.Get` / `Delete` が呼ばれず、既存の環境変数のまま `fn()` が実行されることを確認する。
 - 異常系
   - `promptPassword` がエラーを返した場合に、`bw.Unlock`／`bw.Login` が呼ばれず、そのエラーが `WithUnlockRetry` から返ることを確認する。
   - `bw.Unlock` と `bw.Login` の両方が失敗する場合に、その失敗理由を含んだエラーが返り、`fn()` が再実行されないことを確認する。
+  - ロック／未ログイン以外のエラー（例: network）の場合に、`promptPassword`／`bw.Unlock`／`bw.Login` が呼ばれず、エラーがそのまま伝播することを確認する。
+  - （#130）`SessionStore` から復元したセッションで `fn()` が認証リカバリ対象エラーになる場合、`SessionStore.Delete` が呼ばれたうえでパスワード入力 → unlock／login へフォールバックすることを確認する（`"You are not logged in."` / `"Vault is locked."` を含む）。
+  - （#130）`SessionStore.Get` がエラーを返した場合でも、空扱いで `fn()` へ進み（または仕様どおりプロンプトへ）、パニックしないことを確認する。
+  - （#130）`SessionStore.Set` がエラーを返しても、unlock 後の `fn()` 再実行自体は成功扱いにできる（保存失敗はログ程度／エラー非致命）ことを確認する。
 
 ### ParseEnvFile / EnvDataToJSON / RestoreEnvFileFromJSON / FindEnvFile
 
@@ -274,7 +338,7 @@
 ### PushEnvCore
 
 - シグネチャ（イメージ）:
-  - `func PushEnvCore(fromDir, projectName string, fs FileSystem, bw BwClient, cfg *config.Config, promptPassword func() (string, error), logger Logger) error`
+  - `func PushEnvCore(fromDir, projectName string, fs FileSystem, bw BwClient, cfg *config.Config, promptPassword func() (string, error), logger Logger, sessions SessionStore) error`
 - 処理:
   - `fromDir` と `projectName` に基づいて対象 `.env` ファイルパスを決定する。
     - `fromDir` が `"."` または `".."` の場合、`/project-root` へのフォールバックを含む。
@@ -303,7 +367,7 @@
 ### PullEnvCore
 
 - シグネチャ（イメージ）:
-  - `func PullEnvCore(outputDir, projectName string, fs FileSystem, bw BwClient, cfg *config.Config, promptPassword func() (string, error), confirmOverwrite func(path string) (bool, error), logger Logger) error`
+  - `func PullEnvCore(outputDir, projectName string, fs FileSystem, bw BwClient, cfg *config.Config, promptPassword func() (string, error), confirmOverwrite func(path string) (bool, error), logger Logger, sessions SessionStore) error`
 - 処理:
   - `outputDir` が `"."` または `".."` の場合、`/project-root` に正規化する。
   - `WithUnlockRetry` 経由で `bw.GetDotenvsFolderID()` を呼び出し、フォルダ ID を取得する。
@@ -326,10 +390,37 @@
   - 既存 `.env` がある状態で `confirmOverwrite` が `false` を返す場合に、上書き処理を行わず、適切にキャンセル扱いになることを確認する。
   - `RestoreEnvFileFromJSON` が壊れた JSON でエラーを返す場合に、そのエラーがそのまま呼び出し元へ伝播することを確認する。
 
+### CleanEnvCore
+
+- シグネチャ（イメージ）:
+  - `func CleanEnvCore(targetDir, projectName string, fs FileSystem, bw BwClient, cfg *config.Config, promptPassword func() (string, error), selectMismatchAction func(mismatchedFiles []string) (CleanMismatchAction, error), logger Logger, sessions SessionStore) error`
+- 処理:
+  - `FindEnvFiles` と同一のルール（`.env*` かつ `.example` 除外）でローカル対象ファイルを検出する。
+  - ローカルに対象ファイルが無い場合はエラーを返す。
+  - `WithUnlockRetry` 経由で `bw.GetDotenvsFolderID()` / `bw.GetItemByName(folderID, projectName)` を実行し、dotenvs 配下の同名 Note アイテムを取得する。
+  - アイテムが存在しない、またはアイテム内に管理対象ファイルが無い場合は、ローカルを削除せずエラーで中止する。
+  - ローカルとリモートの `MultiEnvData` を比較する。1 ファイルでも差分（欠落含む）があればプロジェクト全体を差分ありとみなす。
+  - 差分が無い場合は確認なしでローカル対象ファイルを `fs.Remove` する。
+  - 差分がある場合は `selectMismatchAction` で単一選択させる（Abort / Overwrite remote then clean / Remove local）。
+    - Abort: 削除せず中止（`ErrCleanAborted`）。
+    - Overwrite remote then clean: ローカル内容でリモートを更新（push 相当）してからローカルを削除する。
+    - Remove local: リモートを更新せずローカルのみ削除する（危険選択肢）。
+
+#### テストシナリオ
+
+- 正常系
+  - リモート同名アイテムがあり内容が一致する場合に、確認コールバックを呼ばずローカル `.env*` が `Remove` されることを確認する。
+  - 差分があり `Overwrite remote then clean` が選ばれた場合に、`UpdateNoteItem`（または作成）の後にローカルが削除されることを確認する。
+  - 差分があり `Remove local` が選ばれた場合に、リモート更新なしでローカルのみ削除されることを確認する。
+- 異常系
+  - リモートに同名アイテムが無い場合に、ローカルを削除せずエラーになることを確認する。
+  - リモートアイテムはあるが管理対象ファイルが空の場合に、ローカルを削除せずエラーになることを確認する。
+  - 差分ありで `Abort` が選ばれた場合に、ローカルもリモートも変更されないことを確認する。
+
 ### ListDotenvsCore
 
 - シグネチャ（イメージ）:
-  - `func ListDotenvsCore(bw BwClient, cfg *config.Config, promptPassword func() (string, error), logger Logger) ([]Item, error)`
+  - `func ListDotenvsCore(bw BwClient, cfg *config.Config, promptPassword func() (string, error), logger Logger, sessions SessionStore) ([]Item, error)`
 - 処理:
   - `WithUnlockRetry` 経由で `bw.GetDotenvsFolderID()` を実行し、フォルダ ID を取得する。
   - `WithUnlockRetry` 経由で `bw.ListItemsInFolder(folderID)` を実行し、アイテム一覧を取得する。
@@ -437,6 +528,23 @@
 - 異常系
   - `SetupBitwardenCore` がエラーを返す場合に、その内容がエラーとして表示され、`os.Exit(1)` が呼ばれることを確認する。
 
+### runClean
+
+- 処理:
+  - `--from` フラグをパースして対象ディレクトリを取得する。
+  - `os.Getwd()` から `projectName` を決定する。
+  - 具象 `BwClient` / `FileSystem` / `Logger` を生成する。
+  - 差分時の単一選択 UI (`SelectCleanMismatchAction`) を `CleanEnvCore` へ渡す。
+  - `CleanEnvCore` の戻り値が `ErrCleanAborted` の場合は情報メッセージを出して終了コード 0。
+  - その他のエラーはメッセージ表示＋`os.Exit(1)`、成功時は成功メッセージを表示する。
+
+#### テストシナリオ
+
+- 正常系
+  - `clean` コマンドが root に登録され、`--from` フラグのデフォルトが `"."` であることを確認する。
+- 異常系
+  - （コア層で担保）リモート未整備や Abort 時にローカル削除が行われないことを確認する。
+
 ---
 
 ## 6. 既存ユーティリティの仕様（インフラ実装側）
@@ -467,7 +575,22 @@
 ### ロック判定ユーティリティ
 
 - `ErrBitwardenLocked`
-  - Bitwarden CLI がロックされていることを表す代表的なエラー。
+  - Bitwarden CLI がロックされている／認証が必要なことを表す代表的なエラー。
+  - インフラ層（`bw list` 等）は、現行 `bw` の認証関連メッセージをこのエラー（または同等のメッセージを含むエラー）に正規化してよい（#161）。
 - `IsLockedError`
-  - 渡されたエラーがロック関連であるかを判定し、`WithUnlockRetry` などから利用される。
+  - 渡されたエラーが認証リカバリ対象かを判定し、`WithUnlockRetry` などから利用される。
+  - 判定対象（部分一致、#161）:
+    - `"Bitwarden CLI is locked"`
+    - `"Master password"` / `"master password"`
+    - `"You are not logged in"`
+    - `"Vault is locked"`
+  - ラップ済みエラー（例: `"failed to list folders: You are not logged in."`）でも `true` になること。
+
+#### テストシナリオ
+
+- 正常系
+  - 上記各メッセージ（単体およびラップ済み）で `IsLockedError` が `true` になることを確認する。
+- 異常系
+  - 無関係なエラー（例: network / JSON parse）では `false` になることを確認する。
+  - `nil` では `false` になることを確認する。
 

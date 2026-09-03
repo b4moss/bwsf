@@ -2,10 +2,8 @@ package cmd
 
 import (
 	"bwsf/src/core"
-	"bwsf/src/infra"
 	"bwsf/src/utils"
 	"fmt"
-	"os"
 	"path/filepath"
 
 	"github.com/spf13/cobra"
@@ -27,64 +25,56 @@ func runPull(cmd *cobra.Command, args []string) {
 	cfg := loadConfigOrEmpty()
 	requireBwCLIIfNeeded(cfg)
 
-	// Get --output flag value
-	outputDir, err := cmd.Flags().GetString("output")
+	projectName, outputDir, _, err := resolveProjectAndFileDir(cmd, "output")
 	if err != nil {
-		utils.Errorln("[ERROR] Failed to get --output flag:", err)
-		os.Exit(1)
+		utils.Errorln("[ERROR] Failed to resolve project directory:", err)
+		exitFunc(1)
+		return
 	}
 
-	// Get current working directory name as project name
-	wd, err := os.Getwd()
-	if err != nil {
-		utils.Errorln("[ERROR] Failed to get current working directory:", err)
-		os.Exit(1)
-	}
-	projectName := filepath.Base(wd)
-
-	// Create dependencies
 	bw := newBwClientFromConfig(cfg)
 	defer clearAPISession(bw)
-	fs := infra.NewFileSystem()
-	logger := infra.NewLogger()
+	fs := newFileSystem()
+	logger := newLogger()
 
-	// Get list of env files to be pulled
-	envFiles, err := core.GetPulledEnvFiles(projectName, bw, cfg, utils.InputPassword, logger)
+	sessions := newSessionStore()
+	envFiles, err := core.GetPulledEnvFiles(projectName, bw, cfg, inputPassword, logger, sessions)
 	if err != nil {
 		reportCommandError(err)
-		os.Exit(1)
+		exitFunc(1)
+		return
 	}
 
 	if len(envFiles) == 0 {
 		utils.Errorln("[ERROR] No env files found in Bitwarden for project:", projectName)
-		os.Exit(1)
+		exitFunc(1)
+		return
 	}
 
-	// Display files to be pulled
 	utils.Infoln("[INFO] Found", len(envFiles), "env file(s) to pull:")
 	for _, f := range envFiles {
 		utils.Infoln("  -", f)
 	}
 
-	// confirmOverwrite wrapper
-	confirmOverwrite := func(path string) (bool, error) {
-		return utils.ConfirmOverwrite(fmt.Sprintf("%s already exists. Overwrite? (y/N): ", filepath.Base(path)))
+	doConfirm := func(path string) (bool, error) {
+		return confirmOverwrite(fmt.Sprintf("%s already exists. Overwrite? (y/N): ", filepath.Base(path)))
 	}
 
-	// Call core logic
 	err = core.PullEnvCore(
 		outputDir,
 		projectName,
 		fs,
 		bw,
 		cfg,
-		utils.InputPassword,
-		confirmOverwrite,
+		inputPassword,
+		doConfirm,
 		logger,
+		sessions,
 	)
 	if err != nil {
 		reportCommandError(err)
-		os.Exit(1)
+		exitFunc(1)
+		return
 	}
 
 	utils.Successln("[INFO] ✅", len(envFiles), "env file(s) pulled successfully!")

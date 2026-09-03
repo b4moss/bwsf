@@ -2,12 +2,10 @@ package cmd
 
 import (
 	"fmt"
-	"os"
 	"strings"
 
 	"bwsf/src/config"
 	"bwsf/src/core"
-	"bwsf/src/infra"
 	"bwsf/src/utils"
 
 	"github.com/spf13/cobra"
@@ -53,7 +51,8 @@ func runSetupAPI() {
 
 	if _, err := applySetupFolderFlag(); err != nil {
 		utils.Errorln("[ERROR]", err)
-		os.Exit(1)
+		exitFunc(1)
+		return
 	}
 
 	selectHostType := utils.SelectHostType
@@ -62,22 +61,25 @@ func runSetupAPI() {
 	if nonInteractiveSetup() {
 		if setupHostType == "" || setupEmail == "" {
 			utils.Errorln("[ERROR] non-interactive API setup requires --host-type and --email")
-			os.Exit(1)
+			exitFunc(1)
+			return
 		}
 		if setupHostType != "cloud" && setupHostType != "selfhosted" {
 			utils.Errorln("[ERROR] --host-type must be cloud or selfhosted")
-			os.Exit(1)
+			exitFunc(1)
+			return
 		}
 		if setupHostType == "selfhosted" && strings.TrimSpace(setupURL) == "" {
 			utils.Errorln("[ERROR] --url is required when --host-type=selfhosted")
-			os.Exit(1)
+			exitFunc(1)
+			return
 		}
 		selectHostType = func() (string, error) { return setupHostType, nil }
 		inputURL = func() (string, error) { return setupURL, nil }
 		inputEmail = func() (string, error) { return setupEmail, nil }
 	}
 
-	logger := infra.NewLogger()
+	logger := newLogger()
 	err := core.SetupAPIConfigCore(
 		logger,
 		selectHostType,
@@ -86,7 +88,8 @@ func runSetupAPI() {
 	)
 	if err != nil {
 		utils.Errorln("[ERROR]", err)
-		os.Exit(1)
+		exitFunc(1)
+		return
 	}
 
 	cfg := loadConfigOrEmpty()
@@ -94,9 +97,9 @@ func runSetupAPI() {
 	bw := newBwClientFromConfig(cfg)
 	defer clearAPISession(bw)
 
-	inputPassword := utils.InputPassword
+	inputPasswordFn := utils.InputPassword
 	if setupPassword != "" {
-		inputPassword = func() (string, error) { return setupPassword, nil }
+		inputPasswordFn = func() (string, error) { return setupPassword, nil }
 	}
 	confirmCreateFolder := func() (bool, error) {
 		return utils.ConfirmYesNo(fmt.Sprintf("%s folder not found. Create it? (y/N): ", folderName))
@@ -105,12 +108,13 @@ func runSetupAPI() {
 		confirmCreateFolder = func() (bool, error) { return true, nil }
 	}
 
-	if err := core.EnsureConfiguredFolderCore(bw, cfg, logger, inputPassword, confirmCreateFolder); err != nil {
+	if err := core.EnsureConfiguredFolderCore(bw, cfg, logger, inputPasswordFn, confirmCreateFolder); err != nil {
 		if core.IsNotAuthenticatedError(err) {
 			utils.Infoln("[INFO] Folder check skipped until `bwsf auth` (and unlock) succeeds.")
 		} else {
 			utils.Errorln("[ERROR]", err)
-			os.Exit(1)
+			exitFunc(1)
+			return
 		}
 	}
 
@@ -123,23 +127,25 @@ func runSetupBW(cfg *config.Config) {
 
 	if err := validateSetupNonInteractiveFlags(); err != nil {
 		utils.Errorln("[ERROR]", err)
-		os.Exit(1)
+		exitFunc(1)
+		return
 	}
 
 	folderName, err := applySetupFolderFlag()
 	if err != nil {
 		utils.Errorln("[ERROR]", err)
-		os.Exit(1)
+		exitFunc(1)
+		return
 	}
 
 	bw := newBwClientFromConfig(cfg)
-	fs := infra.NewFileSystem()
-	logger := infra.NewLogger()
+	fs := newFileSystem()
+	logger := newLogger()
 
 	selectHostType := utils.SelectHostType
 	inputURL := utils.InputURL
 	inputEmail := utils.InputEmail
-	inputPassword := utils.InputPassword
+	inputPasswordFn := utils.InputPassword
 	confirmCreateFolder := func() (bool, error) {
 		return utils.ConfirmYesNo(fmt.Sprintf("%s folder not found. Create it? (y/N): ", folderName))
 	}
@@ -148,7 +154,7 @@ func runSetupBW(cfg *config.Config) {
 		selectHostType = func() (string, error) { return setupHostType, nil }
 		inputURL = func() (string, error) { return setupURL, nil }
 		inputEmail = func() (string, error) { return setupEmail, nil }
-		inputPassword = func() (string, error) { return setupPassword, nil }
+		inputPasswordFn = func() (string, error) { return setupPassword, nil }
 		confirmCreateFolder = func() (bool, error) { return setupYes, nil }
 	}
 
@@ -159,12 +165,13 @@ func runSetupBW(cfg *config.Config) {
 		selectHostType,
 		inputURL,
 		inputEmail,
-		inputPassword,
+		inputPasswordFn,
 		confirmCreateFolder,
 	)
 	if err != nil {
 		utils.Errorln("[ERROR]", err)
-		os.Exit(1)
+		exitFunc(1)
+		return
 	}
 
 	utils.Successln("[INFO] ✅ Sign in to Bitwarden was successful!")

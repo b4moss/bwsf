@@ -29,14 +29,14 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
 
       - name: Install dependencies
         run: npm install
         working-directory: docs/site
 
-      - name: Build with VitePress
-        run: npm run build
+      - name: Generate static site with Nuxt
+        run: npm run generate
         working-directory: docs/site
 
       - name: Setup Pages
@@ -47,7 +47,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: docs/site/.vitepress/dist
+          path: docs/site/.output/public
 
   deploy:
     environment:

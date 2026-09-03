@@ -1,12 +1,10 @@
 package cmd
 
 import (
+	"fmt"
+
 	"bwsf/src/config"
 	"bwsf/src/core"
-	"bwsf/src/infra"
-	"bwsf/src/utils"
-	"fmt"
-	"os"
 
 	"github.com/spf13/cobra"
 )
@@ -26,24 +24,24 @@ func runList(cmd *cobra.Command, args []string) {
 	cfg := loadConfigOrEmpty()
 	requireBwCLIIfNeeded(cfg)
 
-	// Create dependencies
 	bw := newBwClientFromConfig(cfg)
 	defer clearAPISession(bw)
-	logger := infra.NewLogger()
+	logger := newLogger()
 
-	// Call core logic
+	sessions := newSessionStore()
 	items, err := core.ListDotenvsCore(
 		bw,
 		cfg,
-		utils.InputPassword,
+		inputPassword,
 		logger,
+		sessions,
 	)
 	if err != nil {
 		reportCommandError(err)
-		os.Exit(1)
+		exitFunc(1)
+		return
 	}
 
-	// Output item names (one per line)
 	if len(items) == 0 {
 		folderName := config.ResolveFolderName(cfg)
 		fmt.Printf("No items found in %s folder\n", folderName)

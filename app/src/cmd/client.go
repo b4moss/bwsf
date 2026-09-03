@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"errors"
-	"os"
 
 	"bwsf/src/config"
 	"bwsf/src/core"
@@ -37,7 +36,7 @@ func loadConfigOrEmpty() *config.Config {
 	cfg, err := config.LoadConfig()
 	if err != nil {
 		utils.Errorln("[ERROR] Failed to load config:", err)
-		os.Exit(1)
+		exitFunc(1)
 	}
 	if cfg == nil {
 		return &config.Config{}
@@ -45,12 +44,12 @@ func loadConfigOrEmpty() *config.Config {
 	return cfg
 }
 
-// newBwClientFromConfig builds the BwClient for cfg and exits on factory errors.
-func newBwClientFromConfig(cfg *config.Config) core.BwClient {
+// newBwClientFromConfig builds the BwClient for cfg. Overridable in tests.
+var newBwClientFromConfig = func(cfg *config.Config) core.BwClient {
 	bw, err := infra.NewBwClientFromConfig(cfg)
 	if err != nil {
 		utils.Errorln("[ERROR]", err)
-		os.Exit(1)
+		exitFunc(1)
 	}
 	return bw
 }
@@ -60,9 +59,9 @@ func requireBwCLIIfNeeded(cfg *config.Config) {
 	if cfg.GetBackend() != config.BackendBW {
 		return
 	}
-	installed, _ := utils.CheckBwCommand()
+	installed, _ := checkBwInstalled()
 	if !installed {
 		utils.Errorln("[ERROR] ❌ bw command is not installed...")
-		os.Exit(1)
+		exitFunc(1)
 	}
 }

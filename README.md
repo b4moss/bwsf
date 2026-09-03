@@ -1,56 +1,38 @@
 # bwsf
 
-[![Test](https://github.com/b4m-oss/bwsf/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/b4m-oss/bwsf/actions/workflows/test.yml)
-[![Release](https://img.shields.io/github/v/release/b4m-oss/bwsf)](https://github.com/b4m-oss/bwsf/releases/latest)
+[![CI](https://github.com/b4moss/bwsf/actions/workflows/test.yml/badge.svg)](https://github.com/b4moss/bwsf/actions/workflows/test.yml)
+[![Coverage](https://img.shields.io/codecov/c/github/b4moss/bwsf)](https://codecov.io/gh/b4moss/bwsf)
+[![Go Reference](https://pkg.go.dev/badge/github.com/b4moss/bwsf.svg)](https://pkg.go.dev/github.com/b4moss/bwsf)
+[![Release](https://img.shields.io/github/v/release/b4moss/bwsf)](https://github.com/b4moss/bwsf/releases)
+[![License](https://img.shields.io/github/license/b4moss/bwsf)](https://github.com/b4moss/bwsf/blob/main/LICENSE)
+[![OpenSSF Scorecard](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fapi.scorecard.dev%2Fprojects%2Fgithub.com%2Fb4moss%2Fbwsf&query=%24.score&label=OpenSSF%20Scorecard&suffix=%2F10)](https://scorecard.dev/viewer/?uri=github.com/b4moss/bwsf)
 
-bwsf (Bitwarden Secured Files) is a CLI tool that uses [Bitwarden](https://bitwarden.com/) to manage .env files.
+bwsf (Bitwarden Secured Files) is a CLI tool that uses [Bitwarden](https://bitwarden.com/) to manage `.env*` files and Terraform `*.tfvars` / `*.tfvars.json`.
 
 [Official site](https://bwsf.oss.b4m.jp/)
 
-## 🚨🚨 BREAKING CHANGE 🚨🚨
+## 🚨🚨 Important notice 🚨🚨
 
-### Changed CLI Name
+Login to Bitwarden may fail on v0.17.0 and v0.17.1.
 
-From v0.11.0, `bwenv` is re-named as `bwsf`. This is cause some bwenv commands already existed. We decieded to change our CLI name to avoid confusing.
-
-#### MIGRATE
-
-Rename youre setting directory.
-
-```bash
-mv ~/.config/bwenv ~/.config/bwsf
-```
-
-Uninstall your current version, and re-install latest version.
-
-```bash
-brew uninstall bwenv
-brew install bwsf
-```
-
-### Multiple `.env.enviroment` files
-
-From v0.9.0, bwsf stores multiple enviroment .env files, like `.env | .env.staging | .env.production`.
-
-Cause with this, stored data at Bitwarden Note item structure is changed.
-
-Stored data before v0.8.0 is no compatiblity after v0.9.0.
-
-We will not provide migration system.
+If you are on the v0.17 line, please upgrade to v0.17.2 (released 2026-09-03 JST) or later.
 
 ## Overview
 
-bwsf commands supports your dotenv files are manged in your Bitwarden.
+bwsf manages project files in Bitwarden: `.env*`, `*.tfvars`, and `*.tfvars.json` (names containing `.example` are excluded).
 
 Simple usage below:
 
 | command | |
 |----|----|
-| bwsf push | .env files push to your Bitwarden host |
-| bwsf pull | .env files pull from your Bitwarden host |
-| bwsf list | Show list stored .env files at your Bitwarden host |
-| bwsf backend | Show or set Bitwarden backend (`bw` CLI or `api`) |
+| bwsf setup | Configure Bitwarden host and account |
 | bwsf auth | Store Personal API Key and authenticate (`api` backend) |
+| bwsf backend | Show or set Bitwarden backend (`bw` CLI or `api`) |
+| bwsf config show | Show current local configuration |
+| bwsf push | Push managed files to your Bitwarden host |
+| bwsf pull | Pull managed files from your Bitwarden host |
+| bwsf list | List stored projects at your Bitwarden host |
+| bwsf clean | Remove local managed files after verifying Bitwarden backup |
 
 ## Motivation
 
@@ -95,11 +77,19 @@ Homebrew is used to install bwsf itself.
 
 > Note: Linux requires [Homebrew on Linux](https://docs.brew.sh/Homebrew-on-Linux) to be installed first.
 
+Install a past release from the tap. Versioned formulas cover every patch of the
+current minor plus the latest patch of the previous minor (older formulas are
+pruned). Other releases remain on [GitHub Releases](https://github.com/b4moss/bwsf/releases).
+
+```shell
+brew install bwsf@0.17.3
+```
+
 ## Verify installation
 
 ```shell
 bwsf -v
-# bwsf version 0.11.2
+# bwsf version 0.16.0
 ```
 
 ## Usage
@@ -112,39 +102,57 @@ bwsf setup
 
 Set up your Bitwarden host and your account information.
 
-By default, `.env` notes are stored in a Bitwarden folder named `dotenvs`. To use a different folder name:
+By default, notes are stored in a Bitwarden folder named `dotenvs`. To use a different folder name:
 
 ```shell
 bwsf setup --folder my-envs
 ```
 
-The folder name is saved in `~/.config/bwsf/config.json` and used by push / pull / list. Changing the folder name does **not** move existing notes; move them manually in Bitwarden if needed.
+The folder name is saved in `~/.config/bwsf/config.json` and used by push / pull / list / clean. Changing the folder name does **not** move existing notes; move them manually in Bitwarden if needed.
 
-### Pull .env file from Bitwarden host
+Check saved values with:
+
+```shell
+bwsf config show
+```
+
+### Pull managed files from Bitwarden host
 
 ```shell
 cd /path/to/your_project
 bwsf pull
 ```
 
-bwsf searchs your .env data in Bitwarden host with the current directory's name.
-If it exists, pull data as .env file at current directory.
-If already .env files current directory, bwsf asks overwrite them or not.
-The data is stored as Bitwarden's Note item.
+bwsf searches Bitwarden for a Note matching the current directory name.
+If it exists, managed files are written to the current directory.
+If a target file already exists locally, bwsf asks whether to overwrite it (per file).
 
-### Push .env file to Bitwarden host
+### Push managed files to Bitwarden host
 
-bwsf pushs your .env data at the current directory to your Bitwarden host.
-If it exists same name Bitwarden's Note item in the configured folder (default: `dotenvs`), bwsf asks overwrite it or not.
+```shell
+cd /path/to/your_project
+bwsf push
+```
 
-### List up .env datas in Bitwarden host
+bwsf pushes managed files from the current directory to your Bitwarden host.
+If a Note with the same project name already exists in the configured folder (default: `dotenvs`), bwsf **updates it without an overwrite prompt**.
+
+### List projects in Bitwarden host
 
 ```shell
 bwsf list
 ```
 
-List up your .env datas from Bitwarden host.
-They will showed up project names list on stdout.
+Prints project names from Bitwarden, one per line on stdout.
+
+### Clean local managed files
+
+```shell
+cd /path/to/your_project
+bwsf clean
+```
+
+Removes local managed files after verifying the remote Bitwarden backup.
 
 ### Show or set Bitwarden backend
 
@@ -213,7 +221,7 @@ You can input your self hosted URL when initial setup.
 <details>
 <summary>Q. How does my .env file store at Bitwarden host?</summary>
 
-Your .env files are converted to JSON syntax. bwsf creates Bitwarden Note item, put into Note section to JSON.
+Your managed files are converted to JSON syntax. bwsf creates a Bitwarden Note item and puts that JSON in the Note section.
 
 </details>
 
@@ -235,7 +243,7 @@ But, secure information (ex. password) is never stored.
 ### Start up to dev
 
 ```
-git clone https://github.com/b4m-oss/bwsf.git
+git clone https://github.com/b4moss/bwsf.git
 cd bwsf
 make run
 ```

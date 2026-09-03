@@ -240,5 +240,94 @@ func TestLoadConfig_BackendOmitted(t *testing.T) {
 	assert.Equal(t, BackendAPI, cfg.GetBackend())
 }
 
+// FormatConfigShow / LoadConfigShowText（docs/tests/cmd/config_show.md）
+// =============================================================================
+
+func TestFormatConfigShow_CloudDefaultsFolder(t *testing.T) {
+	out := FormatConfigShow(&Config{
+		HostType:      "cloud",
+		SelfhostedURL: "",
+		Email:         "user@example.com",
+	})
+
+	assert.Contains(t, out, "Host type: cloud")
+	assert.Contains(t, out, "Self-hosted URL: ")
+	assert.Contains(t, out, "Email: user@example.com")
+	assert.Contains(t, out, "Folder name: dotenvs")
+	assert.NotContains(t, out, "password")
+}
+
+func TestFormatConfigShow_SelfhostedExplicitFolder(t *testing.T) {
+	out := FormatConfigShow(&Config{
+		HostType:      "selfhosted",
+		SelfhostedURL: "https://bw.example.com",
+		Email:         "ops@example.com",
+		FolderName:    "team-envs",
+	})
+
+	assert.Contains(t, out, "Host type: selfhosted")
+	assert.Contains(t, out, "Self-hosted URL: https://bw.example.com")
+	assert.Contains(t, out, "Email: ops@example.com")
+	assert.Contains(t, out, "Folder name: team-envs")
+}
+
+func TestFormatConfigShow_EmptyFolderNameUsesDefault(t *testing.T) {
+	out := FormatConfigShow(&Config{FolderName: "   "})
+	assert.Contains(t, out, "Folder name: "+DefaultFolderName)
+}
+
+func TestLoadConfigShowText_Success(t *testing.T) {
+	origHome := os.Getenv("HOME")
+	tmpDir := t.TempDir()
+	os.Setenv("HOME", tmpDir)
+	defer os.Setenv("HOME", origHome)
+
+	assert.NoError(t, SaveConfig(&Config{
+		HostType: "cloud",
+		Email:    "show@example.com",
+	}))
+
+	before, err := os.ReadFile(filepath.Join(tmpDir, ".config", "bwsf", "config.json"))
+	assert.NoError(t, err)
+
+	text, err := LoadConfigShowText()
+	assert.NoError(t, err)
+	assert.Contains(t, text, "Host type: cloud")
+	assert.Contains(t, text, "Email: show@example.com")
+	assert.Contains(t, text, "Folder name: dotenvs")
+
+	after, err := os.ReadFile(filepath.Join(tmpDir, ".config", "bwsf", "config.json"))
+	assert.NoError(t, err)
+	assert.Equal(t, before, after)
+}
+
+func TestLoadConfigShowText_MissingConfig(t *testing.T) {
+	origHome := os.Getenv("HOME")
+	tmpDir := t.TempDir()
+	os.Setenv("HOME", tmpDir)
+	defer os.Setenv("HOME", origHome)
+
+	text, err := LoadConfigShowText()
+	assert.Error(t, err)
+	assert.Empty(t, text)
+	assert.Contains(t, err.Error(), "setup")
+}
+
+func TestLoadConfigShowText_InvalidJSON(t *testing.T) {
+	origHome := os.Getenv("HOME")
+	tmpDir := t.TempDir()
+	os.Setenv("HOME", tmpDir)
+	defer os.Setenv("HOME", origHome)
+
+	configDir := filepath.Join(tmpDir, ".config", "bwsf")
+	assert.NoError(t, os.MkdirAll(configDir, 0755))
+	assert.NoError(t, os.WriteFile(filepath.Join(configDir, "config.json"), []byte("not json"), 0600))
+
+	text, err := LoadConfigShowText()
+	assert.Error(t, err)
+	assert.Empty(t, text)
+	assert.Contains(t, err.Error(), "failed to parse config file")
+}
+
 
 

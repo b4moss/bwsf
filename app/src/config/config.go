@@ -90,11 +90,36 @@ func LoadConfig() (*Config, error) {
 	}
 
 	var config Config
-	if err := json.Unmarshal(data, &config); err != nil {
+	if err := UnmarshalConfigJSONC(data, &config); err != nil {
 		return nil, fmt.Errorf("failed to parse config file: %w", err)
 	}
 
 	return &config, nil
+}
+
+// FormatConfigShow renders human-readable labeled lines for `bwsf config show`.
+func FormatConfigShow(cfg *Config) string {
+	if cfg == nil {
+		cfg = &Config{}
+	}
+	var b strings.Builder
+	b.WriteString(fmt.Sprintf("Host type: %s\n", cfg.HostType))
+	b.WriteString(fmt.Sprintf("Self-hosted URL: %s\n", cfg.SelfhostedURL))
+	b.WriteString(fmt.Sprintf("Email: %s\n", cfg.Email))
+	b.WriteString(fmt.Sprintf("Folder name: %s\n", ResolveFolderName(cfg)))
+	return b.String()
+}
+
+// LoadConfigShowText loads config and returns show text, or an error when missing/invalid.
+func LoadConfigShowText() (string, error) {
+	cfg, err := LoadConfig()
+	if err != nil {
+		return "", err
+	}
+	if cfg == nil {
+		return "", fmt.Errorf("no config found; run `bwsf setup` first")
+	}
+	return FormatConfigShow(cfg), nil
 }
 
 // SaveConfig saves the configuration to file

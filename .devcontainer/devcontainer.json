@@ -1,0 +1,26 @@
+{
+  "name": "bwsf",
+  "image": "mcr.microsoft.com/devcontainers/go:1.26-bookworm",
+  "features": {
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "22",
+      "installYarn": false
+    },
+    "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {
+      "version": "latest",
+      "moby": true,
+      "dockerDashComposeVersion": "v2"
+    }
+  },
+  "postCreateCommand": "bash .devcontainer/post-create.sh",
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "go.useLanguageServer": true,
+        "go.toolsManagement.checkForUpdates": "local"
+      },
+      "extensions": ["golang.Go"]
+    }
+  },
+  "remoteUser": "vscode"
+}

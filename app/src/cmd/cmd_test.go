@@ -108,6 +108,21 @@ func TestBackendCmd_Registered(t *testing.T) {
 	assert.True(t, found, "backend command should be registered")
 }
 
+// 正常系: clean コマンドが登録されている
+func TestCleanCmd_Registered(t *testing.T) {
+	assert.NotNil(t, cleanCmd)
+	assert.Equal(t, "clean", cleanCmd.Use)
+
+	found := false
+	for _, cmd := range rootCmd.Commands() {
+		if cmd.Use == "clean" {
+			found = true
+			break
+		}
+	}
+	assert.True(t, found, "clean command should be registered")
+}
+
 // =============================================================================
 // フラグのテスト
 // =============================================================================
@@ -176,6 +191,13 @@ func TestBackendCmd_SetFlag(t *testing.T) {
 	assert.Equal(t, "", flag.DefValue)
 }
 
+// 正常系: clean コマンドに --from フラグがある
+func TestCleanCmd_FromFlag(t *testing.T) {
+	flag := cleanCmd.Flags().Lookup("from")
+	assert.NotNil(t, flag)
+	assert.Equal(t, ".", flag.DefValue)
+}
+
 // =============================================================================
 // コマンドの Short/Long 説明のテスト
 // =============================================================================
@@ -239,7 +261,6 @@ func TestAuthCmd_Description(t *testing.T) {
 	assert.NotEmpty(t, authCmd.Short)
 	assert.NotEmpty(t, authCmd.Long)
 }
-
 
 // =============================================================================
 // backend コマンドのロジックテスト
@@ -307,5 +328,45 @@ func TestSetBackend_Invalid(t *testing.T) {
 	assert.Contains(t, err.Error(), "invalid backend")
 }
 
+// 正常系: clean コマンドに説明がある
+func TestCleanCmd_Description(t *testing.T) {
+	assert.NotEmpty(t, cleanCmd.Short)
+	assert.NotEmpty(t, cleanCmd.Long)
+}
 
+// =============================================================================
+// config / config show（docs/tests/cmd/config_show.md）
+// =============================================================================
 
+func TestConfigCmd_Registered(t *testing.T) {
+	assert.NotNil(t, configCmd)
+	assert.Equal(t, "config", configCmd.Use)
+
+	found := false
+	for _, c := range rootCmd.Commands() {
+		if c.Use == "config" {
+			found = true
+			break
+		}
+	}
+	assert.True(t, found, "config command should be registered")
+}
+
+func TestConfigShowCmd_Registered(t *testing.T) {
+	assert.NotNil(t, configShowCmd)
+	assert.Equal(t, "show", configShowCmd.Use)
+
+	found := false
+	for _, c := range configCmd.Commands() {
+		if c.Use == "show" {
+			found = true
+			break
+		}
+	}
+	assert.True(t, found, "config show command should be registered")
+}
+
+func TestConfigCmd_Description(t *testing.T) {
+	assert.NotEmpty(t, configCmd.Short)
+	assert.NotEmpty(t, configShowCmd.Short)
+}

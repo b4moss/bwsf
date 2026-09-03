@@ -1,0 +1,7 @@
+{
+  // cloud host without self-hosted URL
+  "host_type": "cloud",
+  /* unused for cloud */
+  "selfhosted_url": "",
+  "email": "user@example.com" // primary login
+}
