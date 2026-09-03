@@ -12,36 +12,11 @@ bwsf（Bitwarden Secured Files）は、[Bitwarden](https://bitwarden.com/)を使
 
 [English version is here.](./README.md)
 
-## 🚨🚨 破壊的変更 🚨🚨
+## 🚨🚨重要なお知らせ🚨🚨
 
-### CLI名の変更
+v0.17.0、v0.17.1では、正常に Bitwarden にログインできない事象が確認されています。
 
-v0.11.0から、`bwenv`は`bwsf`に名前が変更されました。これは、既にbwenvコマンドが存在していたためです。混乱を避けるため、CLI名を変更することにしました。
-
-#### 移行方法
-
-設定ディレクトリの名前を変更してください。
-
-```bash
-mv ~/.config/bwenv ~/.config/bwsf
-```
-
-現在のバージョンをアンインストールし、最新バージョンを再インストールしてください。
-
-```bash
-brew uninstall bwenv
-brew install bwsf
-```
-
-### 複数の`.env.environment`ファイル
-
-v0.9.0から、bwsfは`.env | .env.staging | .env.production`のような複数の環境用.envファイルを保存できるようになりました。
-
-これに伴い、BitwardenのNoteアイテムに保存されるデータ構造が変更されました。
-
-v0.8.0以前に保存されたデータは、v0.9.0以降では互換性がありません。
-
-移行システムは提供しません。
+v0.17系統をご利用の方は、v0.17.2(日本時間2026/9/3リリース)にアップデートをお願いします。
 
 ## 概要
 
