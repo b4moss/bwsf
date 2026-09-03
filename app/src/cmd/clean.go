@@ -1,10 +1,10 @@
 package cmd
 
 import (
-	"bwsf/src/config"
+	"errors"
+
 	"bwsf/src/core"
 	"bwsf/src/utils"
-	"errors"
 
 	"github.com/spf13/cobra"
 )
@@ -22,12 +22,8 @@ func init() {
 }
 
 func runClean(cmd *cobra.Command, args []string) {
-	installed, _ := checkBwInstalled()
-	if !installed {
-		utils.Errorln("[ERROR] ❌ bw command is not installed...")
-		exitFunc(1)
-		return
-	}
+	cfg := loadConfigOrEmpty()
+	requireBwCLIIfNeeded(cfg)
 
 	projectName, fromDir, filter, err := resolveProjectAndFileDir(cmd, "from")
 	if err != nil {
@@ -36,17 +32,8 @@ func runClean(cmd *cobra.Command, args []string) {
 		return
 	}
 
-	cfg, err := config.LoadConfig()
-	if err != nil {
-		utils.Errorln("[ERROR] Failed to load config:", err)
-		exitFunc(1)
-		return
-	}
-	if cfg == nil {
-		cfg = &config.Config{}
-	}
-
-	bw := newBwClient()
+	bw := newBwClientFromConfig(cfg)
+	defer clearAPISession(bw)
 	fs := newFileSystem()
 	logger := newLogger()
 
@@ -100,7 +87,7 @@ func runClean(cmd *cobra.Command, args []string) {
 			utils.Infoln("[INFO] Clean aborted. Local files were kept.")
 			return
 		}
-		utils.Errorln("[ERROR]", err)
+		reportCommandError(err)
 		exitFunc(1)
 		return
 	}

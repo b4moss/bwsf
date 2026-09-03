@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"bwsf/src/config"
 	"bwsf/src/core"
 	"bwsf/src/utils"
 	"fmt"
@@ -23,12 +22,8 @@ func init() {
 }
 
 func runPull(cmd *cobra.Command, args []string) {
-	installed, _ := checkBwInstalled()
-	if !installed {
-		utils.Errorln("[ERROR] ❌ bw command is not installed...")
-		exitFunc(1)
-		return
-	}
+	cfg := loadConfigOrEmpty()
+	requireBwCLIIfNeeded(cfg)
 
 	projectName, outputDir, _, err := resolveProjectAndFileDir(cmd, "output")
 	if err != nil {
@@ -37,24 +32,15 @@ func runPull(cmd *cobra.Command, args []string) {
 		return
 	}
 
-	cfg, err := config.LoadConfig()
-	if err != nil {
-		utils.Errorln("[ERROR] Failed to load config:", err)
-		exitFunc(1)
-		return
-	}
-	if cfg == nil {
-		cfg = &config.Config{}
-	}
-
-	bw := newBwClient()
+	bw := newBwClientFromConfig(cfg)
+	defer clearAPISession(bw)
 	fs := newFileSystem()
 	logger := newLogger()
 
 	sessions := newSessionStore()
 	envFiles, err := core.GetPulledEnvFiles(projectName, bw, cfg, inputPassword, logger, sessions)
 	if err != nil {
-		utils.Errorln("[ERROR] Failed to get env files info:", err)
+		reportCommandError(err)
 		exitFunc(1)
 		return
 	}
@@ -86,7 +72,7 @@ func runPull(cmd *cobra.Command, args []string) {
 		sessions,
 	)
 	if err != nil {
-		utils.Errorln("[ERROR]", err)
+		reportCommandError(err)
 		exitFunc(1)
 		return
 	}
