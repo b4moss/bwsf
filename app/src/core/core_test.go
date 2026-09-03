@@ -1378,7 +1378,8 @@ func TestWithUnlockRetry_VaultIsLockedThenUnlockSuccess(t *testing.T) {
 	assert.Contains(t, bw.calls, "Unlock")
 }
 
-// WithUnlockRetry: "You are not logged in." なら Unlock 失敗後に Login する（#161）
+// WithUnlockRetry: "You are not logged in." なら Unlock 失敗後に Login する（#161）。
+// Login が BW_SESSION を設定した場合は再 Unlock しない。
 func TestWithUnlockRetry_NotLoggedInThenLoginSuccess(t *testing.T) {
 	bw := &mockBwClientWithUnlockCount{
 		mockBwClient: mockBwClient{},
@@ -1395,6 +1396,7 @@ func TestWithUnlockRetry_NotLoggedInThenLoginSuccess(t *testing.T) {
 		return nil
 	}
 
+	t.Setenv("BW_SESSION", "")
 	err := WithUnlockRetry(
 		bw,
 		cfg,
@@ -1406,8 +1408,43 @@ func TestWithUnlockRetry_NotLoggedInThenLoginSuccess(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.Equal(t, 2, callCount)
+	assert.Equal(t, 1, bw.unlockCallCount) // Login がセッションを渡すので再 Unlock しない
 	assert.Contains(t, bw.calls, "Unlock")
 	assert.Contains(t, bw.calls, "Login(test@example.com,https://bw.example.com)")
+	assert.NotEmpty(t, os.Getenv("BW_SESSION"))
+}
+
+// WithUnlockRetry: Login 後に BW_SESSION が無い場合のみ Unlock を再試行する
+func TestWithUnlockRetry_LoginWithoutSessionThenUnlock(t *testing.T) {
+	bw := &mockBwClientWithUnlockCount{
+		mockBwClient:      mockBwClient{},
+		skipLoginSession: true,
+	}
+	logger := &mockLogger{}
+	cfg := &config.Config{Email: "test@example.com"}
+
+	callCount := 0
+	fn := func() error {
+		callCount++
+		if callCount == 1 {
+			return ErrBitwardenLocked
+		}
+		return nil
+	}
+
+	t.Setenv("BW_SESSION", "")
+	err := WithUnlockRetry(
+		bw,
+		cfg,
+		func() (string, error) { return "password", nil },
+		logger,
+		nil,
+		fn,
+	)
+
+	assert.NoError(t, err)
+	assert.Equal(t, 2, callCount)
+	assert.Equal(t, 2, bw.unlockCallCount)
 }
 
 // WithUnlockRetry: Unlock 成功後に fn がエラーを返す場合
@@ -1493,7 +1530,7 @@ func TestWithUnlockRetry_EmptyEmail(t *testing.T) {
 	assert.NotContains(t, bw.calls, "Login")
 }
 
-// WithUnlockRetry: Login 成功後に fn が成功する場合
+// WithUnlockRetry: Login 成功後、BW_SESSION があれば再 Unlock せず fn を実行する
 func TestWithUnlockRetry_LoginThenFnSuccess(t *testing.T) {
 	bw := &mockBwClientWithUnlockCount{
 		mockBwClient: mockBwClient{},
@@ -1510,6 +1547,7 @@ func TestWithUnlockRetry_LoginThenFnSuccess(t *testing.T) {
 		return nil
 	}
 
+	t.Setenv("BW_SESSION", "")
 	err := WithUnlockRetry(
 		bw,
 		cfg,
@@ -1521,12 +1559,16 @@ func TestWithUnlockRetry_LoginThenFnSuccess(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.Equal(t, 2, callCount)
+	assert.Equal(t, 1, bw.unlockCallCount)
+	assert.Contains(t, bw.calls, "Login(test@example.com,https://bw.example.com)")
 }
 
-// mockBwClientWithUnlockCount は Unlock の呼び出し回数をカウントするモック
+// mockBwClientWithUnlockCount は Unlock の呼び出し回数をカウントするモック。
+// Login 時に BW_SESSION を立てる（実際の bw login --raw 相当）。
 type mockBwClientWithUnlockCount struct {
 	mockBwClient
-	unlockCallCount int
+	unlockCallCount  int
+	skipLoginSession bool // true のとき Login で BW_SESSION を設定しない
 }
 
 func (m *mockBwClientWithUnlockCount) Unlock(masterPassword string) error {
@@ -1534,6 +1576,18 @@ func (m *mockBwClientWithUnlockCount) Unlock(masterPassword string) error {
 	m.unlockCallCount++
 	if m.unlockCallCount == 1 {
 		return errors.New("unlock failed first time")
+	}
+	_ = os.Setenv("BW_SESSION", "test-session-key-from-unlock-abcdefghijklmnopqrstuvwxyz0123456789")
+	return nil
+}
+
+func (m *mockBwClientWithUnlockCount) Login(email, password, serverURL string) error {
+	m.calls = append(m.calls, fmt.Sprintf("Login(%s,%s)", email, serverURL))
+	if m.loginErr != nil {
+		return m.loginErr
+	}
+	if !m.skipLoginSession {
+		_ = os.Setenv("BW_SESSION", "test-session-key-from-login-abcdefghijklmnopqrstuvwxyz0123456789")
 	}
 	return nil
 }
