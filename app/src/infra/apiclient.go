@@ -282,7 +282,7 @@ func (c *ApiBwClient) TryRestoreVaultUnlock() (bool, error) {
 	if err := c.requireHost(); err != nil {
 		return false, err
 	}
-	blob, err := GetVaultUnlock(c.store, c.host.ID)
+	blob, err := LoadVaultUnlock(c.store, c.host.ID)
 	if err != nil {
 		if errors.Is(err, ErrSecretNotFound) {
 			return false, nil
@@ -290,7 +290,7 @@ func (c *ApiBwClient) TryRestoreVaultUnlock() (bool, error) {
 		return false, err
 	}
 	if strings.TrimSpace(blob) == "" {
-		_ = DeleteVaultUnlock(c.store, c.host.ID)
+		_ = ClearVaultUnlock(c.store, c.host.ID)
 		return false, nil
 	}
 
@@ -309,7 +309,7 @@ func (c *ApiBwClient) TryRestoreVaultUnlock() (bool, error) {
 		serverURL = c.host.HostURL
 	}
 	if err := crypto.RestoreUnlockBlob(context.Background(), blob, serverURL); err != nil {
-		_ = DeleteVaultUnlock(c.store, c.host.ID)
+		_ = ClearVaultUnlock(c.store, c.host.ID)
 		return false, nil
 	}
 	return true, nil
@@ -317,21 +317,12 @@ func (c *ApiBwClient) TryRestoreVaultUnlock() (bool, error) {
 
 // DiscardVaultUnlock deletes the host's vault_unlock blob (and locks in-memory crypto).
 func (c *ApiBwClient) DiscardVaultUnlock() error {
-	if err := c.requireHost(); err != nil {
-		return err
-	}
-	c.mu.Lock()
-	crypto := c.crypto
-	c.mu.Unlock()
-	if crypto != nil {
-		crypto.Lock()
-	}
-	return DeleteVaultUnlock(c.store, c.host.ID)
+	return c.LockVaultUnlock()
 }
 
-// LockVaultSession deletes vault_unlock for the bound host (API keys remain).
-// Missing blob is a no-op success. Does not require the client to be unlocked.
-func (c *ApiBwClient) LockVaultSession() error {
+// LockVaultUnlock deletes vault_unlock for the bound host (API keys remain)
+// and clears in-memory crypto. Missing blob is a no-op success.
+func (c *ApiBwClient) LockVaultUnlock() error {
 	if err := c.requireHost(); err != nil {
 		return err
 	}
@@ -341,12 +332,17 @@ func (c *ApiBwClient) LockVaultSession() error {
 	if crypto != nil {
 		crypto.Lock()
 	}
-	return DeleteVaultUnlock(c.store, c.host.ID)
+	return ClearVaultUnlock(c.store, c.host.ID)
+}
+
+// LockVaultSession is an alias of LockVaultUnlock.
+func (c *ApiBwClient) LockVaultSession() error {
+	return c.LockVaultUnlock()
 }
 
 // LockVaultSessionForHost deletes vault_unlock for an explicit host id (CLI lock / lock --all).
 func LockVaultSessionForHost(store SecretStore, hostID string) error {
-	return DeleteVaultUnlock(store, hostID)
+	return ClearVaultUnlock(store, hostID)
 }
 
 // TokenExpiresAt exposes token expiry for diagnostics/tests.
@@ -636,7 +632,7 @@ func (c *ApiBwClient) Unlock(masterPassword string) error {
 	if err != nil {
 		return fmt.Errorf("vault unlocked but failed to export session: %w", err)
 	}
-	if err := SetVaultUnlock(c.store, c.host.ID, blob); err != nil {
+	if err := SaveVaultUnlock(c.store, c.host.ID, blob); err != nil {
 		return fmt.Errorf("vault unlocked but failed to persist session: %w", err)
 	}
 	return nil

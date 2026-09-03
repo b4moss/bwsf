@@ -58,6 +58,9 @@ func runLock(cmd *cobra.Command, args []string) {
 
 	projectHost := loadProjectHostID()
 	host := resolveHostForCommand(cfg, lockHost, projectHost)
+	if host == nil {
+		return
+	}
 	if err := infra.LockVaultSessionForHost(store, host.ID); err != nil {
 		utils.Errorln("[ERROR]", err)
 		exitFunc(1)

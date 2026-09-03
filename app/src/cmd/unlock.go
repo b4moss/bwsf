@@ -33,6 +33,9 @@ func runUnlock(cmd *cobra.Command, args []string) {
 	cfg := loadConfigOrEmpty()
 	projectHost := loadProjectHostID()
 	host := resolveHostForCommand(cfg, unlockHost, projectHost)
+	if host == nil {
+		return
+	}
 
 	store := infra.NewKeyringStore()
 	_, err := infra.LoadAPICredentials(store, host.ID)

@@ -262,8 +262,8 @@ func ClearAPICredentials(store SecretStore, hostID string) error {
 	return firstErr
 }
 
-// SetVaultUnlock stores an opaque vault unlock blob for hostID. Empty blob is rejected.
-func SetVaultUnlock(store SecretStore, hostID, blob string) error {
+// SaveVaultUnlock stores an opaque vault unlock blob for hostID. Empty blob is rejected.
+func SaveVaultUnlock(store SecretStore, hostID, blob string) error {
 	if err := requireHostID(hostID); err != nil {
 		return err
 	}
@@ -273,18 +273,33 @@ func SetVaultUnlock(store SecretStore, hostID, blob string) error {
 	return store.Set(hostSecretKey(hostID, keySuffixVaultUnlock), blob)
 }
 
-// GetVaultUnlock reads the opaque vault unlock blob for hostID.
-func GetVaultUnlock(store SecretStore, hostID string) (string, error) {
+// LoadVaultUnlock reads the opaque vault unlock blob for hostID.
+func LoadVaultUnlock(store SecretStore, hostID string) (string, error) {
 	if err := requireHostID(hostID); err != nil {
 		return "", err
 	}
 	return store.Get(hostSecretKey(hostID, keySuffixVaultUnlock))
 }
 
-// DeleteVaultUnlock removes the vault unlock blob for hostID. Missing key is not an error.
-func DeleteVaultUnlock(store SecretStore, hostID string) error {
+// ClearVaultUnlock removes the vault unlock blob for hostID. Missing key is a no-op success.
+func ClearVaultUnlock(store SecretStore, hostID string) error {
 	if err := requireHostID(hostID); err != nil {
 		return err
 	}
 	return deleteIgnoreMissing(store, hostSecretKey(hostID, keySuffixVaultUnlock))
+}
+
+// SetVaultUnlock is an alias of SaveVaultUnlock.
+func SetVaultUnlock(store SecretStore, hostID, blob string) error {
+	return SaveVaultUnlock(store, hostID, blob)
+}
+
+// GetVaultUnlock is an alias of LoadVaultUnlock.
+func GetVaultUnlock(store SecretStore, hostID string) (string, error) {
+	return LoadVaultUnlock(store, hostID)
+}
+
+// DeleteVaultUnlock is an alias of ClearVaultUnlock.
+func DeleteVaultUnlock(store SecretStore, hostID string) error {
+	return ClearVaultUnlock(store, hostID)
 }
