@@ -2,16 +2,20 @@
 
 ## 概要
 
-| コマンド | 説明 |
-|---|---|
-| `bwsf setup` | Bitwarden ホスト / アカウント設定（API 時はログインなし。`auth` を使用） |
-| `bwsf auth` | Personal API Key の保存と認証（`api` バックエンド） |
-| `bwsf backend` | Bitwarden バックエンド（`api` / `bw`）の表示・設定 |
-| `bwsf config show` | 現在のローカル設定を表示 |
-| `bwsf push` | 管理対象ファイル（`.env*` / `*.tfvars` / `*.tfvars.json`）を Bitwarden にプッシュ |
-| `bwsf pull` | 管理対象ファイルを Bitwarden からプル |
-| `bwsf list` | 保存されている全プロジェクトを一覧表示 |
-| `bwsf clean` | リモートバックアップ確認後にローカルの管理対象ファイルを削除 |
+現行の製品コマンド一覧（v0.19.0）です。コンパクトな棚卸しは [`docs/COMMANDS.md`](https://github.com/b4moss/bwsf/blob/main/docs/COMMANDS.md) にもあります。
+
+| コマンド | 説明 | 主なフラグ |
+|---|---|---|
+| `bwsf setup` | Bitwarden ホスト / アカウント設定（API 時はログインなし。`auth` を使用） | `--folder` `--host-type` `--url` `--email` `--password` `--yes` |
+| `bwsf auth` | Personal API Key の保存と認証（`api` バックエンド） | `--clear` |
+| `bwsf backend` | Bitwarden バックエンド（`api` / `bw`）の表示・設定 | `--set` |
+| `bwsf config show` | 現在のローカル設定を表示 | — |
+| `bwsf push` | 管理対象ファイル（`.env*` / `*.tfvars` / `*.tfvars.json`）を Bitwarden にプッシュ | `--from` |
+| `bwsf pull` | 管理対象ファイルを Bitwarden からプル | `--output` |
+| `bwsf list` | 保存されている全プロジェクトを一覧表示 | — |
+| `bwsf clean` | リモートバックアップ確認後にローカルの管理対象ファイルを削除 | `--from` |
+
+付帯（cobra 標準）: `bwsf -v` / `--version`、`bwsf help`、`bwsf completion`。
 
 管理対象は、名前が `.env` で始まるファイル、または末尾が `.tfvars` / `.tfvars.json` のファイルです。名前に `.example` を含むものは除外されます。
 

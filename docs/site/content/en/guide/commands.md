@@ -2,16 +2,20 @@
 
 ## Overview
 
-| Command | Description |
-|---|---|
-| `bwsf setup` | Configure Bitwarden host / account (API: no login; use `auth`) |
-| `bwsf auth` | Store Personal API Key and authenticate (`api` backend) |
-| `bwsf backend` | Show or set Bitwarden backend (`api` or `bw`) |
-| `bwsf config show` | Show current local configuration |
-| `bwsf push` | Push managed files (`.env*`, `*.tfvars`, `*.tfvars.json`) to Bitwarden |
-| `bwsf pull` | Pull managed files from Bitwarden |
-| `bwsf list` | List all stored projects |
-| `bwsf clean` | Remove local managed files after verifying Bitwarden backup |
+Current product commands (v0.19.0). A compact inventory also lives in [`docs/COMMANDS.md`](https://github.com/b4moss/bwsf/blob/main/docs/COMMANDS.md).
+
+| Command | Description | Main flags |
+|---|---|---|
+| `bwsf setup` | Configure Bitwarden host / account (API: no login; use `auth`) | `--folder` `--host-type` `--url` `--email` `--password` `--yes` |
+| `bwsf auth` | Store Personal API Key and authenticate (`api` backend) | `--clear` |
+| `bwsf backend` | Show or set Bitwarden backend (`api` or `bw`) | `--set` |
+| `bwsf config show` | Show current local configuration | — |
+| `bwsf push` | Push managed files (`.env*`, `*.tfvars`, `*.tfvars.json`) to Bitwarden | `--from` |
+| `bwsf pull` | Pull managed files from Bitwarden | `--output` |
+| `bwsf list` | List all stored projects | — |
+| `bwsf clean` | Remove local managed files after verifying Bitwarden backup | `--from` |
+
+Built-in (cobra): `bwsf -v` / `--version`, `bwsf help`, `bwsf completion`.
 
 Managed files are directory entries whose names start with `.env`, or end with `.tfvars` / `.tfvars.json`. Names that contain `.example` are excluded.
 
