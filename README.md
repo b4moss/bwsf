@@ -5,7 +5,7 @@
 [![Go Reference](https://pkg.go.dev/badge/github.com/b4moss/bwsf.svg)](https://pkg.go.dev/github.com/b4moss/bwsf)
 [![Release](https://img.shields.io/github/v/release/b4moss/bwsf)](https://github.com/b4moss/bwsf/releases)
 [![License](https://img.shields.io/github/license/b4moss/bwsf)](https://github.com/b4moss/bwsf/blob/main/LICENSE)
-[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/b4moss/bwsf/badge)](https://securityscorecards.dev/viewer/?uri=github.com/b4moss/bwsf)
+[![OpenSSF Scorecard](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fapi.scorecard.dev%2Fprojects%2Fgithub.com%2Fb4moss%2Fbwsf&query=%24.score&label=OpenSSF%20Scorecard&suffix=%2F10)](https://scorecard.dev/viewer/?uri=github.com/b4moss/bwsf)
 
 bwsf (Bitwarden Secured Files) is a CLI tool that uses [Bitwarden](https://bitwarden.com/) to manage `.env*` files and Terraform `*.tfvars` / `*.tfvars.json`.
 
@@ -61,10 +61,12 @@ This project migrates our hand-maded shell scripts to modern CLI command with Go
 
 > Note: Linux requires [Homebrew on Linux](https://docs.brew.sh/Homebrew-on-Linux) to be installed first.
 
-Install a past release (all published versions are on the tap):
+Install a past release from the tap. Versioned formulas cover every patch of the
+current minor plus the latest patch of the previous minor (older formulas are
+pruned). Other releases remain on [GitHub Releases](https://github.com/b4moss/bwsf/releases).
 
 ```shell
-brew install bwsf@0.15.0
+brew install bwsf@0.17.3
 ```
 
 ## Verify installation
