@@ -33,6 +33,7 @@ func stubCmdDeps(t *testing.T, bw core.BwClient, fs core.FileSystem) *exitRecord
 	origCheck := checkBwInstalled
 	origBw := newBwClient
 	origBwFromCfg := newBwClientFromConfig
+	origBwForHost := newBwClientForHost
 	origFS := newFileSystem
 	origLog := newLogger
 	origSess := newSessionStore
@@ -46,6 +47,7 @@ func stubCmdDeps(t *testing.T, bw core.BwClient, fs core.FileSystem) *exitRecord
 	if bw != nil {
 		newBwClient = func() core.BwClient { return bw }
 		newBwClientFromConfig = func(cfg *config.Config) core.BwClient { return bw }
+		newBwClientForHost = func(cfg *config.Config, host *config.Host) core.BwClient { return bw }
 	}
 	if fs != nil {
 		newFileSystem = func() core.FileSystem { return fs }
@@ -68,6 +70,7 @@ func stubCmdDeps(t *testing.T, bw core.BwClient, fs core.FileSystem) *exitRecord
 		checkBwInstalled = origCheck
 		newBwClient = origBw
 		newBwClientFromConfig = origBwFromCfg
+		newBwClientForHost = origBwForHost
 		newFileSystem = origFS
 		newLogger = origLog
 		newSessionStore = origSess
@@ -83,16 +86,21 @@ func withTempHome(t *testing.T) string {
 	t.Helper()
 	home := t.TempDir()
 	t.Setenv("HOME", home)
-	t.Setenv("USERPROFILE", home) // Windows-safe; harmless on darwin
+	t.Setenv("USERPROFILE", home)
 	return home
 }
 
 func writeMinimalConfig(t *testing.T) {
 	t.Helper()
-	cfg := &config.Config{
-		HostType: "cloud",
-		Email:    "test@example.com",
-	}
+	cfg := config.NewEmptyConfig()
+	cfg.Settings.Hosts = []config.Host{{
+		ID:            config.DefaultHostID,
+		Type:          config.HostTypeCloud,
+		HostURL:       config.DefaultCloudURL,
+		Email:         "test@example.com",
+		TargetSection: config.DefaultFolderName,
+		IsDefault:     true,
+	}}
 	require.NoError(t, config.SaveConfig(cfg))
 }
 
@@ -105,21 +113,6 @@ func chdirTempProject(t *testing.T) (dir, projectName string) {
 	t.Cleanup(func() { _ = os.Chdir(orig) })
 	require.NoError(t, os.Chdir(dir))
 	return dir, filepath.Base(dir)
-}
-
-func TestRunList_BwNotInstalled(t *testing.T) {
-	withTempHome(t)
-	require.NoError(t, config.SaveConfig(&config.Config{
-		HostType: "cloud",
-		Email:    "test@example.com",
-		Backend:  config.BackendBW,
-	}))
-	rec := stubCmdDeps(t, nil, nil)
-	checkBwInstalled = func() (bool, string) { return false, "" }
-
-	runList(listCmd, nil)
-	assert.True(t, rec.called)
-	assert.Equal(t, 1, rec.code)
 }
 
 func TestRunList_Success(t *testing.T) {
@@ -146,6 +139,15 @@ func TestRunList_Empty(t *testing.T) {
 	assert.False(t, rec.called)
 }
 
+func TestRunList_NoHost(t *testing.T) {
+	withTempHome(t)
+	require.NoError(t, config.SaveConfig(config.NewEmptyConfig()))
+	rec := stubCmdDeps(t, testutil.NewMockBwClient(), nil)
+	runList(listCmd, nil)
+	assert.True(t, rec.called)
+	assert.Equal(t, 1, rec.code)
+}
+
 func TestRunPush_Success(t *testing.T) {
 	withTempHome(t)
 	writeMinimalConfig(t)
@@ -159,14 +161,6 @@ func TestRunPush_Success(t *testing.T) {
 	runPush(pushCmd, nil)
 	assert.False(t, rec.called)
 	assert.Equal(t, 1, bw.GetItemCount())
-}
-
-func TestRunPush_BwNotInstalled(t *testing.T) {
-	rec := stubCmdDeps(t, nil, nil)
-	checkBwInstalled = func() (bool, string) { return false, "" }
-	runPush(pushCmd, nil)
-	assert.True(t, rec.called)
-	assert.Equal(t, 1, rec.code)
 }
 
 func TestRunPush_NoManagedFiles(t *testing.T) {
@@ -200,18 +194,17 @@ func TestRunSetup_WithFolderFlag(t *testing.T) {
 
 	bw := testutil.NewMockBwClient()
 	bw.SetupTestData()
-	bw.LoginFunc = func(email, password, serverURL string) error { return nil }
-
 	rec := stubCmdDeps(t, bw, infra.NewFileSystem())
 
 	setupHostType = "cloud"
 	setupEmail = "user@example.com"
-	setupPassword = "secret"
 	setupFolder = "my-envs"
-	setupYes = true
+	migrateYes = true
 	t.Cleanup(func() {
-		setupHostType, setupEmail, setupPassword, setupURL, setupFolder = "", "", "", "", ""
-		setupYes = false
+		setupHostType, setupEmail, setupURL, setupFolder = "", "", "", ""
+		setupSkipHost = false
+		setupSaveFiles = nil
+		migrateYes = false
 	})
 
 	runSetup(setupCmd, nil)
@@ -220,20 +213,43 @@ func TestRunSetup_WithFolderFlag(t *testing.T) {
 	cfg, err := config.LoadConfig()
 	require.NoError(t, err)
 	require.NotNil(t, cfg)
-	assert.Equal(t, "my-envs", cfg.FolderName)
+	h := cfg.DefaultHost()
+	require.NotNil(t, h)
+	assert.Equal(t, "my-envs", h.TargetSection)
 }
 
 func TestRunSetup_InvalidFlags(t *testing.T) {
 	rec := stubCmdDeps(t, nil, nil)
 	setupHostType = "cloud"
 	setupEmail = ""
-	setupPassword = ""
 	t.Cleanup(func() {
-		setupHostType, setupEmail, setupPassword = "", "", ""
+		setupHostType, setupEmail = "", ""
 	})
 	runSetup(setupCmd, nil)
 	assert.True(t, rec.called)
 	assert.Equal(t, 1, rec.code)
+}
+
+func TestRunSetup_SkipHost(t *testing.T) {
+	withTempHome(t)
+	bw := testutil.NewMockBwClient()
+	bw.SetupTestData()
+	rec := stubCmdDeps(t, bw, infra.NewFileSystem())
+
+	setupSkipHost = true
+	setupSaveFiles = []string{".env*", "!.env.local"}
+	t.Cleanup(func() {
+		setupSkipHost = false
+		setupSaveFiles = nil
+	})
+
+	runSetup(setupCmd, nil)
+	assert.False(t, rec.called)
+
+	cfg, err := config.LoadConfig()
+	require.NoError(t, err)
+	assert.Empty(t, cfg.Settings.Hosts)
+	assert.Equal(t, []string{".env*", "!.env.local"}, cfg.Settings.SaveFiles)
 }
 
 func TestRunPull_Success(t *testing.T) {
@@ -283,7 +299,6 @@ func TestRunClean_Success(t *testing.T) {
 	fs := infra.NewFileSystem()
 	rec := stubCmdDeps(t, bw, fs)
 
-	// Seed remote to match local via push path first.
 	runPush(pushCmd, nil)
 	require.False(t, rec.called)
 	require.Equal(t, 1, bw.GetItemCount())
@@ -375,22 +390,25 @@ func TestRunSetup_Selfhosted(t *testing.T) {
 
 	bw := testutil.NewMockBwClient()
 	bw.SetupTestData()
-	bw.LoginFunc = func(email, password, serverURL string) error {
-		assert.Equal(t, "https://vault.example", serverURL)
-		return nil
-	}
-
 	rec := stubCmdDeps(t, bw, infra.NewFileSystem())
 	setupHostType = "selfhosted"
 	setupURL = "https://vault.example"
 	setupEmail = "user@example.com"
-	setupPassword = "secret"
+	migrateYes = true
 	t.Cleanup(func() {
-		setupHostType, setupEmail, setupPassword, setupURL = "", "", "", ""
+		setupHostType, setupEmail, setupURL = "", "", ""
+		migrateYes = false
 	})
 
 	runSetup(setupCmd, nil)
 	assert.False(t, rec.called)
+
+	cfg, err := config.LoadConfig()
+	require.NoError(t, err)
+	h := cfg.DefaultHost()
+	require.NotNil(t, h)
+	assert.Equal(t, config.HostTypeSelfhost, h.Type)
+	assert.Equal(t, "https://vault.example", h.HostURL)
 }
 
 func TestRunSetup_NonInteractiveSuccess(t *testing.T) {
@@ -398,20 +416,16 @@ func TestRunSetup_NonInteractiveSuccess(t *testing.T) {
 
 	bw := testutil.NewMockBwClient()
 	bw.SetupTestData()
-	// Folder already exists from SetupTestData; Login still required.
-	bw.LoginFunc = func(email, password, serverURL string) error { return nil }
-
 	rec := stubCmdDeps(t, bw, infra.NewFileSystem())
 
 	setupHostType = "cloud"
 	setupEmail = "user@example.com"
-	setupPassword = "secret"
 	setupURL = ""
 	setupFolder = ""
-	setupYes = false
+	migrateYes = true
 	t.Cleanup(func() {
-		setupHostType, setupEmail, setupPassword, setupURL, setupFolder = "", "", "", "", ""
-		setupYes = false
+		setupHostType, setupEmail, setupURL, setupFolder = "", "", "", ""
+		migrateYes = false
 	})
 
 	runSetup(setupCmd, nil)
@@ -420,16 +434,10 @@ func TestRunSetup_NonInteractiveSuccess(t *testing.T) {
 	cfg, err := config.LoadConfig()
 	require.NoError(t, err)
 	require.NotNil(t, cfg)
-	assert.Equal(t, "cloud", cfg.HostType)
-	assert.Equal(t, "user@example.com", cfg.Email)
-}
-
-func TestRunSetup_BwNotInstalled(t *testing.T) {
-	rec := stubCmdDeps(t, nil, nil)
-	checkBwInstalled = func() (bool, string) { return false, "" }
-	runSetup(setupCmd, nil)
-	assert.True(t, rec.called)
-	assert.Equal(t, 1, rec.code)
+	h := cfg.DefaultHost()
+	require.NotNil(t, h)
+	assert.Equal(t, config.HostTypeCloud, h.Type)
+	assert.Equal(t, "user@example.com", h.Email)
 }
 
 func TestRunConfigShow_Success(t *testing.T) {

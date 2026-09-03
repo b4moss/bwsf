@@ -11,7 +11,28 @@ import (
 	"bwsf/src/config"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
+
+func testHostConfig(email, selfURL string) *config.Config {
+	h := config.Host{
+		ID:            config.DefaultHostID,
+		Type:          config.HostTypeCloud,
+		HostURL:       config.DefaultCloudURL,
+		Email:         email,
+		TargetSection: config.DefaultFolderName,
+		IsDefault:     true,
+	}
+	if selfURL != "" {
+		h.Type = config.HostTypeSelfhost
+		h.HostURL = selfURL
+	}
+	return &config.Config{
+		SchemaVersion: config.SchemaVersion1,
+		Settings:      config.GlobalSettings{Hosts: []config.Host{h}},
+	}
+}
+
 
 // =============================================================================
 // テスト用モック実装
@@ -320,7 +341,7 @@ func TestWithUnlockRetry_SuccessWithoutRetry(t *testing.T) {
 func TestWithUnlockRetry_LockThenUnlockSuccess(t *testing.T) {
 	bw := &mockBwClient{}
 	logger := &mockLogger{}
-	cfg := &config.Config{Email: "test@example.com"}
+	cfg := testHostConfig("test@example.com", "")
 
 	callCount := 0
 	fn := func() error {
@@ -408,7 +429,7 @@ func TestWithUnlockRetry_NotAuthenticatedNoPrompt(t *testing.T) {
 func TestWithUnlockRetry_APINotUnlockedThenSuccess(t *testing.T) {
 	bw := &mockBwClient{}
 	logger := &mockLogger{}
-	cfg := &config.Config{Email: "a@example.com"}
+	cfg := testHostConfig("a@example.com", "")
 	callCount := 0
 
 	err := WithUnlockRetry(
@@ -472,7 +493,7 @@ func TestWithUnlockRetry_UnlockAndLoginBothFail(t *testing.T) {
 		loginErr:  errors.New("login failed"),
 	}
 	logger := &mockLogger{}
-	cfg := &config.Config{Email: "test@example.com", SelfhostedURL: "https://bw.example.com"}
+	cfg := testHostConfig("test@example.com", "https://bw.example.com")
 
 	callCount := 0
 	fn := func() error {
@@ -494,7 +515,7 @@ func TestWithUnlockRetry_UnlockAndLoginBothFail(t *testing.T) {
 	assert.Error(t, err)
 	assert.Equal(t, 1, callCount, "fn should not be retried after unlock/login failure")
 	assert.Contains(t, bw.calls, "Unlock")
-	assert.Contains(t, bw.calls, "Login(test@example.com,https://bw.example.com)")
+	assert.NotContains(t, bw.calls, "Login")
 }
 
 // =============================================================================
@@ -929,7 +950,7 @@ func TestListDotenvsCore_FolderIDLockError(t *testing.T) {
 		loginErr:    errors.New("login failed"),
 	}
 	logger := &mockLogger{}
-	cfg := &config.Config{Email: "test@example.com"}
+	cfg := testHostConfig("test@example.com", "")
 
 	items, err := ListDotenvsCore(
 		bw,
@@ -986,8 +1007,9 @@ func TestSetupBitwardenCore_CloudSuccess(t *testing.T) {
 		func() (bool, error) { return false, nil },
 	)
 
-	assert.NoError(t, err)
-	assert.Contains(t, bw.calls, "Login(test@example.com,)")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "removed")
+	assert.NotContains(t, bw.calls, "Login")
 }
 
 // 正常系: selfhosted が選択され、URL 入力、Login 成功
@@ -1007,8 +1029,9 @@ func TestSetupBitwardenCore_SelfhostedSuccess(t *testing.T) {
 		func() (bool, error) { return false, nil },
 	)
 
-	assert.NoError(t, err)
-	assert.Contains(t, bw.calls, "Login(test@example.com,https://bw.example.com)")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "removed")
+	assert.NotContains(t, bw.calls, "Login")
 }
 
 // 異常系: selectHostType がエラーを返す
@@ -1029,7 +1052,7 @@ func TestSetupBitwardenCore_SelectHostTypeError(t *testing.T) {
 	)
 
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to select host type")
+	assert.Contains(t, err.Error(), "removed")
 }
 
 // 異常系: Login がエラーを返す場合、設定保存が行われない
@@ -1052,7 +1075,7 @@ func TestSetupBitwardenCore_LoginError(t *testing.T) {
 	)
 
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to login")
+	assert.Contains(t, err.Error(), "removed")
 }
 
 // =============================================================================
@@ -1265,7 +1288,7 @@ func TestBwClient_Login_Success(t *testing.T) {
 	err := bw.Login("test@example.com", "password", "")
 
 	assert.NoError(t, err)
-	assert.Contains(t, bw.calls, "Login(test@example.com,)")
+	assert.NotContains(t, bw.calls, "Login")
 }
 
 // Login: 異常系
@@ -1412,7 +1435,7 @@ func TestIsLockedError_UnrelatedError(t *testing.T) {
 func TestWithUnlockRetry_VaultIsLockedThenUnlockSuccess(t *testing.T) {
 	bw := &mockBwClient{}
 	logger := &mockLogger{}
-	cfg := &config.Config{Email: "test@example.com"}
+	cfg := testHostConfig("test@example.com", "")
 
 	callCount := 0
 	fn := func() error {
@@ -1444,7 +1467,7 @@ func TestWithUnlockRetry_NotLoggedInThenLoginSuccess(t *testing.T) {
 		mockBwClient: mockBwClient{},
 	}
 	logger := &mockLogger{}
-	cfg := &config.Config{Email: "test@example.com", SelfhostedURL: "https://bw.example.com"}
+	cfg := testHostConfig("test@example.com", "https://bw.example.com")
 
 	callCount := 0
 	fn := func() error {
@@ -1469,7 +1492,7 @@ func TestWithUnlockRetry_NotLoggedInThenLoginSuccess(t *testing.T) {
 	assert.Equal(t, 2, callCount)
 	assert.Equal(t, 1, bw.unlockCallCount) // Login がセッションを渡すので再 Unlock しない
 	assert.Contains(t, bw.calls, "Unlock")
-	assert.Contains(t, bw.calls, "Login(test@example.com,https://bw.example.com)")
+	assert.NotContains(t, bw.calls, "Login")
 	assert.NotEmpty(t, os.Getenv("BW_SESSION"))
 }
 
@@ -1480,7 +1503,7 @@ func TestWithUnlockRetry_LoginWithoutSessionThenUnlock(t *testing.T) {
 		skipLoginSession: true,
 	}
 	logger := &mockLogger{}
-	cfg := &config.Config{Email: "test@example.com"}
+	cfg := testHostConfig("test@example.com", "")
 
 	callCount := 0
 	fn := func() error {
@@ -1510,7 +1533,7 @@ func TestWithUnlockRetry_LoginWithoutSessionThenUnlock(t *testing.T) {
 func TestWithUnlockRetry_UnlockSuccessThenFnFails(t *testing.T) {
 	bw := &mockBwClient{}
 	logger := &mockLogger{}
-	cfg := &config.Config{Email: "test@example.com"}
+	cfg := testHostConfig("test@example.com", "")
 
 	callCount := 0
 	fn := func() error {
@@ -1569,7 +1592,7 @@ func TestWithUnlockRetry_EmptyEmail(t *testing.T) {
 		unlockErr: errors.New("unlock failed"),
 	}
 	logger := &mockLogger{}
-	cfg := &config.Config{Email: ""} // Email が空
+	cfg := &config.Config{} // no host / empty email
 
 	fn := func() error {
 		return ErrBitwardenLocked
@@ -1595,7 +1618,7 @@ func TestWithUnlockRetry_LoginThenFnSuccess(t *testing.T) {
 		mockBwClient: mockBwClient{},
 	}
 	logger := &mockLogger{}
-	cfg := &config.Config{Email: "test@example.com", SelfhostedURL: "https://bw.example.com"}
+	cfg := testHostConfig("test@example.com", "https://bw.example.com")
 
 	callCount := 0
 	fn := func() error {
@@ -1619,7 +1642,7 @@ func TestWithUnlockRetry_LoginThenFnSuccess(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, 2, callCount)
 	assert.Equal(t, 1, bw.unlockCallCount)
-	assert.Contains(t, bw.calls, "Login(test@example.com,https://bw.example.com)")
+	assert.NotContains(t, bw.calls, "Login")
 }
 
 // mockBwClientWithUnlockCount は Unlock の呼び出し回数をカウントするモック。
@@ -1873,7 +1896,7 @@ func TestSetupBitwardenCore_InputURLError(t *testing.T) {
 	)
 
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to get URL")
+	assert.Contains(t, err.Error(), "removed")
 }
 
 // SetupBitwardenCore: inputEmail がエラーを返す場合
@@ -1894,7 +1917,7 @@ func TestSetupBitwardenCore_InputEmailError(t *testing.T) {
 	)
 
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to get email")
+	assert.Contains(t, err.Error(), "removed")
 }
 
 // SetupBitwardenCore: inputPassword がエラーを返す場合
@@ -1915,7 +1938,7 @@ func TestSetupBitwardenCore_InputPasswordError(t *testing.T) {
 	)
 
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to get password")
+	assert.Contains(t, err.Error(), "removed")
 }
 
 // parseEnvContent: 空のコンテンツ
@@ -2660,13 +2683,15 @@ func withTempHome(t *testing.T) string {
 	return tmpDir
 }
 
-// 正常系: backend=api で config が保存され、Login が不要（呼ばれない）
+// 正常系: v2 host が保存され、Login が不要（呼ばれない）
 func TestSetupAPIConfigCore_CloudSuccess_NoLogin(t *testing.T) {
 	withTempHome(t)
-	_ = config.SaveConfig(&config.Config{
-		Backend:          config.BackendAPI,
-		DeviceIdentifier: "device-preserve-me",
-	})
+	prior := config.NewEmptyConfig()
+	prior.Settings.Hosts = []config.Host{{
+		ID: config.DefaultHostID, Type: config.HostTypeCloud, HostURL: config.DefaultCloudURL,
+		TargetSection: config.DefaultFolderName, IsDefault: true, DeviceIdentifier: "device-preserve-me",
+	}}
+	_ = config.SaveConfig(prior)
 	logger := &mockLogger{}
 	bw := &mockBwClient{}
 
@@ -2682,11 +2707,12 @@ func TestSetupAPIConfigCore_CloudSuccess_NoLogin(t *testing.T) {
 
 	cfg, loadErr := config.LoadConfig()
 	assert.NoError(t, loadErr)
-	assert.Equal(t, "cloud", cfg.HostType)
-	assert.Equal(t, "", cfg.SelfhostedURL)
-	assert.Equal(t, "api@example.com", cfg.Email)
-	assert.Equal(t, config.BackendAPI, cfg.Backend)
-	assert.Equal(t, "device-preserve-me", cfg.DeviceIdentifier)
+	h := cfg.DefaultHost()
+	require.NotNil(t, h)
+	assert.Equal(t, config.HostTypeCloud, h.Type)
+	assert.Equal(t, config.DefaultCloudURL, h.HostURL)
+	assert.Equal(t, "api@example.com", h.Email)
+	assert.Equal(t, "device-preserve-me", h.DeviceIdentifier)
 
 	joined := fmt.Sprint(logger.infos)
 	assert.Contains(t, joined, "bwsf auth")
@@ -2695,7 +2721,7 @@ func TestSetupAPIConfigCore_CloudSuccess_NoLogin(t *testing.T) {
 // 正常系: selfhosted + URL を保存し、Login しない
 func TestSetupAPIConfigCore_SelfhostedSuccess_NoLogin(t *testing.T) {
 	withTempHome(t)
-	_ = config.SaveConfig(&config.Config{Backend: config.BackendAPI})
+	_ = config.SaveConfig(config.NewEmptyConfig())
 	logger := &mockLogger{}
 
 	err := SetupAPIConfigCore(
@@ -2708,17 +2734,17 @@ func TestSetupAPIConfigCore_SelfhostedSuccess_NoLogin(t *testing.T) {
 	assert.NoError(t, err)
 	cfg, loadErr := config.LoadConfig()
 	assert.NoError(t, loadErr)
-	assert.Equal(t, "selfhosted", cfg.HostType)
-	assert.Equal(t, "https://vw.example.com", cfg.SelfhostedURL)
-	assert.Equal(t, "api@example.com", cfg.Email)
-	assert.Equal(t, config.BackendAPI, cfg.Backend)
+	h := cfg.DefaultHost()
+	require.NotNil(t, h)
+	assert.Equal(t, config.HostTypeSelfhost, h.Type)
+	assert.Equal(t, "https://vw.example.com", h.HostURL)
+	assert.Equal(t, "api@example.com", h.Email)
 }
 
 // 正常系: auth 未実施でも setup 自体は設定更新として成功する
 func TestSetupAPIConfigCore_SucceedsWithoutPriorAuth(t *testing.T) {
 	withTempHome(t)
-	// Only backend=api; no auth/token state is required for setup.
-	_ = config.SaveConfig(&config.Config{Backend: config.BackendAPI})
+	_ = config.SaveConfig(config.NewEmptyConfig())
 	logger := &mockLogger{}
 
 	err := SetupAPIConfigCore(
@@ -2730,13 +2756,16 @@ func TestSetupAPIConfigCore_SucceedsWithoutPriorAuth(t *testing.T) {
 
 	assert.NoError(t, err)
 	cfg, _ := config.LoadConfig()
-	assert.Equal(t, "fresh@example.com", cfg.Email)
+	h := cfg.DefaultHost()
+	require.NotNil(t, h)
+	assert.Equal(t, "fresh@example.com", h.Email)
 }
 
 // 異常系: selfhosted で URL が空の場合は保存せずエラー
 func TestSetupAPIConfigCore_EmptySelfhostedURL(t *testing.T) {
 	home := withTempHome(t)
-	_ = config.SaveConfig(&config.Config{Backend: config.BackendAPI, Email: "old@example.com"})
+	prior := testHostConfig("old@example.com", "")
+	_ = config.SaveConfig(prior)
 	logger := &mockLogger{}
 
 	err := SetupAPIConfigCore(
@@ -2750,8 +2779,10 @@ func TestSetupAPIConfigCore_EmptySelfhostedURL(t *testing.T) {
 	assert.Contains(t, err.Error(), "URL cannot be empty")
 
 	cfg, _ := config.LoadConfig()
-	assert.Equal(t, "old@example.com", cfg.Email, "config must not be overwritten on validation failure")
-	content, _ := os.ReadFile(filepath.Join(home, ".config", "bwsf", "config.json"))
+	h := cfg.DefaultHost()
+	require.NotNil(t, h)
+	assert.Equal(t, "old@example.com", h.Email, "config must not be overwritten on validation failure")
+	content, _ := os.ReadFile(filepath.Join(home, ".config", "bwsf", "config.jsonc"))
 	assert.NotContains(t, string(content), "api@example.com")
 }
 
@@ -2776,7 +2807,7 @@ func TestSetupAPIConfigCore_SaveConfigError(t *testing.T) {
 	assert.Contains(t, err.Error(), "failed to save configuration")
 }
 
-// 退行: backend=bw の SetupBitwardenCore は従来どおり Login を呼ぶ
+// 退行: SetupBitwardenCore は v0.20 で廃止
 func TestSetupBitwardenCore_StillCallsLogin(t *testing.T) {
 	withTempHome(t)
 	bw := &mockBwClient{folderExists: true}
@@ -2794,8 +2825,9 @@ func TestSetupBitwardenCore_StillCallsLogin(t *testing.T) {
 		func() (bool, error) { return false, nil },
 	)
 
-	assert.NoError(t, err)
-	assert.Contains(t, bw.calls, "Login(bw@example.com,)")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "removed")
+	assert.NotContains(t, bw.calls, "Login")
 }
 
 // =============================================================================
@@ -2823,7 +2855,7 @@ func TestEnsureConfiguredFolderCore_CreateOnYes(t *testing.T) {
 	logger := &mockLogger{}
 	err := EnsureConfiguredFolderCore(
 		bw,
-		&config.Config{FolderName: "dotenvs"},
+		config.NewEmptyConfig(),
 		logger,
 		func() (string, error) { return "mp", nil },
 		func() (bool, error) { return true, nil },
@@ -3294,7 +3326,7 @@ func TestWithUnlockRetry_InvalidStoredSessionFallsBack(t *testing.T) {
 	t.Setenv("BW_SESSION", "")
 	bw := &mockBwClient{}
 	logger := &mockLogger{}
-	cfg := &config.Config{Email: "test@example.com"}
+	cfg := testHostConfig("test@example.com", "")
 	store := &memorySessionStore{session: "stale-session"}
 
 	callCount := 0

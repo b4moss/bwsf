@@ -797,13 +797,18 @@ func collectHostEmailConfig(
 	return hostType, selfhostedURL, email, nil
 }
 
-func normalizePromptHostType(hostType string) string {
+// NormalizePromptHostType maps cloud/selfhosted prompt values to v2 host types.
+func NormalizePromptHostType(hostType string) string {
 	switch strings.TrimSpace(strings.ToLower(hostType)) {
 	case "selfhosted", "self-hosted", config.HostTypeSelfhost:
 		return config.HostTypeSelfhost
 	default:
 		return config.HostTypeCloud
 	}
+}
+
+func normalizePromptHostType(hostType string) string {
+	return NormalizePromptHostType(hostType)
 }
 
 // MapPromptHostToV2 converts cloud/selfhosted prompt values into a v2 Host.
@@ -832,6 +837,11 @@ func MapPromptHostToV2(hostType, url, email, targetSection string) (config.Host,
 		TargetSection: section,
 		IsDefault:     true,
 	}, nil
+}
+
+// PreserveSetupFields copies device_identifier onto matching host ids.
+func PreserveSetupFields(newConfig, existing *config.Config) {
+	preserveSetupFields(newConfig, existing)
 }
 
 // preserveSetupFields copies device_identifier onto matching host ids.

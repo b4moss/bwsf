@@ -9,6 +9,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var listHost string
+
 var listCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List items in the configured Bitwarden folder",
@@ -17,14 +19,15 @@ var listCmd = &cobra.Command{
 }
 
 func init() {
+	listCmd.Flags().StringVar(&listHost, "host", "", "Host id from global config hosts[]")
 	rootCmd.AddCommand(listCmd)
 }
 
 func runList(cmd *cobra.Command, args []string) {
 	cfg := loadConfigOrEmpty()
-	requireBwCLIIfNeeded(cfg)
 
-	bw := newBwClientFromConfig(cfg)
+	host := resolveHostForCommand(cfg, listHost, "")
+	bw := newBwClientForHost(cfg, host)
 	defer clearAPISession(bw)
 	logger := newLogger()
 
@@ -43,7 +46,10 @@ func runList(cmd *cobra.Command, args []string) {
 	}
 
 	if len(items) == 0 {
-		folderName := config.ResolveFolderName(cfg)
+		folderName := host.TargetSection
+		if folderName == "" {
+			folderName = config.ResolveFolderName(cfg)
+		}
 		fmt.Printf("No items found in %s folder\n", folderName)
 		return
 	}

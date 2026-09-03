@@ -7,6 +7,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var pushHost string
+
 var pushCmd = &cobra.Command{
 	Use:   "push",
 	Short: "Push .env file to Bitwarden",
@@ -16,21 +18,22 @@ var pushCmd = &cobra.Command{
 
 func init() {
 	pushCmd.Flags().String("from", ".", "Directory containing .env file")
+	pushCmd.Flags().StringVar(&pushHost, "host", "", "Host id from global config hosts[]")
 	rootCmd.AddCommand(pushCmd)
 }
 
 func runPush(cmd *cobra.Command, args []string) {
 	cfg := loadConfigOrEmpty()
-	requireBwCLIIfNeeded(cfg)
 
-	projectName, fromDir, filter, err := resolveProjectAndFileDir(cmd, "from")
+	projectName, fromDir, filter, projectHost, err := resolveProjectAndFileDir(cmd, "from")
 	if err != nil {
 		utils.Errorln("[ERROR] Failed to resolve project directory:", err)
 		exitFunc(1)
 		return
 	}
 
-	bw := newBwClientFromConfig(cfg)
+	host := resolveHostForCommand(cfg, pushHost, projectHost)
+	bw := newBwClientForHost(cfg, host)
 	defer clearAPISession(bw)
 	fs := newFileSystem()
 	logger := newLogger()

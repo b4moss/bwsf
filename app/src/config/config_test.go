@@ -6,328 +6,200 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-// =============================================================================
-// GetConfigPath のテスト
-// =============================================================================
-
-// 正常系: ホームディレクトリ配下の .config/bwsf/config.json パスが返る
 func TestGetConfigPath_Success(t *testing.T) {
 	path, err := GetConfigPath()
-
 	assert.NoError(t, err)
-	assert.Contains(t, path, ".config/bwsf/config.json")
-
-	// ホームディレクトリで始まることを確認
+	assert.Contains(t, path, ".config/bwsf/config.jsonc")
 	homeDir, _ := os.UserHomeDir()
 	assert.True(t, filepath.HasPrefix(path, homeDir))
 }
 
-// =============================================================================
-// LoadConfig のテスト
-// =============================================================================
-
-// 正常系: 設定ファイルが存在しない場合は nil, nil を返す
 func TestLoadConfig_FileNotExist(t *testing.T) {
-	// 一時的に HOME を変更してテスト用ディレクトリを使う
 	origHome := os.Getenv("HOME")
 	tmpDir := t.TempDir()
 	os.Setenv("HOME", tmpDir)
 	defer os.Setenv("HOME", origHome)
 
 	cfg, err := LoadConfig()
-
 	assert.NoError(t, err)
 	assert.Nil(t, cfg)
 }
 
-// 正常系: 設定ファイルが存在する場合は正しくパースされる
-func TestLoadConfig_Success(t *testing.T) {
+func TestLoadConfig_V2Success(t *testing.T) {
 	origHome := os.Getenv("HOME")
 	tmpDir := t.TempDir()
 	os.Setenv("HOME", tmpDir)
 	defer os.Setenv("HOME", origHome)
 
-	// 設定ファイルを作成
 	configDir := filepath.Join(tmpDir, ".config", "bwsf")
-	os.MkdirAll(configDir, 0755)
-	configPath := filepath.Join(configDir, "config.json")
-	configContent := `{"host_type":"selfhosted","selfhosted_url":"https://bw.example.com","email":"test@example.com"}`
-	os.WriteFile(configPath, []byte(configContent), 0600)
+	require.NoError(t, os.MkdirAll(configDir, 0755))
+	content := `{
+  "schemaVersion": 1,
+  "settings": {
+    "hosts": [{
+      "id": "default",
+      "type": "bitwarden-selfhost",
+      "host_url": "https://bw.example.com",
+      "email": "test@example.com",
+      "target_section": "dotenvs",
+      "is_default": true
+    }]
+  }
+}`
+	require.NoError(t, os.WriteFile(filepath.Join(configDir, "config.json"), []byte(content), 0600))
 
 	cfg, err := LoadConfig()
-
-	assert.NoError(t, err)
-	assert.NotNil(t, cfg)
-	assert.Equal(t, "selfhosted", cfg.HostType)
-	assert.Equal(t, "https://bw.example.com", cfg.SelfhostedURL)
-	assert.Equal(t, "test@example.com", cfg.Email)
-	assert.Equal(t, "", cfg.Backend)
-	assert.Equal(t, BackendAPI, cfg.GetBackend())
+	require.NoError(t, err)
+	require.NotNil(t, cfg)
+	h := cfg.DefaultHost()
+	require.NotNil(t, h)
+	assert.Equal(t, HostTypeSelfhost, h.Type)
+	assert.Equal(t, "https://bw.example.com", h.HostURL)
+	assert.Equal(t, "test@example.com", h.Email)
 }
 
-// 異常系: JSON が壊れている場合はエラー
+func TestLoadConfig_FlatRequiresMigrate(t *testing.T) {
+	origHome := os.Getenv("HOME")
+	tmpDir := t.TempDir()
+	os.Setenv("HOME", tmpDir)
+	defer os.Setenv("HOME", origHome)
+
+	configDir := filepath.Join(tmpDir, ".config", "bwsf")
+	require.NoError(t, os.MkdirAll(configDir, 0755))
+	content := `{"host_type":"selfhosted","selfhosted_url":"https://bw.example.com","email":"test@example.com"}`
+	require.NoError(t, os.WriteFile(filepath.Join(configDir, "config.json"), []byte(content), 0600))
+
+	_, err := LoadConfig()
+	assert.Error(t, err)
+
+	cfg, err := LoadConfigWithMigrate(MigrateHooks{Yes: true})
+	require.NoError(t, err)
+	require.NotNil(t, cfg)
+	h := cfg.DefaultHost()
+	require.NotNil(t, h)
+	assert.Equal(t, HostTypeSelfhost, h.Type)
+	assert.Equal(t, "test@example.com", h.Email)
+}
+
 func TestLoadConfig_InvalidJSON(t *testing.T) {
 	origHome := os.Getenv("HOME")
 	tmpDir := t.TempDir()
 	os.Setenv("HOME", tmpDir)
 	defer os.Setenv("HOME", origHome)
 
-	// 壊れた JSON を書き込む
 	configDir := filepath.Join(tmpDir, ".config", "bwsf")
-	os.MkdirAll(configDir, 0755)
-	configPath := filepath.Join(configDir, "config.json")
-	os.WriteFile(configPath, []byte("not valid json"), 0600)
+	require.NoError(t, os.MkdirAll(configDir, 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(configDir, "config.json"), []byte("not valid json"), 0600))
 
 	cfg, err := LoadConfig()
-
 	assert.Error(t, err)
 	assert.Nil(t, cfg)
-	assert.Contains(t, err.Error(), "failed to parse config file")
 }
 
-// =============================================================================
-// SaveConfig のテスト
-// =============================================================================
+func TestLoadConfig_BothFilesError(t *testing.T) {
+	origHome := os.Getenv("HOME")
+	tmpDir := t.TempDir()
+	os.Setenv("HOME", tmpDir)
+	defer os.Setenv("HOME", origHome)
 
-// 正常系: 設定ファイルが正しく保存される
+	configDir := filepath.Join(tmpDir, ".config", "bwsf")
+	require.NoError(t, os.MkdirAll(configDir, 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(configDir, "config.json"), []byte(`{}`), 0600))
+	require.NoError(t, os.WriteFile(filepath.Join(configDir, "config.jsonc"), []byte(`{}`), 0600))
+
+	_, err := LoadConfig()
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "both")
+}
+
 func TestSaveConfig_Success(t *testing.T) {
 	origHome := os.Getenv("HOME")
 	tmpDir := t.TempDir()
 	os.Setenv("HOME", tmpDir)
 	defer os.Setenv("HOME", origHome)
 
-	cfg := &Config{
-		HostType:      "cloud",
-		SelfhostedURL: "",
-		Email:         "user@example.com",
-	}
+	cfg := NewEmptyConfig()
+	cfg.Settings.Hosts = []Host{{
+		ID: DefaultHostID, Type: HostTypeCloud, HostURL: DefaultCloudURL,
+		Email: "user@example.com", TargetSection: DefaultFolderName, IsDefault: true,
+	}}
+	require.NoError(t, SaveConfig(cfg))
 
-	err := SaveConfig(cfg)
-
-	assert.NoError(t, err)
-
-	// ファイルが作成されていることを確認
-	configPath := filepath.Join(tmpDir, ".config", "bwsf", "config.json")
-	_, statErr := os.Stat(configPath)
-	assert.NoError(t, statErr)
-
-	// 内容を確認
-	content, _ := os.ReadFile(configPath)
-	assert.Contains(t, string(content), `"host_type": "cloud"`)
-	assert.Contains(t, string(content), `"email": "user@example.com"`)
-}
-
-// 正常系: ディレクトリが存在しない場合は作成される
-func TestSaveConfig_CreatesDirectory(t *testing.T) {
-	origHome := os.Getenv("HOME")
-	tmpDir := t.TempDir()
-	os.Setenv("HOME", tmpDir)
-	defer os.Setenv("HOME", origHome)
-
-	cfg := &Config{
-		HostType: "cloud",
-		Email:    "test@example.com",
-	}
-
-	err := SaveConfig(cfg)
-
-	assert.NoError(t, err)
-
-	// ディレクトリが作成されていることを確認
-	configDir := filepath.Join(tmpDir, ".config", "bwsf")
-	info, statErr := os.Stat(configDir)
-	assert.NoError(t, statErr)
-	assert.True(t, info.IsDir())
-}
-
-// 正常系: 既存設定を上書き保存
-func TestSaveConfig_Overwrite(t *testing.T) {
-	origHome := os.Getenv("HOME")
-	tmpDir := t.TempDir()
-	os.Setenv("HOME", tmpDir)
-	defer os.Setenv("HOME", origHome)
-
-	// 最初の設定
-	cfg1 := &Config{
-		HostType: "cloud",
-		Email:    "old@example.com",
-	}
-	SaveConfig(cfg1)
-
-	// 上書き
-	cfg2 := &Config{
-		HostType:      "selfhosted",
-		SelfhostedURL: "https://new.example.com",
-		Email:         "new@example.com",
-	}
-	err := SaveConfig(cfg2)
-
-	assert.NoError(t, err)
-
-	// 新しい内容になっていることを確認
-	loaded, _ := LoadConfig()
-	assert.Equal(t, "selfhosted", loaded.HostType)
-	assert.Equal(t, "https://new.example.com", loaded.SelfhostedURL)
-	assert.Equal(t, "new@example.com", loaded.Email)
-}
-
-// =============================================================================
-// Backend フィールドのテスト
-// =============================================================================
-
-// 正常系: backend 未設定時は GetBackend が "api" を返す
-func TestGetBackend_DefaultAPI(t *testing.T) {
-	assert.Equal(t, BackendAPI, (*Config)(nil).GetBackend())
-	assert.Equal(t, BackendAPI, (&Config{}).GetBackend())
-	assert.Equal(t, BackendAPI, (&Config{Backend: ""}).GetBackend())
-}
-
-// 正常系: backend が明示されている場合はその値を返す
-func TestGetBackend_Explicit(t *testing.T) {
-	assert.Equal(t, BackendAPI, (&Config{Backend: BackendAPI}).GetBackend())
-	assert.Equal(t, BackendBW, (&Config{Backend: BackendBW}).GetBackend())
-}
-
-// 正常系: IsValidBackend が bw / api のみ true
-func TestIsValidBackend(t *testing.T) {
-	assert.True(t, IsValidBackend(BackendBW))
-	assert.True(t, IsValidBackend(BackendAPI))
-	assert.False(t, IsValidBackend(""))
-	assert.False(t, IsValidBackend("cli"))
-}
-
-// 正常系: backend 付き config の読み書き
-func TestLoadSaveConfig_WithBackend(t *testing.T) {
-	origHome := os.Getenv("HOME")
-	tmpDir := t.TempDir()
-	os.Setenv("HOME", tmpDir)
-	defer os.Setenv("HOME", origHome)
-
-	cfg := &Config{
-		HostType: "cloud",
-		Email:    "user@example.com",
-		Backend:  BackendAPI,
-	}
-	err := SaveConfig(cfg)
-	assert.NoError(t, err)
+	jsoncPath := filepath.Join(tmpDir, ".config", "bwsf", "config.jsonc")
+	assert.FileExists(t, jsoncPath)
+	assert.NoFileExists(t, filepath.Join(tmpDir, ".config", "bwsf", "config.json"))
 
 	loaded, err := LoadConfig()
-	assert.NoError(t, err)
-	assert.Equal(t, BackendAPI, loaded.Backend)
-	assert.Equal(t, BackendAPI, loaded.GetBackend())
-
-	content, _ := os.ReadFile(filepath.Join(tmpDir, ".config", "bwsf", "config.json"))
-	assert.Contains(t, string(content), `"backend": "api"`)
+	require.NoError(t, err)
+	h := loaded.DefaultHost()
+	require.NotNil(t, h)
+	assert.Equal(t, "user@example.com", h.Email)
 }
 
-// 正常系: backend 未指定の JSON でも読み込め、デフォルトは api
-func TestLoadConfig_BackendOmitted(t *testing.T) {
+func TestResolveHost(t *testing.T) {
+	cfg := NewEmptyConfig()
+	cfg.Settings.Hosts = []Host{
+		{ID: "work", Type: HostTypeCloud, HostURL: DefaultCloudURL, TargetSection: "dotenvs", IsDefault: false},
+		{ID: "default", Type: HostTypeCloud, HostURL: DefaultCloudURL, TargetSection: "dotenvs", IsDefault: true},
+	}
+
+	h, err := ResolveHost(cfg, "work", "")
+	require.NoError(t, err)
+	assert.Equal(t, "work", h.ID)
+
+	h, err = ResolveHost(cfg, "", "work")
+	require.NoError(t, err)
+	assert.Equal(t, "work", h.ID)
+
+	h, err = ResolveHost(cfg, "", "")
+	require.NoError(t, err)
+	assert.Equal(t, "default", h.ID)
+
+	_, err = ResolveHost(cfg, "missing", "")
+	assert.Error(t, err)
+}
+
+func TestFormatConfigShow(t *testing.T) {
+	cfg := NewEmptyConfig()
+	cfg.Settings.Hosts = []Host{{
+		ID: DefaultHostID, Type: HostTypeCloud, HostURL: DefaultCloudURL,
+		Email: "a@b.c", TargetSection: "team", IsDefault: true,
+	}}
+	out := FormatConfigShow(cfg)
+	assert.Contains(t, out, "schemaVersion:")
+	assert.Contains(t, out, "id: default [default]")
+	assert.Contains(t, out, "target_section: team")
+}
+
+func TestNewEmptyConfig_Valid(t *testing.T) {
+	cfg := NewEmptyConfig()
+	assert.NoError(t, cfg.Validate())
+	assert.Empty(t, cfg.Settings.Hosts)
+}
+
+func TestValidate_RequiresOneDefault(t *testing.T) {
+	cfg := NewEmptyConfig()
+	cfg.Settings.Hosts = []Host{
+		{ID: "a", Type: HostTypeCloud, HostURL: DefaultCloudURL, TargetSection: "dotenvs", IsDefault: false},
+	}
+	assert.Error(t, cfg.Validate())
+}
+
+func TestBannedBackendKey(t *testing.T) {
 	origHome := os.Getenv("HOME")
 	tmpDir := t.TempDir()
 	os.Setenv("HOME", tmpDir)
 	defer os.Setenv("HOME", origHome)
 
 	configDir := filepath.Join(tmpDir, ".config", "bwsf")
-	os.MkdirAll(configDir, 0755)
-	configPath := filepath.Join(configDir, "config.json")
-	os.WriteFile(configPath, []byte(`{"host_type":"cloud","email":"a@b.com"}`), 0600)
+	require.NoError(t, os.MkdirAll(configDir, 0755))
+	content := `{"schemaVersion":1,"backend":"api","settings":{"hosts":[]}}`
+	require.NoError(t, os.WriteFile(filepath.Join(configDir, "config.json"), []byte(content), 0600))
 
-	cfg, err := LoadConfig()
-	assert.NoError(t, err)
-	assert.Equal(t, "", cfg.Backend)
-	assert.Equal(t, BackendAPI, cfg.GetBackend())
-}
-
-// FormatConfigShow / LoadConfigShowText（docs/tests/cmd/config_show.md）
-// =============================================================================
-
-func TestFormatConfigShow_CloudDefaultsFolder(t *testing.T) {
-	out := FormatConfigShow(&Config{
-		HostType:      "cloud",
-		SelfhostedURL: "",
-		Email:         "user@example.com",
-	})
-
-	assert.Contains(t, out, "Host type: cloud")
-	assert.Contains(t, out, "Self-hosted URL: ")
-	assert.Contains(t, out, "Email: user@example.com")
-	assert.Contains(t, out, "Folder name: dotenvs")
-	assert.NotContains(t, out, "password")
-}
-
-func TestFormatConfigShow_SelfhostedExplicitFolder(t *testing.T) {
-	out := FormatConfigShow(&Config{
-		HostType:      "selfhosted",
-		SelfhostedURL: "https://bw.example.com",
-		Email:         "ops@example.com",
-		FolderName:    "team-envs",
-	})
-
-	assert.Contains(t, out, "Host type: selfhosted")
-	assert.Contains(t, out, "Self-hosted URL: https://bw.example.com")
-	assert.Contains(t, out, "Email: ops@example.com")
-	assert.Contains(t, out, "Folder name: team-envs")
-}
-
-func TestFormatConfigShow_EmptyFolderNameUsesDefault(t *testing.T) {
-	out := FormatConfigShow(&Config{FolderName: "   "})
-	assert.Contains(t, out, "Folder name: "+DefaultFolderName)
-}
-
-func TestLoadConfigShowText_Success(t *testing.T) {
-	origHome := os.Getenv("HOME")
-	tmpDir := t.TempDir()
-	os.Setenv("HOME", tmpDir)
-	defer os.Setenv("HOME", origHome)
-
-	assert.NoError(t, SaveConfig(&Config{
-		HostType: "cloud",
-		Email:    "show@example.com",
-	}))
-
-	before, err := os.ReadFile(filepath.Join(tmpDir, ".config", "bwsf", "config.json"))
-	assert.NoError(t, err)
-
-	text, err := LoadConfigShowText()
-	assert.NoError(t, err)
-	assert.Contains(t, text, "Host type: cloud")
-	assert.Contains(t, text, "Email: show@example.com")
-	assert.Contains(t, text, "Folder name: dotenvs")
-
-	after, err := os.ReadFile(filepath.Join(tmpDir, ".config", "bwsf", "config.json"))
-	assert.NoError(t, err)
-	assert.Equal(t, before, after)
-}
-
-func TestLoadConfigShowText_MissingConfig(t *testing.T) {
-	origHome := os.Getenv("HOME")
-	tmpDir := t.TempDir()
-	os.Setenv("HOME", tmpDir)
-	defer os.Setenv("HOME", origHome)
-
-	text, err := LoadConfigShowText()
+	_, err := LoadConfig()
 	assert.Error(t, err)
-	assert.Empty(t, text)
-	assert.Contains(t, err.Error(), "setup")
+	assert.Contains(t, err.Error(), "backend")
 }
-
-func TestLoadConfigShowText_InvalidJSON(t *testing.T) {
-	origHome := os.Getenv("HOME")
-	tmpDir := t.TempDir()
-	os.Setenv("HOME", tmpDir)
-	defer os.Setenv("HOME", origHome)
-
-	configDir := filepath.Join(tmpDir, ".config", "bwsf")
-	assert.NoError(t, os.MkdirAll(configDir, 0755))
-	assert.NoError(t, os.WriteFile(filepath.Join(configDir, "config.json"), []byte("not json"), 0600))
-
-	text, err := LoadConfigShowText()
-	assert.Error(t, err)
-	assert.Empty(t, text)
-	assert.Contains(t, err.Error(), "failed to parse config file")
-}
-
-
-

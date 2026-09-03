@@ -14,6 +14,10 @@ var rootCmd = &cobra.Command{
 	Version: Version,
 }
 
+func init() {
+	rootCmd.PersistentFlags().BoolVar(&migrateYes, "yes", false, "Assume yes for confirmations (e.g. config migration)")
+}
+
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {
 		utils.Error("Error: %v\n", err)

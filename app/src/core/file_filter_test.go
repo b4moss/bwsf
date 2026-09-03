@@ -10,7 +10,7 @@ import (
 func TestManagedFileFilter_Allow(t *testing.T) {
 	assert.True(t, ManagedFileFilter{}.Allow(".env"))
 
-	notSave := ManagedFileFilter{NotSaveFiles: []string{".env.local", "*.auto.tfvars"}}
+	notSave := ManagedFileFilter{SaveFiles: []string{"!.env.local", "!*.auto.tfvars"}}
 	assert.True(t, notSave.Allow(".env"))
 	assert.False(t, notSave.Allow(".env.local"))
 	assert.False(t, notSave.Allow("x.auto.tfvars"))
@@ -39,9 +39,9 @@ func TestGetPushedEnvFiles_WithFilters(t *testing.T) {
 		assert.Equal(t, []string{".env", ".env.local", "foo.tfvars", "x.auto.tfvars"}, names)
 	})
 
-	t.Run("not_save_files", func(t *testing.T) {
+	t.Run("negation_via_bang", func(t *testing.T) {
 		names, err := GetPushedEnvFiles(".", ManagedFileFilter{
-			NotSaveFiles: []string{".env.local", "*.auto.tfvars"},
+			SaveFiles: []string{"!.env.local", "!*.auto.tfvars"},
 		}, fs)
 		require.NoError(t, err)
 		assert.Equal(t, []string{".env", "foo.tfvars"}, names)
