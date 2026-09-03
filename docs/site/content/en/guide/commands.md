@@ -7,6 +7,7 @@ Current product commands (v0.20.0). A compact inventory also lives in [`docs/COM
 | Command | Description | Main flags |
 |---|---|---|
 | `bwsf setup` | Configure hosts and global `save_files` (no login; use `auth`) | `--folder` `--host-type` `--url` `--email` `--skip-host` `--save-files` `--yes` |
+| `bwsf init` | Create `./.bwsf/config.jsonc` (requires global config) | `--host` `--skip-host` `--save-files` `--override-project-name` `--yes` |
 | `bwsf auth` | Store Personal API Key and authenticate | `--clear` `--host` |
 | `bwsf config show` | Show current local configuration | — |
 | `bwsf push` | Push managed files (`.env*`, `*.tfvars`, `*.tfvars.json`) to Bitwarden | `--from` `--host` |

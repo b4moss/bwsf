@@ -140,7 +140,8 @@ cwd を一時ディレクトリにして検証する。
 | N1 | 非対話: グローバルあり・`--skip-host`・save_files / override 未指定・`--yes` | `host` 無しの最小 `.jsonc` が書ける |
 | N2 | 非対話: `--host default` + `--save-files '.env*,!.env.local'` | 対応キーが保存される |
 
-フラグ名は実装で固定し、確定後に本表を更新する。
+確定フラグ: `--host` / `--skip-host` / `--save-files` / `--override-project-name` + ルート `--yes`。  
+F3: 設定を選んでも glob が空ならキー省略（未設定扱い）。W6: 上書き拒否は非ゼロ終了。
 
 ---
 

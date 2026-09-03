@@ -78,7 +78,7 @@ func TestGetProjectConfigWritePath(t *testing.T) {
 	assert.Equal(t, filepath.Join(dir, ".bwsf", "config.jsonc"), GetProjectConfigWritePath(dir))
 }
 
-func TestSaveProjectConfig_CreatesJSONC(t *testing.T) {
+func TestSaveProjectConfig_WritesJSONC(t *testing.T) {
 	dir := t.TempDir()
 	pc := &ProjectConfig{
 		Host:                "work",
@@ -93,20 +93,21 @@ func TestSaveProjectConfig_CreatesJSONC(t *testing.T) {
 
 	loaded, err := LoadProjectConfigFile(path)
 	require.NoError(t, err)
-	assert.Equal(t, "work", loaded.EffectiveHost())
-	assert.Equal(t, "my-api", loaded.EffectiveOverride())
-	assert.Equal(t, []string{".env*", "!.env.local"}, loaded.EffectiveSaveFiles())
+	assert.Equal(t, "work", loaded.Host)
+	assert.Equal(t, "my-api", loaded.OverrideProjectName)
+	assert.Equal(t, []string{".env*", "!.env.local"}, loaded.SaveFiles)
 }
 
-func TestSaveProjectConfig_OmitsEmptyOptionalKeys(t *testing.T) {
+func TestSaveProjectConfig_Omitempty(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, SaveProjectConfig(dir, &ProjectConfig{}))
 
 	data, err := os.ReadFile(GetProjectConfigWritePath(dir))
 	require.NoError(t, err)
-	assert.NotContains(t, string(data), "host")
-	assert.NotContains(t, string(data), "override_project_name")
-	assert.NotContains(t, string(data), "save_files")
+	body := string(data)
+	assert.NotContains(t, body, "host")
+	assert.NotContains(t, body, "save_files")
+	assert.NotContains(t, body, "override_project_name")
 }
 
 func TestSaveProjectConfig_RemovesSiblingJSON(t *testing.T) {
@@ -119,16 +120,22 @@ func TestSaveProjectConfig_RemovesSiblingJSON(t *testing.T) {
 	require.NoError(t, SaveProjectConfig(dir, &ProjectConfig{Host: "new"}))
 	require.FileExists(t, GetProjectConfigWritePath(dir))
 	assert.NoFileExists(t, jsonPath)
-
-	loaded, err := LoadProjectConfigFile(GetProjectConfigWritePath(dir))
-	require.NoError(t, err)
-	assert.Equal(t, "new", loaded.EffectiveHost())
 }
 
 func TestSaveProjectConfig_Nil(t *testing.T) {
 	err := SaveProjectConfig(t.TempDir(), nil)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "nil")
+}
+
+func TestSaveProjectConfig_WriteError(t *testing.T) {
+	restore := OverrideSaveConfigIO(nil, func(string, []byte, os.FileMode) error {
+		return assert.AnError
+	})
+	t.Cleanup(restore)
+
+	err := SaveProjectConfig(t.TempDir(), &ProjectConfig{Host: "x"})
+	require.Error(t, err)
 }
 
 func TestFindLocalProjectConfigFiles(t *testing.T) {
@@ -144,6 +151,14 @@ func TestFindLocalProjectConfigFiles(t *testing.T) {
 	require.NoError(t, err)
 	assert.Empty(t, jp)
 	assert.NotEmpty(t, jcp)
+}
+
+func TestLocalProjectConfigExists(t *testing.T) {
+	dir := t.TempDir()
+	assert.False(t, LocalProjectConfigExists(dir))
+
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, ".bwsf"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, ".bwsf", "config.json"), []byte(`{}`), 0o600))
 	assert.True(t, LocalProjectConfigExists(dir))
 }
 

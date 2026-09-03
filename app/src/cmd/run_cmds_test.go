@@ -467,15 +467,6 @@ func resetInitFlags(t *testing.T) {
 	if f := initCmd.Flags().Lookup("override-project-name"); f != nil {
 		f.Changed = false
 	}
-	if f := initCmd.Flags().Lookup("host"); f != nil {
-		f.Changed = false
-	}
-	if f := initCmd.Flags().Lookup("skip-host"); f != nil {
-		f.Changed = false
-	}
-	if f := initCmd.Flags().Lookup("save-files"); f != nil {
-		f.Changed = false
-	}
 }
 
 func setInitOverrideFlag(t *testing.T, value string) {
@@ -748,10 +739,10 @@ func TestRunInit_InteractiveSkipHost(t *testing.T) {
 	origSelectHost := selectInitHostID
 	origSF := selectSaveFilesAction
 	origOV := selectOverrideNameAction
+	origInput := inputOverrideProjectName
 	selectInitHostID = func(*config.Config) (string, error) { return "", nil }
 	selectSaveFilesAction = func() (string, error) { return "unset", nil }
 	selectOverrideNameAction = func() (string, error) { return "set", nil }
-	origInput := inputOverrideProjectName
 	inputOverrideProjectName = func() (string, error) { return "my-api", nil }
 	t.Cleanup(func() {
 		selectInitHostID = origSelectHost
@@ -770,4 +761,68 @@ func TestRunInit_InteractiveSkipHost(t *testing.T) {
 	pc := readProjectConfigCWD(t, dir)
 	assert.Empty(t, pc.Host)
 	assert.Equal(t, "my-api", pc.OverrideProjectName)
+}
+
+func TestRunInit_EmptyHosts_NoHostPrompt(t *testing.T) {
+	withTempHome(t)
+	require.NoError(t, config.SaveConfig(config.NewEmptyConfig()))
+	dir, _ := chdirTempProject(t)
+
+	hostCalled := false
+	origSelectHost := selectInitHostID
+	origSF := selectSaveFilesAction
+	origOV := selectOverrideNameAction
+	selectInitHostID = func(*config.Config) (string, error) {
+		hostCalled = true
+		return "", nil
+	}
+	selectSaveFilesAction = func() (string, error) { return "unset", nil }
+	selectOverrideNameAction = func() (string, error) { return "unset", nil }
+	t.Cleanup(func() {
+		selectInitHostID = origSelectHost
+		selectSaveFilesAction = origSF
+		selectOverrideNameAction = origOV
+	})
+
+	rec := stubCmdDeps(t, nil, nil)
+	resetInitFlags(t)
+	t.Cleanup(func() { resetInitFlags(t) })
+
+	runInit(initCmd, nil)
+
+	assert.False(t, rec.called)
+	assert.False(t, hostCalled)
+	assert.Empty(t, readProjectConfigCWD(t, dir).Host)
+}
+
+func TestRunInit_EmptySaveFilesGlobsUnset(t *testing.T) {
+	withTempHome(t)
+	writeMinimalConfig(t)
+	dir, _ := chdirTempProject(t)
+
+	origSelectHost := selectInitHostID
+	origSF := selectSaveFilesAction
+	origGlobs := inputSaveFilesGlobs
+	origOV := selectOverrideNameAction
+	selectInitHostID = func(*config.Config) (string, error) { return "", nil }
+	selectSaveFilesAction = func() (string, error) { return "set", nil }
+	inputSaveFilesGlobs = func() ([]string, error) { return []string{"  ", ","}, nil }
+	selectOverrideNameAction = func() (string, error) { return "unset", nil }
+	t.Cleanup(func() {
+		selectInitHostID = origSelectHost
+		selectSaveFilesAction = origSF
+		inputSaveFilesGlobs = origGlobs
+		selectOverrideNameAction = origOV
+	})
+
+	rec := stubCmdDeps(t, nil, nil)
+	resetInitFlags(t)
+	t.Cleanup(func() { resetInitFlags(t) })
+
+	runInit(initCmd, nil)
+
+	assert.False(t, rec.called)
+	data, err := os.ReadFile(config.GetProjectConfigWritePath(dir))
+	require.NoError(t, err)
+	assert.NotContains(t, string(data), "save_files")
 }
