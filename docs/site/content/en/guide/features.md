@@ -30,6 +30,18 @@ bwsf pull
 
 This pulls the managed files for the current project stored in Bitwarden and writes them to your project root. Existing local files are overwritten only after confirmation (per file).
 
+## API Backend (default)
+
+From v0.19.0, the default backend is **`api`** (Personal API Key). Typical flow:
+
+```bash
+bwsf setup
+bwsf auth
+bwsf push   # prompts master password to unlock
+```
+
+Switch back to the Bitwarden CLI with `bwsf backend --set bw` if needed.
+
 ## Inspecting Local Configuration
 
 ```bash

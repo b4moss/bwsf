@@ -4,7 +4,9 @@
 
 | コマンド | 説明 |
 |---|---|
-| `bwsf setup` | Bitwarden 接続の設定 |
+| `bwsf setup` | Bitwarden ホスト / アカウント設定（API 時はログインなし。`auth` を使用） |
+| `bwsf auth` | Personal API Key の保存と認証（`api` バックエンド） |
+| `bwsf backend` | Bitwarden バックエンド（`api` / `bw`）の表示・設定 |
 | `bwsf config show` | 現在のローカル設定を表示 |
 | `bwsf push` | 管理対象ファイル（`.env*` / `*.tfvars` / `*.tfvars.json`）を Bitwarden にプッシュ |
 | `bwsf pull` | 管理対象ファイルを Bitwarden からプル |
@@ -13,9 +15,11 @@
 
 管理対象は、名前が `.env` で始まるファイル、または末尾が `.tfvars` / `.tfvars.json` のファイルです。名前に `.example` を含むものは除外されます。
 
+デフォルトバックエンドは **`api`**（Personal API Key + プロセス内 unlock）です。`bw` CLI バックエンドは `bwsf backend --set bw` で利用できます。
+
 ## bwsf setup
 
-Bitwarden 接続の設定を行います。
+Bitwarden ホスト設定を行います。
 
 ```bash
 bwsf setup
@@ -29,11 +33,13 @@ bwsf setup --folder my-envs
 
 フォルダ名は `~/.config/bwsf/config.json` に保存され、push / pull / list / clean で使われます。名前変更では既存ノートは自動移動されません。
 
-### 対話入力
+### API バックエンド（`backend=api`、デフォルト）
 
-- **サーバー URL**: Bitwarden サーバー URL（Bitwarden Cloud の場合は空欄）
-- **メールアドレス**: Bitwarden アカウントのメールアドレス
-- **マスターパスワード**: Bitwarden のマスターパスワード
+`setup` はホスト種別 / URL / メールのみ保存します。マスターパスワードでのログインは行いません。続けて `bwsf auth` を実行してください。
+
+### `bw` バックエンド（`backend=bw`）
+
+対話入力にマスターパスワードが含まれ、Bitwarden CLI 経由でログインします。
 
 ### 非対話フラグ
 
@@ -44,9 +50,30 @@ bwsf setup --folder my-envs
 | `--host-type` | `cloud` または `selfhosted` |
 | `--url` | セルフホストのサーバー URL（`--host-type=selfhosted` のとき必須） |
 | `--email` | アカウントのメール |
-| `--password` | マスターパスワード |
+| `--password` | マスターパスワード（`bw` バックエンド。API のフォルダ確保時は任意） |
 | `--yes` | 確認をすべて yes とみなす（フォルダ作成など） |
 | `--folder` | Bitwarden フォルダ名（デフォルト: `dotenvs`） |
+
+## bwsf auth
+
+Personal API Key を保存し Identity トークンを取得します（`api` バックエンド）。
+
+```bash
+bwsf auth
+bwsf auth --clear
+```
+
+`client_id` / `client_secret` の入力を求め、OS の秘密保管（**macOS Keychain** / **Linux secret service**）に保存し、Identity の access token を取得します（プロセスメモリ上のみ）。キーはアカウント設定 → セキュリティ → キーで作成します。
+
+## bwsf backend
+
+Bitwarden バックエンドの表示・設定。
+
+```bash
+bwsf backend
+bwsf backend --set api
+bwsf backend --set bw
+```
 
 ## bwsf config show
 

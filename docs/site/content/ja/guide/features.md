@@ -30,6 +30,18 @@ bwsf pull
 
 Bitwarden 側に保存されている当該プロジェクトの管理対象ファイルを、プロジェクトルートへ書き戻します。ローカルに同名ファイルがある場合は、ファイル単位で上書き確認します。
 
+## API バックエンド（デフォルト）
+
+v0.19.0 からデフォルトバックエンドは **`api`**（Personal API Key）です。典型フロー:
+
+```bash
+bwsf setup
+bwsf auth
+bwsf push   # マスターパスワードで unlock
+```
+
+必要なら `bwsf backend --set bw` で Bitwarden CLI に戻せます。
+
 ## ローカル設定の確認
 
 ```bash
