@@ -43,3 +43,10 @@ jobs:
           HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
           GPG_FINGERPRINT: ${{ secrets.GPG_FINGERPRINT }}
 
+      # Enforce #171 retention after GoReleaser adds the new versioned formula.
+      - name: Sync retained Homebrew versioned formulas
+        env:
+          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          GH_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        run: ./scripts/sync-homebrew-versioned-formulas.sh --push
+

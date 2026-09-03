@@ -69,14 +69,14 @@ brew tap b4m-oss/tap && brew install bwsf
 
 ### 特定バージョンのインストール
 
-過去のリリースも Homebrew tap 経由でインストールできます。
+Homebrew tap の versioned formula は、「現行 minor の全 patch」と「1つ前の minor の最新 patch」のみ残します。それ以外は tap から削除されますが、[GitHub Releases](https://github.com/b4moss/bwsf/releases) からは引き続き取得できます。
 
 ```bash
 brew tap b4m-oss/tap
-brew install bwsf@0.15.0
+brew install bwsf@0.17.3
 ```
 
-利用可能なバージョンは [GitHub Releases](https://github.com/b4moss/bwsf/releases) を参照してください。versioned formula は keg-only のため、パスを通すか `brew link --force bwsf@0.15.0` が必要になる場合があります。
+versioned formula は keg-only のため、パスを通すか `brew link --force bwsf@0.17.3` が必要になる場合があります。
 
 ## インストールの確認
 
