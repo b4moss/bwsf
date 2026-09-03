@@ -182,7 +182,6 @@ func WithUnlockRetry(
 	}
 
 	if cfg != nil && cfg.Email != "" {
-		logger.Info("Unlock failed, trying login then unlock...")
 		loginErr := bw.Login(cfg.Email, password, cfg.SelfhostedURL)
 		if loginErr != nil {
 			return fmt.Errorf("failed to login Bitwarden CLI: %w", loginErr)

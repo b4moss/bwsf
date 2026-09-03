@@ -138,7 +138,8 @@ func unlockRaw(password string) (string, error) {
 	}
 
 	cmd := exec.Command("bw", "unlock", "--raw", "--passwordenv", "BW_PASSWORD")
-	cmd.Env = append(environWithout("BW_PASSWORD"), "BW_PASSWORD="+password)
+	// Drop stale BW_SESSION / BW_PASSWORD so unlock is not confused by a prior session.
+	cmd.Env = append(environWithout("BW_PASSWORD", "BW_SESSION"), "BW_PASSWORD="+password)
 	out, err := cmd.CombinedOutput()
 	combined := strings.TrimSpace(string(out))
 	session := extractSessionKey(combined)
