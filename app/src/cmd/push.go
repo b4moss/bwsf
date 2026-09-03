@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"bwsf/src/config"
 	"bwsf/src/core"
 	"bwsf/src/utils"
 
@@ -21,12 +20,8 @@ func init() {
 }
 
 func runPush(cmd *cobra.Command, args []string) {
-	installed, _ := checkBwInstalled()
-	if !installed {
-		utils.Errorln("[ERROR] ❌ bw command is not installed...")
-		exitFunc(1)
-		return
-	}
+	cfg := loadConfigOrEmpty()
+	requireBwCLIIfNeeded(cfg)
 
 	projectName, fromDir, filter, err := resolveProjectAndFileDir(cmd, "from")
 	if err != nil {
@@ -35,17 +30,8 @@ func runPush(cmd *cobra.Command, args []string) {
 		return
 	}
 
-	cfg, err := config.LoadConfig()
-	if err != nil {
-		utils.Errorln("[ERROR] Failed to load config:", err)
-		exitFunc(1)
-		return
-	}
-	if cfg == nil {
-		cfg = &config.Config{}
-	}
-
-	bw := newBwClient()
+	bw := newBwClientFromConfig(cfg)
+	defer clearAPISession(bw)
 	fs := newFileSystem()
 	logger := newLogger()
 
@@ -80,7 +66,7 @@ func runPush(cmd *cobra.Command, args []string) {
 		sessions,
 	)
 	if err != nil {
-		utils.Errorln("[ERROR]", err)
+		reportCommandError(err)
 		exitFunc(1)
 		return
 	}

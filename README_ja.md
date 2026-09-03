@@ -27,6 +27,8 @@ bwsf は Bitwarden 上でプロジェクトファイル（`.env*` / `*.tfvars` /
 | コマンド | |
 |----|----|
 | bwsf setup | Bitwarden ホストとアカウントの設定 |
+| bwsf auth | Personal API Key の保存と認証（`api` バックエンド） |
+| bwsf backend | Bitwardenバックエンド（`bw` CLI / `api`）の表示・設定 |
 | bwsf config show | 現在のローカル設定を表示 |
 | bwsf push | 管理対象ファイルを Bitwarden ホストにプッシュ |
 | bwsf pull | Bitwarden ホストから管理対象ファイルをプル |
@@ -41,11 +43,25 @@ bwsf は Bitwarden 上でプロジェクトファイル（`.env*` / `*.tfvars` /
 
 ## 要件
 
-**`bw`** コマンドがマシンにインストールされている必要があります。
+### デフォルトバックエンド（`api`）
 
-[bwコマンドのインストール方法については、こちらのドキュメントをお読みください。](https://bitwarden.com/help/cli/#download-and-install)
+デフォルトの **API** バックエンドでは Bitwarden CLI（`bw`）のインストールは不要です。
 
-** Homebrew **: インストールに必要です。
+必要なもの:
+
+- Bitwarden アカウント（Cloud またはセルフホスト / Vaultwarden）
+- **Personal API Key**（アカウント設定 → セキュリティ → キー）
+- OS の秘密保管（**macOS Keychain** / **Linux secret service**）へのアクセス
+
+### 任意バックエンド（`bw`）
+
+`bwsf backend --set bw` に切り替える場合は **`bw`** CLI が必要です。
+
+[bw のインストール](https://bitwarden.com/help/cli/#download-and-install)
+
+### Homebrew
+
+bwsf 本体のインストールに Homebrew を使います。
 
 ### 対応OS
 
@@ -133,6 +149,42 @@ bwsf clean
 ```
 
 リモートのバックアップを確認したうえで、ローカルの管理対象ファイルを削除します。
+
+### Bitwardenバックエンドの表示・設定
+
+```shell
+bwsf backend
+bwsf backend --set api
+bwsf backend --set bw
+```
+
+デフォルトは **`api`**（Personal API Key + プロセス内 unlock）です。`bw` バックエンドは移行・好みのために残しています。
+
+### API バックエンド（推奨）
+
+Bitwarden CLI なしの典型的な流れ:
+
+```shell
+bwsf setup                 # ホスト種別 / URL / email（＋任意で folder）
+bwsf auth                  # Personal API Key を保存し Identity トークン取得
+bwsf push                  # マスターパスワードで unlock して同期
+bwsf pull
+bwsf list
+```
+
+`bwsf auth` は `client_id` / `client_secret` の入力を求め、OS の秘密保管（**macOS Keychain** / **Linux secret service**）に保存し、Identity のアクセストークンを取得します（トークンはプロセスのメモリ上のみ）。削除は `bwsf auth --clear` です。
+
+Personal API Key は Bitwarden Web 保管庫の アカウント設定 → セキュリティ → キー から作成できます。
+
+`push` / `pull` / `list` のたびに **マスターパスワード** の入力を求め、メモリ上でボルト鍵を復元し、コマンド終了時に鍵・トークンを破棄します。
+
+補足: unlock は Community SDK のパスワード login 経路（config の email + マスターパスワード）で鍵を復元します。Identity の Personal API Key トークンとは別管理です。
+
+以前、`backend` 未設定が `bw` を意味していた環境では、明示的に設定してください:
+
+```shell
+bwsf backend --set bw
+```
 
 ## アンインストール
 

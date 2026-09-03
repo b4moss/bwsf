@@ -1,7 +1,10 @@
 package cmd
 
 import (
+	"os"
 	"testing"
+
+	"bwsf/src/config"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -90,6 +93,21 @@ func TestSetupCmd_Registered(t *testing.T) {
 	assert.True(t, found, "setup command should be registered")
 }
 
+// 正常系: backend コマンドが登録されている
+func TestBackendCmd_Registered(t *testing.T) {
+	assert.NotNil(t, backendCmd)
+	assert.Equal(t, "backend", backendCmd.Use)
+
+	found := false
+	for _, cmd := range rootCmd.Commands() {
+		if cmd.Use == "backend" {
+			found = true
+			break
+		}
+	}
+	assert.True(t, found, "backend command should be registered")
+}
+
 // 正常系: clean コマンドが登録されている
 func TestCleanCmd_Registered(t *testing.T) {
 	assert.NotNil(t, cleanCmd)
@@ -166,6 +184,13 @@ func TestPullCmd_OutputFlag(t *testing.T) {
 	assert.Equal(t, ".", flag.DefValue)
 }
 
+// 正常系: backend コマンドに --set フラグがある
+func TestBackendCmd_SetFlag(t *testing.T) {
+	flag := backendCmd.Flags().Lookup("set")
+	assert.NotNil(t, flag)
+	assert.Equal(t, "", flag.DefValue)
+}
+
 // 正常系: clean コマンドに --from フラグがある
 func TestCleanCmd_FromFlag(t *testing.T) {
 	flag := cleanCmd.Flags().Lookup("from")
@@ -199,6 +224,108 @@ func TestListCmd_Description(t *testing.T) {
 func TestSetupCmd_Description(t *testing.T) {
 	assert.NotEmpty(t, setupCmd.Short)
 	assert.NotEmpty(t, setupCmd.Long)
+	// backend=api では認証が bwsf auth に分離されることを案内する
+	assert.Contains(t, setupCmd.Long, "bwsf auth")
+}
+
+// 正常系: backend コマンドに説明がある
+func TestBackendCmd_Description(t *testing.T) {
+	assert.NotEmpty(t, backendCmd.Short)
+	assert.NotEmpty(t, backendCmd.Long)
+}
+
+// 正常系: auth コマンドが登録されている
+func TestAuthCmd_Registered(t *testing.T) {
+	assert.NotNil(t, authCmd)
+	assert.Equal(t, "auth", authCmd.Use)
+
+	found := false
+	for _, cmd := range rootCmd.Commands() {
+		if cmd.Use == "auth" {
+			found = true
+			break
+		}
+	}
+	assert.True(t, found, "auth command should be registered")
+}
+
+// 正常系: auth コマンドに --clear フラグがある
+func TestAuthCmd_ClearFlag(t *testing.T) {
+	flag := authCmd.Flags().Lookup("clear")
+	assert.NotNil(t, flag)
+	assert.Equal(t, "false", flag.DefValue)
+}
+
+// 正常系: auth コマンドに説明がある
+func TestAuthCmd_Description(t *testing.T) {
+	assert.NotEmpty(t, authCmd.Short)
+	assert.NotEmpty(t, authCmd.Long)
+}
+
+// =============================================================================
+// backend コマンドのロジックテスト
+// =============================================================================
+
+// 正常系: 設定なしでは currentBackend が api を返す
+func TestCurrentBackend_DefaultAPI(t *testing.T) {
+	origHome := os.Getenv("HOME")
+	tmpDir := t.TempDir()
+	os.Setenv("HOME", tmpDir)
+	defer os.Setenv("HOME", origHome)
+
+	backend, err := currentBackend()
+	assert.NoError(t, err)
+	assert.Equal(t, config.BackendAPI, backend)
+}
+
+// 正常系: setBackend で api に更新できる
+func TestSetBackend_API(t *testing.T) {
+	origHome := os.Getenv("HOME")
+	tmpDir := t.TempDir()
+	os.Setenv("HOME", tmpDir)
+	defer os.Setenv("HOME", origHome)
+
+	err := setBackend(config.BackendAPI)
+	assert.NoError(t, err)
+
+	backend, err := currentBackend()
+	assert.NoError(t, err)
+	assert.Equal(t, config.BackendAPI, backend)
+
+	cfg, err := config.LoadConfig()
+	assert.NoError(t, err)
+	assert.Equal(t, config.BackendAPI, cfg.Backend)
+}
+
+// 正常系: setBackend で既存設定を保ったまま backend だけ更新
+func TestSetBackend_PreservesOtherFields(t *testing.T) {
+	origHome := os.Getenv("HOME")
+	tmpDir := t.TempDir()
+	os.Setenv("HOME", tmpDir)
+	defer os.Setenv("HOME", origHome)
+
+	err := config.SaveConfig(&config.Config{
+		HostType: "cloud",
+		Email:    "user@example.com",
+		Backend:  config.BackendBW,
+	})
+	assert.NoError(t, err)
+
+	err = setBackend(config.BackendAPI)
+	assert.NoError(t, err)
+
+	cfg, err := config.LoadConfig()
+	assert.NoError(t, err)
+	assert.Equal(t, "cloud", cfg.HostType)
+	assert.Equal(t, "user@example.com", cfg.Email)
+	assert.Equal(t, config.BackendAPI, cfg.Backend)
+}
+
+// 異常系: 不正な backend 値はエラー
+func TestSetBackend_Invalid(t *testing.T) {
+	err := setBackend("cli")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid backend")
 }
 
 // 正常系: clean コマンドに説明がある

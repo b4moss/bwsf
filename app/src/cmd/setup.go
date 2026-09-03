@@ -21,7 +21,7 @@ var setupYes bool
 var setupCmd = &cobra.Command{
 	Use:   "setup",
 	Short: "Setup Bitwarden host configuration",
-	Long:  "Configure Bitwarden host (Cloud or Self-hosted) and login credentials",
+	Long:  "Configure Bitwarden host (Cloud or Self-hosted). For backend=bw, also login. For backend=api, use `bwsf auth` after setup.",
 	Run:   runSetup,
 }
 
@@ -36,12 +36,94 @@ func init() {
 }
 
 func runSetup(cmd *cobra.Command, args []string) {
-	installed, _ := checkBwInstalled()
-	if !installed {
-		utils.Errorln("[ERROR] ❌ bw command is not installed...")
+	cfg := loadConfigOrEmpty()
+	if cfg.GetBackend() == config.BackendAPI {
+		runSetupAPI()
+		return
+	}
+	runSetupBW(cfg)
+}
+
+// runSetupAPI configures host/email only. Auth is via `bwsf auth`.
+func runSetupAPI() {
+	utils.Infoln("[INFO] backend=api: setup configures host/email only.")
+	utils.Infoln("[INFO] Use `bwsf auth` afterward to store a Personal API Key and obtain an Identity token.")
+
+	if _, err := applySetupFolderFlag(); err != nil {
+		utils.Errorln("[ERROR]", err)
 		exitFunc(1)
 		return
 	}
+
+	selectHostType := utils.SelectHostType
+	inputURL := utils.InputURL
+	inputEmail := utils.InputEmail
+	if nonInteractiveSetup() {
+		if setupHostType == "" || setupEmail == "" {
+			utils.Errorln("[ERROR] non-interactive API setup requires --host-type and --email")
+			exitFunc(1)
+			return
+		}
+		if setupHostType != "cloud" && setupHostType != "selfhosted" {
+			utils.Errorln("[ERROR] --host-type must be cloud or selfhosted")
+			exitFunc(1)
+			return
+		}
+		if setupHostType == "selfhosted" && strings.TrimSpace(setupURL) == "" {
+			utils.Errorln("[ERROR] --url is required when --host-type=selfhosted")
+			exitFunc(1)
+			return
+		}
+		selectHostType = func() (string, error) { return setupHostType, nil }
+		inputURL = func() (string, error) { return setupURL, nil }
+		inputEmail = func() (string, error) { return setupEmail, nil }
+	}
+
+	logger := newLogger()
+	err := core.SetupAPIConfigCore(
+		logger,
+		selectHostType,
+		inputURL,
+		inputEmail,
+	)
+	if err != nil {
+		utils.Errorln("[ERROR]", err)
+		exitFunc(1)
+		return
+	}
+
+	cfg := loadConfigOrEmpty()
+	folderName := config.ResolveFolderName(cfg)
+	bw := newBwClientFromConfig(cfg)
+	defer clearAPISession(bw)
+
+	inputPasswordFn := utils.InputPassword
+	if setupPassword != "" {
+		inputPasswordFn = func() (string, error) { return setupPassword, nil }
+	}
+	confirmCreateFolder := func() (bool, error) {
+		return utils.ConfirmYesNo(fmt.Sprintf("%s folder not found. Create it? (y/N): ", folderName))
+	}
+	if setupYes {
+		confirmCreateFolder = func() (bool, error) { return true, nil }
+	}
+
+	if err := core.EnsureConfiguredFolderCore(bw, cfg, logger, inputPasswordFn, confirmCreateFolder); err != nil {
+		if core.IsNotAuthenticatedError(err) {
+			utils.Infoln("[INFO] Folder check skipped until `bwsf auth` (and unlock) succeeds.")
+		} else {
+			utils.Errorln("[ERROR]", err)
+			exitFunc(1)
+			return
+		}
+	}
+
+	utils.Successln("[INFO] ✅ Configuration saved. Run `bwsf auth` to authenticate for API backend.")
+}
+
+// runSetupBW keeps the existing CLI Login + folder setup flow.
+func runSetupBW(cfg *config.Config) {
+	requireBwCLIIfNeeded(cfg)
 
 	if err := validateSetupNonInteractiveFlags(); err != nil {
 		utils.Errorln("[ERROR]", err)
@@ -49,50 +131,21 @@ func runSetup(cmd *cobra.Command, args []string) {
 		return
 	}
 
-	folderName := config.DefaultFolderName
-
-	// Persist --folder before core setup so RealBwClient reads it for folder ops.
-	if setupFolder != "" {
-		if err := config.ValidateFolderName(setupFolder); err != nil {
-			utils.Errorln("[ERROR]", err)
-			exitFunc(1)
-			return
-		}
-		folderName = strings.TrimSpace(setupFolder)
-
-		cfg, err := config.LoadConfig()
-		if err != nil {
-			utils.Errorln("[ERROR] Failed to load config:", err)
-			exitFunc(1)
-			return
-		}
-		if cfg == nil {
-			cfg = &config.Config{}
-		}
-		cfg.FolderName = folderName
-		if err := config.SaveConfig(cfg); err != nil {
-			utils.Errorln("[ERROR] Failed to save folder name:", err)
-			exitFunc(1)
-			return
-		}
-	} else {
-		cfg, err := config.LoadConfig()
-		if err != nil {
-			utils.Errorln("[ERROR] Failed to load config:", err)
-			exitFunc(1)
-			return
-		}
-		folderName = config.ResolveFolderName(cfg)
+	folderName, err := applySetupFolderFlag()
+	if err != nil {
+		utils.Errorln("[ERROR]", err)
+		exitFunc(1)
+		return
 	}
 
-	bw := newBwClient()
+	bw := newBwClientFromConfig(cfg)
 	fs := newFileSystem()
 	logger := newLogger()
 
 	selectHostType := utils.SelectHostType
 	inputURL := utils.InputURL
 	inputEmail := utils.InputEmail
-	inputPassword := utils.InputPassword
+	inputPasswordFn := utils.InputPassword
 	confirmCreateFolder := func() (bool, error) {
 		return utils.ConfirmYesNo(fmt.Sprintf("%s folder not found. Create it? (y/N): ", folderName))
 	}
@@ -101,18 +154,18 @@ func runSetup(cmd *cobra.Command, args []string) {
 		selectHostType = func() (string, error) { return setupHostType, nil }
 		inputURL = func() (string, error) { return setupURL, nil }
 		inputEmail = func() (string, error) { return setupEmail, nil }
-		inputPassword = func() (string, error) { return setupPassword, nil }
+		inputPasswordFn = func() (string, error) { return setupPassword, nil }
 		confirmCreateFolder = func() (bool, error) { return setupYes, nil }
 	}
 
-	err := core.SetupBitwardenCore(
+	err = core.SetupBitwardenCore(
 		fs,
 		bw,
 		logger,
 		selectHostType,
 		inputURL,
 		inputEmail,
-		inputPassword,
+		inputPasswordFn,
 		confirmCreateFolder,
 	)
 	if err != nil {
@@ -122,6 +175,28 @@ func runSetup(cmd *cobra.Command, args []string) {
 	}
 
 	utils.Successln("[INFO] ✅ Sign in to Bitwarden was successful!")
+}
+
+func applySetupFolderFlag() (string, error) {
+	cfg, err := config.LoadConfig()
+	if err != nil {
+		return "", fmt.Errorf("failed to load config: %w", err)
+	}
+	if cfg == nil {
+		cfg = &config.Config{}
+	}
+
+	if setupFolder != "" {
+		if err := config.ValidateFolderName(setupFolder); err != nil {
+			return "", err
+		}
+		cfg.FolderName = strings.TrimSpace(setupFolder)
+		if err := config.SaveConfig(cfg); err != nil {
+			return "", fmt.Errorf("failed to save folder name: %w", err)
+		}
+	}
+
+	return config.ResolveFolderName(cfg), nil
 }
 
 func nonInteractiveSetup() bool {

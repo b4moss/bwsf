@@ -69,20 +69,40 @@ func InputPassword() (string, error) {
 	if p := strings.TrimSpace(os.Getenv("BWSF_PASSWORD")); p != "" {
 		return p, nil
 	}
+	return InputSecret("Enter password: ")
+}
 
-	Question("Enter password: ")
+// InputText prompts for a visible line of text.
+func InputText(prompt string) (string, error) {
+	reader := bufio.NewReader(os.Stdin)
 
-	// Read password without echoing to terminal
-	passwordBytes, err := term.ReadPassword(int(syscall.Stdin))
+	Question("%s", prompt)
+	input, err := reader.ReadString('\n')
 	if err != nil {
-		return "", fmt.Errorf("failed to read password: %w", err)
+		return "", fmt.Errorf("failed to read input: %w", err)
 	}
 
-	fmt.Println() // Print newline after password input
+	value := strings.TrimSpace(input)
+	if value == "" {
+		return "", fmt.Errorf("input cannot be empty")
+	}
+	return value, nil
+}
+
+// InputSecret prompts for a secret value (hidden input).
+func InputSecret(prompt string) (string, error) {
+	Question("%s", prompt)
+
+	passwordBytes, err := term.ReadPassword(int(syscall.Stdin))
+	if err != nil {
+		return "", fmt.Errorf("failed to read input: %w", err)
+	}
+
+	fmt.Println() // Print newline after hidden input
 
 	password := string(passwordBytes)
 	if password == "" {
-		return "", fmt.Errorf("password cannot be empty")
+		return "", fmt.Errorf("input cannot be empty")
 	}
 
 	return password, nil

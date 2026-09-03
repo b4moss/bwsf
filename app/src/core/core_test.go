@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"bwsf/src/config"
@@ -375,6 +376,60 @@ func TestWithUnlockRetry_NonLockErrorPropagates(t *testing.T) {
 	assert.Equal(t, expectedErr, err)
 	assert.NotContains(t, bw.calls, "Unlock")
 	assert.NotContains(t, bw.calls, "Login")
+}
+
+// 異常系: 認証切れは MP プロンプトせずそのまま返す
+func TestWithUnlockRetry_NotAuthenticatedNoPrompt(t *testing.T) {
+	bw := &mockBwClient{}
+	logger := &mockLogger{}
+	cfg := &config.Config{}
+	promptCalled := false
+
+	authErr := errors.New("API backend is not authenticated. Run `bwsf auth`")
+	err := WithUnlockRetry(
+		bw,
+		cfg,
+		func() (string, error) {
+			promptCalled = true
+			return "pwd", nil
+		},
+		logger,
+		nil,
+		func() error { return authErr },
+	)
+
+	assert.Error(t, err)
+	assert.Equal(t, authErr, err)
+	assert.False(t, promptCalled)
+	assert.True(t, IsNotAuthenticatedError(authErr))
+}
+
+// 正常系: API vault locked 文言で Unlock 再試行する
+func TestWithUnlockRetry_APINotUnlockedThenSuccess(t *testing.T) {
+	bw := &mockBwClient{}
+	logger := &mockLogger{}
+	cfg := &config.Config{Email: "a@example.com"}
+	callCount := 0
+
+	err := WithUnlockRetry(
+		bw,
+		cfg,
+		func() (string, error) { return "pwd", nil },
+		logger,
+		nil,
+		func() error {
+			callCount++
+			if callCount == 1 {
+				return errors.New("API vault is locked. Enter your master password to unlock decryption keys")
+			}
+			return nil
+		},
+	)
+
+	assert.NoError(t, err)
+	assert.Equal(t, 2, callCount)
+	assert.Contains(t, bw.calls, "Unlock")
+	assert.True(t, IsNotUnlockedError(errors.New("API vault is locked. Enter your master password to unlock decryption keys")))
 }
 
 // 異常系: promptPassword がエラーを返した場合、Unlock/Login が呼ばれずにそのエラーが返る
@@ -2590,6 +2645,333 @@ func TestSortFileNames(t *testing.T) {
 	assert.Equal(t, ".env.local", names[1])
 	assert.Equal(t, ".env.production", names[2])
 	assert.Equal(t, ".env.staging", names[3])
+}
+
+// =============================================================================
+// SetupAPIConfigCore のテスト（docs/tests/cmd/setup_api.md）
+// =============================================================================
+
+func withTempHome(t *testing.T) string {
+	t.Helper()
+	origHome := os.Getenv("HOME")
+	tmpDir := t.TempDir()
+	os.Setenv("HOME", tmpDir)
+	t.Cleanup(func() { os.Setenv("HOME", origHome) })
+	return tmpDir
+}
+
+// 正常系: backend=api で config が保存され、Login が不要（呼ばれない）
+func TestSetupAPIConfigCore_CloudSuccess_NoLogin(t *testing.T) {
+	withTempHome(t)
+	_ = config.SaveConfig(&config.Config{
+		Backend:          config.BackendAPI,
+		DeviceIdentifier: "device-preserve-me",
+	})
+	logger := &mockLogger{}
+	bw := &mockBwClient{}
+
+	err := SetupAPIConfigCore(
+		logger,
+		func() (string, error) { return "cloud", nil },
+		func() (string, error) { return "", errors.New("should not be called") },
+		func() (string, error) { return "api@example.com", nil },
+	)
+
+	assert.NoError(t, err)
+	assert.Empty(t, bw.calls, "Login must not be called for API setup")
+
+	cfg, loadErr := config.LoadConfig()
+	assert.NoError(t, loadErr)
+	assert.Equal(t, "cloud", cfg.HostType)
+	assert.Equal(t, "", cfg.SelfhostedURL)
+	assert.Equal(t, "api@example.com", cfg.Email)
+	assert.Equal(t, config.BackendAPI, cfg.Backend)
+	assert.Equal(t, "device-preserve-me", cfg.DeviceIdentifier)
+
+	joined := fmt.Sprint(logger.infos)
+	assert.Contains(t, joined, "bwsf auth")
+}
+
+// 正常系: selfhosted + URL を保存し、Login しない
+func TestSetupAPIConfigCore_SelfhostedSuccess_NoLogin(t *testing.T) {
+	withTempHome(t)
+	_ = config.SaveConfig(&config.Config{Backend: config.BackendAPI})
+	logger := &mockLogger{}
+
+	err := SetupAPIConfigCore(
+		logger,
+		func() (string, error) { return "selfhosted", nil },
+		func() (string, error) { return "https://vw.example.com", nil },
+		func() (string, error) { return "api@example.com", nil },
+	)
+
+	assert.NoError(t, err)
+	cfg, loadErr := config.LoadConfig()
+	assert.NoError(t, loadErr)
+	assert.Equal(t, "selfhosted", cfg.HostType)
+	assert.Equal(t, "https://vw.example.com", cfg.SelfhostedURL)
+	assert.Equal(t, "api@example.com", cfg.Email)
+	assert.Equal(t, config.BackendAPI, cfg.Backend)
+}
+
+// 正常系: auth 未実施でも setup 自体は設定更新として成功する
+func TestSetupAPIConfigCore_SucceedsWithoutPriorAuth(t *testing.T) {
+	withTempHome(t)
+	// Only backend=api; no auth/token state is required for setup.
+	_ = config.SaveConfig(&config.Config{Backend: config.BackendAPI})
+	logger := &mockLogger{}
+
+	err := SetupAPIConfigCore(
+		logger,
+		func() (string, error) { return "cloud", nil },
+		func() (string, error) { return "", nil },
+		func() (string, error) { return "fresh@example.com", nil },
+	)
+
+	assert.NoError(t, err)
+	cfg, _ := config.LoadConfig()
+	assert.Equal(t, "fresh@example.com", cfg.Email)
+}
+
+// 異常系: selfhosted で URL が空の場合は保存せずエラー
+func TestSetupAPIConfigCore_EmptySelfhostedURL(t *testing.T) {
+	home := withTempHome(t)
+	_ = config.SaveConfig(&config.Config{Backend: config.BackendAPI, Email: "old@example.com"})
+	logger := &mockLogger{}
+
+	err := SetupAPIConfigCore(
+		logger,
+		func() (string, error) { return "selfhosted", nil },
+		func() (string, error) { return "   ", nil },
+		func() (string, error) { return "api@example.com", nil },
+	)
+
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "URL cannot be empty")
+
+	cfg, _ := config.LoadConfig()
+	assert.Equal(t, "old@example.com", cfg.Email, "config must not be overwritten on validation failure")
+	content, _ := os.ReadFile(filepath.Join(home, ".config", "bwsf", "config.json"))
+	assert.NotContains(t, string(content), "api@example.com")
+}
+
+// 異常系: 設定保存に失敗した場合はエラー（Login 経路は存在しない）
+func TestSetupAPIConfigCore_SaveConfigError(t *testing.T) {
+	withTempHome(t)
+	// chmod-based read-only dirs are ignored when running as root (Docker / Codespaces).
+	restore := config.OverrideSaveConfigIO(nil, func(string, []byte, os.FileMode) error {
+		return errors.New("disk full")
+	})
+	t.Cleanup(restore)
+	logger := &mockLogger{}
+
+	err := SetupAPIConfigCore(
+		logger,
+		func() (string, error) { return "cloud", nil },
+		func() (string, error) { return "", nil },
+		func() (string, error) { return "api@example.com", nil },
+	)
+
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to save configuration")
+}
+
+// 退行: backend=bw の SetupBitwardenCore は従来どおり Login を呼ぶ
+func TestSetupBitwardenCore_StillCallsLogin(t *testing.T) {
+	withTempHome(t)
+	bw := &mockBwClient{folderExists: true}
+	fs := &mockFileSystem{}
+	logger := &mockLogger{}
+
+	err := SetupBitwardenCore(
+		fs,
+		bw,
+		logger,
+		func() (string, error) { return "cloud", nil },
+		func() (string, error) { return "", errors.New("should not be called") },
+		func() (string, error) { return "bw@example.com", nil },
+		func() (string, error) { return "password123", nil },
+		func() (bool, error) { return false, nil },
+	)
+
+	assert.NoError(t, err)
+	assert.Contains(t, bw.calls, "Login(bw@example.com,)")
+}
+
+// =============================================================================
+// EnsureConfiguredFolderCore / api vault ops（docs/tests/cmd/setup_api_folder.md,
+// docs/tests/core/vault_ops_api.md）
+// =============================================================================
+
+func TestEnsureConfiguredFolderCore_AlreadyExists(t *testing.T) {
+	bw := &mockBwClient{folderExists: true}
+	logger := &mockLogger{}
+	err := EnsureConfiguredFolderCore(
+		bw,
+		&config.Config{},
+		logger,
+		func() (string, error) { return "", errors.New("no prompt") },
+		func() (bool, error) { return true, errors.New("no confirm") },
+	)
+	assert.NoError(t, err)
+	assert.Contains(t, bw.calls, "DotenvsFolderExists")
+	assert.NotContains(t, bw.calls, "CreateDotenvsFolder")
+}
+
+func TestEnsureConfiguredFolderCore_CreateOnYes(t *testing.T) {
+	bw := &mockBwClient{folderExists: false}
+	logger := &mockLogger{}
+	err := EnsureConfiguredFolderCore(
+		bw,
+		&config.Config{FolderName: "dotenvs"},
+		logger,
+		func() (string, error) { return "mp", nil },
+		func() (bool, error) { return true, nil },
+	)
+	assert.NoError(t, err)
+	assert.Contains(t, bw.calls, "CreateDotenvsFolder")
+}
+
+func TestEnsureConfiguredFolderCore_SkipOnNo(t *testing.T) {
+	bw := &mockBwClient{folderExists: false}
+	logger := &mockLogger{}
+	err := EnsureConfiguredFolderCore(
+		bw,
+		&config.Config{},
+		logger,
+		func() (string, error) { return "mp", nil },
+		func() (bool, error) { return false, nil },
+	)
+	assert.NoError(t, err)
+	assert.NotContains(t, bw.calls, "CreateDotenvsFolder")
+}
+
+func TestEnsureConfiguredFolderCore_CreateError(t *testing.T) {
+	bw := &mockBwClient{
+		folderExists:    false,
+		createFolderErr: errors.New("create failed"),
+	}
+	logger := &mockLogger{}
+	err := EnsureConfiguredFolderCore(
+		bw,
+		&config.Config{},
+		logger,
+		func() (string, error) { return "mp", nil },
+		func() (bool, error) { return true, nil },
+	)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to create")
+}
+
+func TestEnsureConfiguredFolderCore_NotAuthenticated(t *testing.T) {
+	bw := &mockBwClient{
+		folderExistsErr: errors.New("API backend is not authenticated. Run `bwsf auth`"),
+	}
+	logger := &mockLogger{}
+	err := EnsureConfiguredFolderCore(
+		bw,
+		&config.Config{},
+		logger,
+		func() (string, error) { return "mp", nil },
+		func() (bool, error) { return true, nil },
+	)
+	assert.Error(t, err)
+	assert.True(t, IsNotAuthenticatedError(err))
+	assert.NotContains(t, bw.calls, "CreateDotenvsFolder")
+}
+
+func TestPushEnvCore_FolderNotFoundDoesNotCreate(t *testing.T) {
+	bw := &mockBwClient{folderIDErr: errors.New("configured Bitwarden folder not found")}
+	fs := &mockFileSystem{
+		dirEntries: []DirEntry{
+			&mockDirEntry{name: ".env", isDir: false},
+		},
+		readContentMap: map[string][]byte{
+			".env": []byte("A=1\n"),
+		},
+	}
+	logger := &mockLogger{}
+
+	err := PushEnvCore(".", "my-project", ManagedFileFilter{}, fs, bw, &config.Config{}, func() (string, error) {
+		return "", errors.New("no unlock")
+	}, logger, nil)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to get dotenvs folder")
+	assert.NotContains(t, bw.calls, "CreateDotenvsFolder")
+}
+
+func TestPushEnvCore_DuplicateNoteStops(t *testing.T) {
+	bw := &mockBwClient{
+		folderID:      "folder-123",
+		itemByNameErr: errors.New("multiple secure notes with the same name"),
+	}
+	fs := &mockFileSystem{
+		dirEntries: []DirEntry{
+			&mockDirEntry{name: ".env", isDir: false},
+		},
+		readContentMap: map[string][]byte{
+			".env": []byte("A=1\n"),
+		},
+	}
+	logger := &mockLogger{}
+
+	err := PushEnvCore(".", "my-project", ManagedFileFilter{}, fs, bw, &config.Config{}, func() (string, error) {
+		return "mp", nil
+	}, logger, nil)
+	assert.Error(t, err)
+	assert.NotContains(t, strings.Join(bw.calls, ","), "CreateNoteItem")
+	assert.NotContains(t, strings.Join(bw.calls, ","), "UpdateNoteItem")
+}
+
+func TestWithUnlockRetry_DoesNotRetryDuplicateNote(t *testing.T) {
+	bw := &mockBwClient{}
+	logger := &mockLogger{}
+	calls := 0
+	err := WithUnlockRetry(bw, &config.Config{}, func() (string, error) {
+		t.Fatal("should not prompt")
+		return "", nil
+	}, logger, nil, func() error {
+		calls++
+		return errors.New("multiple secure notes with the same name")
+	})
+	assert.Error(t, err)
+	assert.Equal(t, 1, calls)
+}
+
+func TestWithUnlockRetry_DoesNotRetryFolderNotFound(t *testing.T) {
+	bw := &mockBwClient{}
+	logger := &mockLogger{}
+	calls := 0
+	err := WithUnlockRetry(bw, &config.Config{}, func() (string, error) {
+		t.Fatal("should not prompt")
+		return "", nil
+	}, logger, nil, func() error {
+		calls++
+		return errors.New("configured Bitwarden folder not found")
+	})
+	assert.Error(t, err)
+	assert.Equal(t, 1, calls)
+}
+
+func TestPullEnvCore_FolderNotFoundDoesNotCreate(t *testing.T) {
+	bw := &mockBwClient{folderIDErr: errors.New("configured Bitwarden folder not found")}
+	fs := &mockFileSystem{}
+	logger := &mockLogger{}
+
+	err := PullEnvCore(
+		".",
+		"my-project",
+		fs,
+		bw,
+		&config.Config{},
+		func() (string, error) { return "mp", nil },
+		func(path string) (bool, error) { return true, nil },
+		logger,
+		nil,
+	)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to get dotenvs folder")
+	assert.NotContains(t, bw.calls, "CreateDotenvsFolder")
 }
 
 // =============================================================================
