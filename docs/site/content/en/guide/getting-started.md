@@ -11,18 +11,18 @@ Instead of sharing secrets through insecure channels like email or Slack, bwsf l
 Before using bwsf, make sure you have:
 
 1. **Bitwarden Account** — [Bitwarden Cloud](https://bitwarden.com/) or a self-hosted / Vaultwarden server
-2. **Personal API Key** — Account Settings → Security → Keys (default **API** backend)
+2. **Personal API Key** — Account Settings → Security → Keys
 3. **OS secret store** — macOS Keychain or Linux secret service (stores the API key)
 
-The Bitwarden CLI (`bw`) is **optional**. Install it only if you switch with `bwsf backend --set bw`.
+The Bitwarden CLI (`bw`) is **not** required (removed in v0.20.0).
 
 ## How bwsf Works
 
-bwsf stores managed files as **Note items** in a Bitwarden folder (default name: `dotenvs`). Here's how the structure looks:
+bwsf stores managed files as **Note items** in a Bitwarden folder (`target_section`, default name: `dotenvs`). Here's how the structure looks:
 
 ```
 Bitwarden Vault
-└── dotenvs/                    # Default folder for bwsf (configurable)
+└── dotenvs/                    # Default folder for bwsf (configurable per host)
     ├── my-web-app              # Project name = current directory name
     │   ├── .env
     │   ├── .env.staging
@@ -36,16 +36,16 @@ Bitwarden Vault
 By default the folder name is `dotenvs`. You can change it with `bwsf setup --folder <name>`. Changing the name does not move existing notes.
 :::
 
-## Initial Setup (API backend)
+## Initial Setup
 
 After installing bwsf:
 
 ```bash
-bwsf setup                 # host type / URL / email (+ optional folder)
+bwsf setup                 # hosts (skippable) + optional save_files / folder
 bwsf auth                  # store Personal API Key; obtain Identity token
 ```
 
-`setup` saves host and account email. `auth` stores your Personal API Key in the OS secret store.
+`setup` writes `~/.config/bwsf/config.jsonc`. `auth` stores your Personal API Key in the OS secret store.
 
 Check saved values any time with:
 
@@ -59,3 +59,4 @@ On each `push` / `pull` / `list`, bwsf prompts for your **master password** to u
 
 - [Install bwsf](/en/guide/installation) - Installation instructions for your platform
 - [Commands](/en/guide/commands) - Learn all available commands
+- [Upgrade](/en/guide/upgrade) - Breaking changes (v0.20.0 multi-host)

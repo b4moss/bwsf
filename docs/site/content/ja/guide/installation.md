@@ -10,16 +10,14 @@
 | Linux | ✅ 対応 |
 | Windows | 🚧 計画中 |
 
-### 依存関係（デフォルト API バックエンド）
+### 依存関係
 
 - Bitwarden アカウント（Cloud またはセルフホスト / Vaultwarden）
 - **Personal API Key**（アカウント設定 → セキュリティ → キー）
 - OS の秘密保管（**macOS Keychain** / **Linux secret service**）
 - **Homebrew**（bwsf 本体のインストール用）
 
-デフォルトの `api` バックエンドでは Bitwarden CLI（`bw`）は **不要** です。`bwsf backend --set bw` を使う場合のみインストールしてください。
-
-[bw のインストール（任意）](https://bitwarden.com/help/cli/#download-and-install)
+Bitwarden CLI（`bw`）は **不要** です（v0.20.0 で廃止）。
 
 ### Homebrewのセットアップ
 
@@ -68,23 +66,17 @@ versioned formula は keg-only のため、パスを通すか `brew link --force
 
 ```bash
 bwsf -v
-# bwsf version 0.19.0
+# bwsf version 0.20.0
 ```
 
 ## 初期設定
 
 ```bash
-bwsf setup                 # ホスト種別 / URL / メール（+ 任意で folder）
+bwsf setup                 # ホスト（スキップ可）+ 任意の save_files / folder
 bwsf auth                  # Personal API Key を OS 秘密保管へ
 ```
 
-デフォルトの API バックエンドでは、`setup` はマスターパスワードでのログインを行いません。認証は `bwsf auth` です。保管庫の unlock（マスターパスワード）は `push` / `pull` / `list` 実行時に行います。
-
-任意: Bitwarden CLI バックエンドへ切り替え:
-
-```bash
-bwsf backend --set bw
-```
+`setup` はマスターパスワードでのログインを行いません。認証は `bwsf auth` です。保管庫の unlock（マスターパスワード）は `push` / `pull` / `list` 実行時に行います。設定は `~/.config/bwsf/config.jsonc` に保存されます。
 
 ----
 

@@ -14,9 +14,9 @@ bwsf（Bitwarden Secured Files）は、[Bitwarden](https://bitwarden.com/)を使
 
 ## 🚨🚨重要なお知らせ🚨🚨
 
-v0.17.0、v0.17.1では、正常に Bitwarden にログインできない事象が確認されています。
+**v0.20.0 破壊的変更:** グローバル設定は `~/.config/bwsf/config.jsonc`（多ホストスキーマ）へ。旧 flat の `config.json` は初回実行時に確認（または `--yes`）で移行します。`not_save_files` は廃止（`save_files` の `!` 接頭辞を使用）。`bw` CLI バックエンドと `bwsf backend` は廃止（API のみ）。
 
-v0.17系統をご利用の方は、v0.17.2(日本時間2026/9/3リリース)にアップデートをお願いします。
+v0.17.0、v0.17.1では、正常に Bitwarden にログインできない事象が確認されています。v0.17系統をご利用の方は、先に v0.17.2 以降へアップデートしてください。
 
 ## 概要
 
@@ -26,9 +26,8 @@ bwsf は Bitwarden 上でプロジェクトファイル（`.env*` / `*.tfvars` /
 
 | コマンド | |
 |----|----|
-| bwsf setup | Bitwarden ホストとアカウントの設定 |
-| bwsf auth | Personal API Key の保存と認証（`api` バックエンド） |
-| bwsf backend | Bitwardenバックエンド（`bw` CLI / `api`）の表示・設定 |
+| bwsf setup | ホストとグローバル `save_files` の設定（API のみ） |
+| bwsf auth | Personal API Key の保存と認証 |
 | bwsf config show | 現在のローカル設定を表示 |
 | bwsf push | 管理対象ファイルを Bitwarden ホストにプッシュ |
 | bwsf pull | Bitwarden ホストから管理対象ファイルをプル |
@@ -43,21 +42,13 @@ bwsf は Bitwarden 上でプロジェクトファイル（`.env*` / `*.tfvars` /
 
 ## 要件
 
-### デフォルトバックエンド（`api`）
-
-デフォルトの **API** バックエンドでは Bitwarden CLI（`bw`）のインストールは不要です。
+Bitwarden CLI（`bw`）は不要です。bwsf は **API** で Bitwarden と通信します。
 
 必要なもの:
 
 - Bitwarden アカウント（Cloud またはセルフホスト / Vaultwarden）
 - **Personal API Key**（アカウント設定 → セキュリティ → キー）
 - OS の秘密保管（**macOS Keychain** / **Linux secret service**）へのアクセス
-
-### 任意バックエンド（`bw`）
-
-`bwsf backend --set bw` に切り替える場合は **`bw`** CLI が必要です。
-
-[bw のインストール](https://bitwarden.com/help/cli/#download-and-install)
 
 ### Homebrew
 
@@ -85,7 +76,7 @@ brew install bwsf@0.18.0
 
 ```shell
 bwsf -v
-# bwsf version 0.19.0
+# bwsf version 0.20.0
 ```
 
 ## 使い方
@@ -96,15 +87,17 @@ bwsf -v
 bwsf setup
 ```
 
-Bitwardenホストとアカウント情報を設定します。
+Bitwarden ホスト（スキップ可）と任意のグローバル `save_files` を設定します。設定は `~/.config/bwsf/config.jsonc` に保存されます。
 
-デフォルトでは、ノートは Bitwarden の `dotenvs` フォルダに保存されます。別のフォルダ名を使う場合:
+デフォルトでは、ノートは Bitwarden の `dotenvs` フォルダ（各 host の `target_section`）に保存されます。別のフォルダ名を使う場合:
 
 ```shell
 bwsf setup --folder my-envs
 ```
 
-フォルダ名は `~/.config/bwsf/config.json` に保存され、push / pull / list / clean で参照されます。フォルダ名を変更しても既存ノートは自動では移動しません。必要なら Bitwarden 上で手動移動してください。
+フォルダ名を変更しても既存ノートは自動では移動しません。必要なら Bitwarden 上で手動移動してください。
+
+複数ホストがある場合、`push` / `pull` / `list` / `clean` で `--host <id>` を指定できます。
 
 保存内容の確認:
 
@@ -150,22 +143,10 @@ bwsf clean
 
 リモートのバックアップを確認したうえで、ローカルの管理対象ファイルを削除します。
 
-### Bitwardenバックエンドの表示・設定
+### 典型的な流れ
 
 ```shell
-bwsf backend
-bwsf backend --set api
-bwsf backend --set bw
-```
-
-デフォルトは **`api`**（Personal API Key + プロセス内 unlock）です。`bw` バックエンドは移行・好みのために残しています。
-
-### API バックエンド（推奨）
-
-Bitwarden CLI なしの典型的な流れ:
-
-```shell
-bwsf setup                 # ホスト種別 / URL / email（＋任意で folder）
+bwsf setup                 # ホスト + 任意の save_files（＋任意で folder）
 bwsf auth                  # Personal API Key を保存し Identity トークン取得
 bwsf push                  # マスターパスワードで unlock して同期
 bwsf pull
@@ -180,11 +161,9 @@ Personal API Key は Bitwarden Web 保管庫の アカウント設定 → セキ
 
 補足: unlock は Community SDK のパスワード login 経路（config の email + マスターパスワード）で鍵を復元します。Identity の Personal API Key トークンとは別管理です。
 
-以前、`backend` 未設定が `bw` を意味していた環境では、明示的に設定してください:
+### v0.19 からのアップグレード
 
-```shell
-bwsf backend --set bw
-```
+初回実行時、旧 `~/.config/bwsf/config.json`（flat）を検出すると確認後（または `--yes`）に移行します。バックアップは元ファイル横に作成されます。プロジェクト設定に `not_save_files` が残っている場合は `save_files` + `!` へ手動で書き換えてください（残るとロードエラー）。
 
 ## アンインストール
 
@@ -224,7 +203,7 @@ bwsfを使用するには、Bitwardenアカウントが必要です。
 <details>
 <summary>Q. Bitwardenのアカウント情報はどこに保存されますか？</summary>
 
-bwsfは設定データを`~/.config/bwsf/`に保存します。
+bwsfは設定データを`~/.config/bwsf/`に保存します（正式なファイル: `config.jsonc`）。
 
 ただし、セキュリティ情報（パスワードなど）は一切保存されません。
 

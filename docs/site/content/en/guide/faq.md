@@ -58,15 +58,23 @@ For example:
 - `.env` ← Save this
 - `.env.production` ← Don't want to save this
 
-Add a project-local `.bwsf/config.json` (or `.jsonc`) and list globs under `not_save_files` (do not set `save_files` at the same time):
+Add a project-local `.bwsf/config.jsonc` (or `.json`) and list globs under `save_files`. Prefix with `!` to exclude:
 
-```json
+```jsonc
 {
-  "not_save_files": [".env.production", "*.auto.tfvars"]
+  "save_files": [".env*", "!.env.production", "!*.auto.tfvars"]
 }
 ```
 
-See issue [#133](https://github.com/b4moss/bwsf/issues/133) for details.
+Or exclude-only (no positive globs — starts from all base managed files):
+
+```jsonc
+{
+  "save_files": ["!.env.production", "!*.auto.tfvars"]
+}
+```
+
+`not_save_files` was removed in v0.20.0. A project `save_files` list fully overrides the global one (no merge).
 :::
 
 :::faq-item{question="Can I edit files on the Bitwarden host?"}
