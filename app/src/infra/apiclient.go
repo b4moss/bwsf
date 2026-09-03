@@ -140,7 +140,10 @@ func EnsureDeviceIdentifier(cfg *config.Config, host *config.Host) (string, erro
 
 // Authenticate loads the Personal API Key from the secret store and obtains an Identity token.
 func (c *ApiBwClient) Authenticate(ctx context.Context) error {
-	creds, err := LoadAPICredentials(c.store)
+	if err := c.requireHost(); err != nil {
+		return err
+	}
+	creds, err := LoadAPICredentials(c.store, c.host.ID)
 	if err != nil {
 		if errors.Is(err, ErrSecretNotFound) {
 			return ErrAPINotAuthenticated
@@ -153,7 +156,10 @@ func (c *ApiBwClient) Authenticate(ctx context.Context) error {
 // AuthenticateWithCredentials stores creds (optional persist) and obtains a token.
 func (c *ApiBwClient) AuthenticateWithCredentials(ctx context.Context, creds APICredentials, persist bool) error {
 	if persist {
-		if err := SaveAPICredentials(c.store, creds); err != nil {
+		if err := c.requireHost(); err != nil {
+			return err
+		}
+		if err := SaveAPICredentials(c.store, c.host.ID, creds); err != nil {
 			return err
 		}
 	}
@@ -212,7 +218,7 @@ func (c *ApiBwClient) EnsureAccessToken(ctx context.Context) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		creds, _ := LoadAPICredentials(c.store)
+		creds, _ := LoadAPICredentials(c.store, c.host.ID)
 		refreshed, err := c.identity.RefreshAccessToken(
 			ctx, identityBase, token.RefreshToken, creds.ClientID, DefaultDeviceInfo(deviceID),
 		)
@@ -259,6 +265,88 @@ func (c *ApiBwClient) ClearSession() {
 	if crypto != nil {
 		crypto.Lock()
 	}
+}
+
+// HostID returns the bound host id, or "".
+func (c *ApiBwClient) HostID() string {
+	if c == nil || c.host == nil {
+		return ""
+	}
+	return c.host.ID
+}
+
+// TryRestoreVaultUnlock loads hosts/<id>/vault_unlock and restores crypto keys.
+// Returns restored=true on success. Missing blob → (false, nil).
+// On restore failure the blob is deleted and (false, nil) is returned.
+func (c *ApiBwClient) TryRestoreVaultUnlock() (bool, error) {
+	if err := c.requireHost(); err != nil {
+		return false, err
+	}
+	blob, err := GetVaultUnlock(c.store, c.host.ID)
+	if err != nil {
+		if errors.Is(err, ErrSecretNotFound) {
+			return false, nil
+		}
+		return false, err
+	}
+	if strings.TrimSpace(blob) == "" {
+		_ = DeleteVaultUnlock(c.store, c.host.ID)
+		return false, nil
+	}
+
+	c.mu.Lock()
+	crypto := c.crypto
+	c.mu.Unlock()
+	if crypto == nil {
+		crypto = NewSDKCryptoSession()
+		c.mu.Lock()
+		c.crypto = crypto
+		c.mu.Unlock()
+	}
+
+	serverURL := ""
+	if c.host.Type == config.HostTypeSelfhost || c.host.Type == "selfhosted" {
+		serverURL = c.host.HostURL
+	}
+	if err := crypto.RestoreUnlockBlob(context.Background(), blob, serverURL); err != nil {
+		_ = DeleteVaultUnlock(c.store, c.host.ID)
+		return false, nil
+	}
+	return true, nil
+}
+
+// DiscardVaultUnlock deletes the host's vault_unlock blob (and locks in-memory crypto).
+func (c *ApiBwClient) DiscardVaultUnlock() error {
+	if err := c.requireHost(); err != nil {
+		return err
+	}
+	c.mu.Lock()
+	crypto := c.crypto
+	c.mu.Unlock()
+	if crypto != nil {
+		crypto.Lock()
+	}
+	return DeleteVaultUnlock(c.store, c.host.ID)
+}
+
+// LockVaultSession deletes vault_unlock for the bound host (API keys remain).
+// Missing blob is a no-op success. Does not require the client to be unlocked.
+func (c *ApiBwClient) LockVaultSession() error {
+	if err := c.requireHost(); err != nil {
+		return err
+	}
+	c.mu.Lock()
+	crypto := c.crypto
+	c.mu.Unlock()
+	if crypto != nil {
+		crypto.Lock()
+	}
+	return DeleteVaultUnlock(c.store, c.host.ID)
+}
+
+// LockVaultSessionForHost deletes vault_unlock for an explicit host id (CLI lock / lock --all).
+func LockVaultSessionForHost(store SecretStore, hostID string) error {
+	return DeleteVaultUnlock(store, hostID)
 }
 
 // TokenExpiresAt exposes token expiry for diagnostics/tests.
@@ -542,6 +630,14 @@ func (c *ApiBwClient) Unlock(masterPassword string) error {
 
 	if err := crypto.UnlockWithPassword(context.Background(), c.host.Email, masterPassword, serverURL, device); err != nil {
 		return err
+	}
+
+	blob, err := crypto.ExportUnlockBlob(context.Background())
+	if err != nil {
+		return fmt.Errorf("vault unlocked but failed to export session: %w", err)
+	}
+	if err := SetVaultUnlock(c.store, c.host.ID, blob); err != nil {
+		return fmt.Errorf("vault unlocked but failed to persist session: %w", err)
 	}
 	return nil
 }

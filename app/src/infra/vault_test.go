@@ -20,7 +20,7 @@ func newUnlockedAPIClient(t *testing.T, cfg *config.Config, crypto *MockCryptoSe
 		cfg = testConfig("cloud", "", "a@example.com", "")
 	}
 	store := NewMemorySecretStore()
-	_ = SaveAPICredentials(store, APICredentials{ClientID: "user.cid", ClientSecret: "sec"})
+	_ = SaveAPICredentials(store, config.DefaultHostID, APICredentials{ClientID: "user.cid", ClientSecret: "sec"})
 	identity := &IdentityClient{
 		HTTPClient: &http.Client{
 			Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
@@ -179,7 +179,7 @@ func TestApiBwClient_CreateAndUpdateNoteItem(t *testing.T) {
 func TestApiBwClient_VaultRequiresUnlock(t *testing.T) {
 	withTempHome(t)
 	store := NewMemorySecretStore()
-	_ = SaveAPICredentials(store, APICredentials{ClientID: "user.cid", ClientSecret: "sec"})
+	_ = SaveAPICredentials(store, config.DefaultHostID, APICredentials{ClientID: "user.cid", ClientSecret: "sec"})
 	identity := &IdentityClient{
 		HTTPClient: &http.Client{
 			Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {

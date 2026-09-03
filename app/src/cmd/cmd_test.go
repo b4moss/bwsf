@@ -72,6 +72,29 @@ func TestSetupCmd_Registered(t *testing.T) {
 	assert.True(t, found)
 }
 
+func TestUnlockLockCmd_Registered(t *testing.T) {
+	assert.NotNil(t, unlockCmd)
+	assert.Equal(t, "unlock", unlockCmd.Use)
+	assert.NotNil(t, unlockCmd.Flags().Lookup("host"))
+
+	assert.NotNil(t, lockCmd)
+	assert.Equal(t, "lock", lockCmd.Use)
+	assert.NotNil(t, lockCmd.Flags().Lookup("host"))
+	assert.NotNil(t, lockCmd.Flags().Lookup("all"))
+
+	foundUnlock, foundLock := false, false
+	for _, cmd := range rootCmd.Commands() {
+		if cmd.Use == "unlock" {
+			foundUnlock = true
+		}
+		if cmd.Use == "lock" {
+			foundLock = true
+		}
+	}
+	assert.True(t, foundUnlock)
+	assert.True(t, foundLock)
+}
+
 func TestBackendCmd_Registered(t *testing.T) {
 	assert.NotNil(t, backendCmd)
 	assert.Equal(t, "backend", backendCmd.Use)

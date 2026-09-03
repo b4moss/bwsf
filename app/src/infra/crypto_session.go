@@ -30,6 +30,11 @@ type CryptoSession interface {
 	Lock()
 	Unlocked() bool
 
+	// ExportUnlockBlob returns a versioned opaque encoding of the unlocked session (no MP).
+	ExportUnlockBlob(ctx context.Context) (string, error)
+	// RestoreUnlockBlob restores decryption keys from an opaque blob.
+	RestoreUnlockBlob(ctx context.Context, blob, serverURL string) error
+
 	Sync(ctx context.Context) error
 	ListFolders(ctx context.Context) ([]VaultFolder, error)
 	CreateFolder(ctx context.Context, name string) (VaultFolder, error)
@@ -105,6 +110,47 @@ func (s *SDKCryptoSession) Lock() {
 // Unlocked reports whether the SDK client holds decryption keys.
 func (s *SDKCryptoSession) Unlocked() bool {
 	return s != nil && s.client != nil && !s.client.IsLocked()
+}
+
+// ExportUnlockBlob encodes the current SDK session as an opaque vault_unlock blob.
+func (s *SDKCryptoSession) ExportUnlockBlob(ctx context.Context) (string, error) {
+	client, err := s.requireClient()
+	if err != nil {
+		return "", err
+	}
+	material, err := client.ExportSession(ctx)
+	if err != nil {
+		return "", fmt.Errorf("failed to export vault session: %w", err)
+	}
+	defer material.Close()
+	return encodeUnlockBlob(material)
+}
+
+// RestoreUnlockBlob rebuilds an unlocked SDK client from an opaque vault_unlock blob.
+func (s *SDKCryptoSession) RestoreUnlockBlob(ctx context.Context, blob, serverURL string) error {
+	material, err := decodeUnlockBlob(blob)
+	if err != nil {
+		return err
+	}
+	defer material.Close()
+
+	var opts []bitwarden.Option
+	if serverURL != "" {
+		opts = append(opts, bitwarden.WithServerURL(serverURL))
+	}
+	client, err := bitwarden.NewClient(opts...)
+	if err != nil {
+		return fmt.Errorf("failed to create vault SDK client: %w", err)
+	}
+	if err := client.RestoreSession(ctx, material); err != nil {
+		_ = client.Logout(ctx)
+		return fmt.Errorf("failed to restore vault session: %w", err)
+	}
+	if s.client != nil {
+		_ = s.client.Logout(context.Background())
+	}
+	s.client = client
+	return nil
 }
 
 func (s *SDKCryptoSession) requireClient() (*bitwarden.Client, error) {
