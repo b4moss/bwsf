@@ -39,7 +39,19 @@ func TestBwLogin_Signature(t *testing.T) {
 	assert.NotNil(t, fn)
 }
 
+func TestLooksLikeSessionKey(t *testing.T) {
+	valid := "P4tHpDULkFR5+NLL1lbfxD43q9NqIS2tmKnG0GMAn/Ft8w4JOipXty4uY4EQ5/gkTXDPGpidXuoC155F65X5sQ=="
+	assert.True(t, looksLikeSessionKey(valid))
+	assert.False(t, looksLikeSessionKey(""))
+	assert.False(t, looksLikeSessionKey("short"))
+	assert.False(t, looksLikeSessionKey("Warning: Provided passwordenv BW_PASSWORD is not set"))
+	assert.False(t, looksLikeSessionKey("has spaces in the middle of a long enough stringxxxxxxxxxxxx"))
+}
 
-
-
-
+func TestExtractSessionKey(t *testing.T) {
+	valid := "P4tHpDULkFR5+NLL1lbfxD43q9NqIS2tmKnG0GMAn/Ft8w4JOipXty4uY4EQ5/gkTXDPGpidXuoC155F65X5sQ=="
+	assert.Equal(t, valid, extractSessionKey(valid))
+	assert.Equal(t, valid, extractSessionKey("Warning: something\n"+valid+"\n"))
+	assert.Equal(t, "", extractSessionKey("Warning: Provided passwordenv BW_PASSWORD is not set"))
+	assert.Equal(t, "", extractSessionKey(""))
+}
