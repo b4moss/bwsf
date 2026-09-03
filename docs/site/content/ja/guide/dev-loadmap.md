@@ -8,7 +8,7 @@
 - [x] グローバルマルチホスト設定 v2（#177）— `~/.config/bwsf/config.jsonc`
 - [ ] ホストごとの Keychain / unlock·lock（#153）
 - [ ] `auth login` / `logout`（#174）
-- [ ] `bwsf init`（#193）
+- [x] `bwsf init`（#193）
 
 # バージョニングについて
 

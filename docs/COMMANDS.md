@@ -10,6 +10,7 @@
 | コマンド | 役割 | 主なフラグ |
 |---|---|---|
 | `bwsf setup` | ホスト / グローバル `save_files` 設定（Login なし。認証は `auth`） | `--folder` `--host-type` `--url` `--email` `--skip-host` `--save-files` `--yes` |
+| `bwsf init` | プロジェクト `.bwsf/config.jsonc` を生成（グローバル設定が必要。`hosts: []` 可） | `--host` `--skip-host` `--save-files` `--override-project-name` `--yes` |
 | `bwsf auth` | Personal API Key の保存・認証 | `--clear` `--host` |
 | `bwsf config show` | ローカル設定（`~/.config/bwsf/config.jsonc`）の表示 | （なし） |
 | `bwsf push` | 管理対象ファイルを Bitwarden へプッシュ | `--from` `--host` |
