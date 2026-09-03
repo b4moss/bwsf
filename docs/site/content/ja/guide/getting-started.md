@@ -10,18 +10,11 @@
 
 bwsf を使用する前に、以下を準備してください：
 
-1. **Bitwarden アカウント** - [Bitwarden Cloud](https://bitwarden.com/) またはセルフホスト Bitwarden サーバー
-2. **Bitwarden CLI (`bw`)** - 公式の Bitwarden コマンドラインツール
+1. **Bitwarden アカウント** — [Bitwarden Cloud](https://bitwarden.com/) またはセルフホスト / Vaultwarden
+2. **Personal API Key** — アカウント設定 → セキュリティ → キー（デフォルトの **API** バックエンド用）
+3. **OS の秘密保管** — macOS Keychain または Linux secret service（API Key の保存先）
 
-### Bitwarden CLI のインストール
-
-[公式 Bitwarden CLI インストールガイド](https://bitwarden.com/help/cli/#download-and-install)に従って、お使いのマシンに `bw` コマンドをインストールしてください。
-
-インストールの確認：
-
-```bash
-bw --version
-```
+Bitwarden CLI（`bw`）は **任意** です。`bwsf backend --set bw` に切り替える場合のみインストールしてください。
 
 ## bwsf の仕組み
 
@@ -43,23 +36,24 @@ Bitwarden Vault
 デフォルトのフォルダ名は `dotenvs` です。`bwsf setup --folder <name>` で変更できます。名前変更では既存ノートは移動しません。
 :::
 
-## 初期設定
+## 初期設定（API バックエンド）
 
-bwsf をインストールしたら、セットアップコマンドを実行します：
+bwsf をインストールしたら:
 
 ```bash
-bwsf setup
+bwsf setup                 # ホスト種別 / URL / メール（+ 任意で folder）
+bwsf auth                  # Personal API Key を保存し Identity トークンを取得
 ```
 
-これにより以下が設定されます：
-- Bitwarden サーバー URL（セルフホストインスタンスの場合）
-- Bitwarden アカウントの認証情報
+`setup` はホストとメールを保存します。`auth` は Personal API Key を OS の秘密保管に保存します。
 
 保存内容はいつでも次で確認できます：
 
 ```bash
 bwsf config show
 ```
+
+`push` / `pull` / `list` のたびに **マスターパスワード** の入力を求め、メモリ上で保管庫をアンロックし、コマンド終了時に鍵とトークンを破棄します。
 
 ## 次のステップ
 

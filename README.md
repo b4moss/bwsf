@@ -82,14 +82,14 @@ current minor plus the latest patch of the previous minor (older formulas are
 pruned). Other releases remain on [GitHub Releases](https://github.com/b4moss/bwsf/releases).
 
 ```shell
-brew install bwsf@0.17.3
+brew install bwsf@0.18.0
 ```
 
 ## Verify installation
 
 ```shell
 bwsf -v
-# bwsf version 0.16.0
+# bwsf version 0.19.0
 ```
 
 ## Usage

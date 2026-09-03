@@ -4,7 +4,9 @@
 
 | Command | Description |
 |---|---|
-| `bwsf setup` | Configure Bitwarden connection |
+| `bwsf setup` | Configure Bitwarden host / account (API: no login; use `auth`) |
+| `bwsf auth` | Store Personal API Key and authenticate (`api` backend) |
+| `bwsf backend` | Show or set Bitwarden backend (`api` or `bw`) |
 | `bwsf config show` | Show current local configuration |
 | `bwsf push` | Push managed files (`.env*`, `*.tfvars`, `*.tfvars.json`) to Bitwarden |
 | `bwsf pull` | Pull managed files from Bitwarden |
@@ -13,9 +15,11 @@
 
 Managed files are directory entries whose names start with `.env`, or end with `.tfvars` / `.tfvars.json`. Names that contain `.example` are excluded.
 
+Default backend is **`api`** (Personal API Key + in-process unlock). The `bw` CLI backend remains available via `bwsf backend --set bw`.
+
 ## bwsf setup
 
-Configure your Bitwarden connection settings.
+Configure your Bitwarden host settings.
 
 ```bash
 bwsf setup
@@ -29,11 +33,13 @@ bwsf setup --folder my-envs
 
 The folder name is stored in `~/.config/bwsf/config.json` and used by push / pull / list / clean. Renaming does **not** migrate existing notes.
 
-### Interactive prompts
+### API backend (`backend=api`, default)
 
-- **Server URL**: Your Bitwarden server URL (leave blank for Bitwarden Cloud)
-- **Email**: Your Bitwarden account email
-- **Master Password**: Your Bitwarden master password
+`setup` saves host type / URL / email only. It does **not** log in with a master password. Run `bwsf auth` afterward.
+
+### `bw` backend (`backend=bw`)
+
+Interactive prompts include master password and login via the Bitwarden CLI.
 
 ### Non-interactive flags
 
@@ -44,9 +50,30 @@ For automation (for example smoke tests):
 | `--host-type` | `cloud` or `selfhosted` |
 | `--url` | Self-hosted server URL (required when `--host-type=selfhosted`) |
 | `--email` | Account email |
-| `--password` | Master password |
+| `--password` | Master password (`bw` backend; optional for API folder ensure) |
 | `--yes` | Assume yes for confirmations (for example create folder) |
 | `--folder` | Bitwarden folder name (default: `dotenvs`) |
+
+## bwsf auth
+
+Store a Personal API Key and obtain an Identity token (`api` backend).
+
+```bash
+bwsf auth
+bwsf auth --clear
+```
+
+Prompts for `client_id` / `client_secret`, stores them in the OS secret store (**macOS Keychain** / **Linux secret service**), and obtains an Identity access token (kept in memory for the process). Create a key under Account Settings → Security → Keys.
+
+## bwsf backend
+
+Show or set the Bitwarden backend.
+
+```bash
+bwsf backend
+bwsf backend --set api
+bwsf backend --set bw
+```
 
 ## bwsf config show
 

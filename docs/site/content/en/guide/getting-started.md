@@ -10,18 +10,11 @@ Instead of sharing secrets through insecure channels like email or Slack, bwsf l
 
 Before using bwsf, make sure you have:
 
-1. **Bitwarden Account** - Either [Bitwarden Cloud](https://bitwarden.com/) or a self-hosted Bitwarden server
-2. **Bitwarden CLI (`bw`)** - The official Bitwarden command-line tool
+1. **Bitwarden Account** — [Bitwarden Cloud](https://bitwarden.com/) or a self-hosted / Vaultwarden server
+2. **Personal API Key** — Account Settings → Security → Keys (default **API** backend)
+3. **OS secret store** — macOS Keychain or Linux secret service (stores the API key)
 
-### Installing Bitwarden CLI
-
-Follow the [official Bitwarden CLI installation guide](https://bitwarden.com/help/cli/#download-and-install) to install the `bw` command on your machine.
-
-Verify the installation:
-
-```bash
-bw --version
-```
+The Bitwarden CLI (`bw`) is **optional**. Install it only if you switch with `bwsf backend --set bw`.
 
 ## How bwsf Works
 
@@ -43,23 +36,24 @@ Bitwarden Vault
 By default the folder name is `dotenvs`. You can change it with `bwsf setup --folder <name>`. Changing the name does not move existing notes.
 :::
 
-## Initial Setup
+## Initial Setup (API backend)
 
-After installing bwsf, run the setup command:
+After installing bwsf:
 
 ```bash
-bwsf setup
+bwsf setup                 # host type / URL / email (+ optional folder)
+bwsf auth                  # store Personal API Key; obtain Identity token
 ```
 
-This will configure:
-- Your Bitwarden server URL (for self-hosted instances)
-- Your Bitwarden account credentials
+`setup` saves host and account email. `auth` stores your Personal API Key in the OS secret store.
 
-Check the saved values any time with:
+Check saved values any time with:
 
 ```bash
 bwsf config show
 ```
+
+On each `push` / `pull` / `list`, bwsf prompts for your **master password** to unlock vault keys in memory, then discards keys and tokens when the command exits.
 
 ## Next Steps
 

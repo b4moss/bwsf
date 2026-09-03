@@ -78,14 +78,14 @@ bwsf 本体のインストールに Homebrew を使います。
 過去バージョンのインストール。versioned formula は「現行 minor の全 patch」と「1つ前の minor の最新 patch」のみ tap に残します（それ以外は削除）。それより古い版は [GitHub Releases](https://github.com/b4moss/bwsf/releases) を参照してください。
 
 ```shell
-brew install bwsf@0.17.3
+brew install bwsf@0.18.0
 ```
 
 ## インストールの確認
 
 ```shell
 bwsf -v
-# bwsf version 0.16.0
+# bwsf version 0.19.0
 ```
 
 ## 使い方
