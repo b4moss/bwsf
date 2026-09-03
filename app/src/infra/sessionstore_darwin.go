@@ -54,12 +54,14 @@ func (s *keychainSessionStore) Set(session string) error {
 		"-a", sessionAccount,
 	).Run()
 
+	// -A: allow any app to read this item. Brew upgrades change the binary path;
+	// -T "" ties ACL to the creating binary and makes Get fail after upgrades.
 	cmd := exec.Command("security", "add-generic-password",
 		"-s", sessionService,
 		"-a", sessionAccount,
 		"-l", "bwsf BW_SESSION",
 		"-w", session,
-		"-T", "", // allow this binary / default access; session lifetime is best-effort
+		"-A",
 	)
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
