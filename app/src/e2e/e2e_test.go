@@ -64,6 +64,7 @@ DEBUG=true`
 		err := core.PushEnvCore(
 			"/project",
 			projectName,
+			core.ManagedFileFilter{},
 			fs,
 			bw,
 			cfg,
@@ -146,12 +147,12 @@ func TestE2E_PushUpdate(t *testing.T) {
 
 	// 最初のPush
 	fs.SetFile("/project/.env", []byte("KEY=value1"))
-	err := core.PushEnvCore("/project", projectName, fs, bw, cfg, promptPassword, logger, nil)
+	err := core.PushEnvCore("/project", projectName, core.ManagedFileFilter{}, fs, bw, cfg, promptPassword, logger, nil)
 	require.NoError(t, err)
 
 	// 2回目のPush（更新）
 	fs.SetFile("/project/.env", []byte("KEY=value2\nNEW_KEY=newvalue"))
-	err = core.PushEnvCore("/project", projectName, fs, bw, cfg, promptPassword, logger, nil)
+	err = core.PushEnvCore("/project", projectName, core.ManagedFileFilter{}, fs, bw, cfg, promptPassword, logger, nil)
 	require.NoError(t, err)
 
 	// アイテム数は変わらないはず（更新なので）
@@ -196,7 +197,7 @@ func TestE2E_MultipleProjects(t *testing.T) {
 
 	for _, p := range projects {
 		fs.SetFile("/project/.env", []byte(p.content))
-		err := core.PushEnvCore("/project", p.name, fs, bw, cfg, promptPassword, logger, nil)
+		err := core.PushEnvCore("/project", p.name, core.ManagedFileFilter{}, fs, bw, cfg, promptPassword, logger, nil)
 		require.NoError(t, err, "Push should succeed for %s", p.name)
 	}
 
@@ -275,7 +276,7 @@ FEATURE_BETA=false`
 
 	fs.SetFile("/project/.env", []byte(complexEnv))
 
-	err := core.PushEnvCore("/project", "complex-project", fs, bw, cfg, promptPassword, logger, nil)
+	err := core.PushEnvCore("/project", "complex-project", core.ManagedFileFilter{}, fs, bw, cfg, promptPassword, logger, nil)
 	require.NoError(t, err)
 
 	// 内部でJSONに変換されていることを確認（GetItemByNameで取得）
@@ -325,7 +326,7 @@ func TestE2E_LockedVault(t *testing.T) {
 	fs.SetFile("/project/.env", []byte("KEY=value"))
 
 	// ロック状態でもPushが成功する（自動アンロック）
-	err := core.PushEnvCore("/project", "locked-test", fs, bw, cfg, promptPassword, logger, nil)
+	err := core.PushEnvCore("/project", "locked-test", core.ManagedFileFilter{}, fs, bw, cfg, promptPassword, logger, nil)
 	require.NoError(t, err, "Push should succeed after unlock")
 }
 

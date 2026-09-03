@@ -31,7 +31,7 @@ func runPull(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	projectName, outputDir, err := resolveProjectAndFileDir(cmd, "output")
+	projectName, outputDir, _, err := resolveProjectAndFileDir(cmd, "output")
 	if err != nil {
 		utils.Errorln("[ERROR] Failed to resolve project directory:", err)
 		os.Exit(1)

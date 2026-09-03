@@ -2,9 +2,9 @@
 
 - [x] Ability to use folder names other than `dotenvs` (`bwsf setup --folder`)
 - [x] `bwsf clean` command: remove local managed files after verifying Bitwarden backup
-- Implementation of `bwsf.config.json` file functionality
-  - Settings such as `ignore` and `override_project_name` will be available
-- Project root verification via `.git` folder (prevent command execution in wrong directories)
+- [x] Project root resolution via `.git` (#134)
+- `.bwsf/config.(json|jsonc)` project settings (#133)
+  - `override_project_name` and either `save_files` or `not_save_files`
 
 # About Versioning
 
