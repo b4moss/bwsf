@@ -3,10 +3,8 @@ package cmd
 import (
 	"bwsf/src/config"
 	"bwsf/src/core"
-	"bwsf/src/infra"
 	"bwsf/src/utils"
 	"fmt"
-	"os"
 	"path/filepath"
 
 	"github.com/spf13/cobra"
@@ -25,41 +23,46 @@ func init() {
 }
 
 func runPull(cmd *cobra.Command, args []string) {
-	installed, _ := utils.CheckBwCommand()
+	installed, _ := checkBwInstalled()
 	if !installed {
 		utils.Errorln("[ERROR] ❌ bw command is not installed...")
-		os.Exit(1)
+		exitFunc(1)
+		return
 	}
 
-	projectName, outputDir, err := resolveProjectAndFileDir(cmd, "output")
+	projectName, outputDir, _, err := resolveProjectAndFileDir(cmd, "output")
 	if err != nil {
 		utils.Errorln("[ERROR] Failed to resolve project directory:", err)
-		os.Exit(1)
+		exitFunc(1)
+		return
 	}
 
 	cfg, err := config.LoadConfig()
 	if err != nil {
 		utils.Errorln("[ERROR] Failed to load config:", err)
-		os.Exit(1)
+		exitFunc(1)
+		return
 	}
 	if cfg == nil {
 		cfg = &config.Config{}
 	}
 
-	bw := infra.NewBwClient()
-	fs := infra.NewFileSystem()
-	logger := infra.NewLogger()
+	bw := newBwClient()
+	fs := newFileSystem()
+	logger := newLogger()
 
-	sessions := infra.NewSessionStore()
-	envFiles, err := core.GetPulledEnvFiles(projectName, bw, cfg, utils.InputPassword, logger, sessions)
+	sessions := newSessionStore()
+	envFiles, err := core.GetPulledEnvFiles(projectName, bw, cfg, inputPassword, logger, sessions)
 	if err != nil {
 		utils.Errorln("[ERROR] Failed to get env files info:", err)
-		os.Exit(1)
+		exitFunc(1)
+		return
 	}
 
 	if len(envFiles) == 0 {
 		utils.Errorln("[ERROR] No env files found in Bitwarden for project:", projectName)
-		os.Exit(1)
+		exitFunc(1)
+		return
 	}
 
 	utils.Infoln("[INFO] Found", len(envFiles), "env file(s) to pull:")
@@ -67,8 +70,8 @@ func runPull(cmd *cobra.Command, args []string) {
 		utils.Infoln("  -", f)
 	}
 
-	confirmOverwrite := func(path string) (bool, error) {
-		return utils.ConfirmOverwrite(fmt.Sprintf("%s already exists. Overwrite? (y/N): ", filepath.Base(path)))
+	doConfirm := func(path string) (bool, error) {
+		return confirmOverwrite(fmt.Sprintf("%s already exists. Overwrite? (y/N): ", filepath.Base(path)))
 	}
 
 	err = core.PullEnvCore(
@@ -77,14 +80,15 @@ func runPull(cmd *cobra.Command, args []string) {
 		fs,
 		bw,
 		cfg,
-		utils.InputPassword,
-		confirmOverwrite,
+		inputPassword,
+		doConfirm,
 		logger,
 		sessions,
 	)
 	if err != nil {
 		utils.Errorln("[ERROR]", err)
-		os.Exit(1)
+		exitFunc(1)
+		return
 	}
 
 	utils.Successln("[INFO] ✅", len(envFiles), "env file(s) pulled successfully!")

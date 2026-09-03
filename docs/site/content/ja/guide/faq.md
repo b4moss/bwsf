@@ -58,7 +58,15 @@ Bitwardenには、機密情報の保存形式に、いくつかの独自形式�
 - `.env`　← これは保存する
 - `.env.production` ←これは保存したくない
 
-残念ながら、このような機能はまだ実装されていません。
+プロジェクト直下に `.bwsf/config.json`（または `.jsonc`）を置き、`not_save_files` に glob を列挙してください（`save_files` との同時指定は不可）。
+
+```json
+{
+  "not_save_files": [".env.production", "*.auto.tfvars"]
+}
+```
+
+詳細は Issue [#133](https://github.com/b4moss/bwsf/issues/133) を参照してください。
 :::
 
 :::faq-item{question="Bitwardenのホスト上で、ファイルを編集することは可能ですか？"}

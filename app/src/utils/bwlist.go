@@ -1,13 +1,11 @@
 package utils
 
 import (
-	"bytes"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
-	"os/exec"
 	"strings"
 
 	"bwsf/src/config"
@@ -57,23 +55,18 @@ func GetFolderID(folderName string) (string, error) {
 		folderName = config.DefaultFolderName
 	}
 
-	// Check if bw command exists
-	_, err := exec.LookPath("bw")
-	if err != nil {
-		return "", fmt.Errorf("bw command is not installed")
+	if err := requireBwInstalled(); err != nil {
+		return "", err
 	}
 
-	// Start spinner
 	StartSpinner("Fetching folders...")
 	defer StopSpinner()
 
-	// Execute bw list folders command
-	cmd := exec.Command("bw", "list", "folders")
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		errorMsg := strings.TrimSpace(string(output))
+	res := runBw("bw", []string{"list", "folders"}, bwRunOptions{})
+	if res.Err != nil {
+		errorMsg := strings.TrimSpace(string(res.Output))
 		if errorMsg == "" {
-			errorMsg = err.Error()
+			errorMsg = res.Err.Error()
 		}
 		if isBwAuthRequiredMessage(errorMsg) {
 			return "", ErrBitwardenLocked
@@ -81,19 +74,16 @@ func GetFolderID(folderName string) (string, error) {
 		return "", fmt.Errorf("failed to list folders: %s", errorMsg)
 	}
 
-	// Parse JSON output
 	var folders []Folder
-	outputStr := strings.TrimSpace(string(output))
+	outputStr := strings.TrimSpace(string(res.Output))
 	if outputStr == "" {
 		return "", fmt.Errorf("no output from bw list folders command")
 	}
 
-	// Check if Bitwarden CLI requires auth (locked / unauthenticated)
 	if isBwAuthRequiredMessage(outputStr) {
 		return "", ErrBitwardenLocked
 	}
 
-	// Check if output looks like JSON (starts with '[' or '{')
 	if !strings.HasPrefix(outputStr, "[") && !strings.HasPrefix(outputStr, "{") {
 		return "", fmt.Errorf("unexpected output from bw list folders (not JSON): %s", outputStr)
 	}
@@ -142,17 +132,13 @@ func CreateFolder(folderName string) error {
 		folderName = config.DefaultFolderName
 	}
 
-	// Check if bw command exists
-	_, err := exec.LookPath("bw")
-	if err != nil {
-		return fmt.Errorf("bw command is not installed")
+	if err := requireBwInstalled(); err != nil {
+		return err
 	}
 
-	// Start spinner
 	StartSpinner(fmt.Sprintf("Creating %s folder...", folderName))
 	defer StopSpinner()
 
-	// Create folder JSON object
 	folderData := map[string]string{
 		"name": folderName,
 	}
@@ -161,46 +147,36 @@ func CreateFolder(folderName string) error {
 		return fmt.Errorf("failed to marshal folder data: %w", err)
 	}
 
-	// Base64 encode the JSON (required by bw create folder)
 	encodedData := base64.StdEncoding.EncodeToString(jsonData)
 
-	// Execute bw create folder command
-	cmd := exec.Command("bw", "create", "folder", encodedData)
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		errorMsg := strings.TrimSpace(string(output))
+	res := runBw("bw", []string{"create", "folder", encodedData}, bwRunOptions{})
+	if res.Err != nil {
+		errorMsg := strings.TrimSpace(string(res.Output))
 		if errorMsg == "" {
-			errorMsg = err.Error()
+			errorMsg = res.Err.Error()
 		}
 		return fmt.Errorf("failed to create folder: %s", errorMsg)
 	}
 
-	// Sync to ensure the folder is available
-	syncCmd := exec.Command("bw", "sync")
-	syncCmd.CombinedOutput() // Ignore errors from sync
+	_ = runBw("bw", []string{"sync"}, bwRunOptions{})
 
 	return nil
 }
 
 // ListItemsInFolder retrieves all items in the specified folder
 func ListItemsInFolder(folderID string) ([]Item, error) {
-	// Check if bw command exists
-	_, err := exec.LookPath("bw")
-	if err != nil {
-		return nil, fmt.Errorf("bw command is not installed")
+	if err := requireBwInstalled(); err != nil {
+		return nil, err
 	}
 
-	// Start spinner
 	StartSpinner("Listing items...")
 	defer StopSpinner()
 
-	// Execute bw list items command with folder filter
-	cmd := exec.Command("bw", "list", "items", "--folderid", folderID)
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		errorMsg := strings.TrimSpace(string(output))
+	res := runBw("bw", []string{"list", "items", "--folderid", folderID}, bwRunOptions{})
+	if res.Err != nil {
+		errorMsg := strings.TrimSpace(string(res.Output))
 		if errorMsg == "" {
-			errorMsg = err.Error()
+			errorMsg = res.Err.Error()
 		}
 		if isBwAuthRequiredMessage(errorMsg) {
 			return nil, ErrBitwardenLocked
@@ -208,19 +184,16 @@ func ListItemsInFolder(folderID string) ([]Item, error) {
 		return nil, fmt.Errorf("failed to list items: %s", errorMsg)
 	}
 
-	// Parse JSON output
 	var items []Item
-	outputStr := strings.TrimSpace(string(output))
+	outputStr := strings.TrimSpace(string(res.Output))
 	if outputStr == "" {
 		return nil, fmt.Errorf("no output from bw list items command")
 	}
 
-	// Check if Bitwarden CLI requires auth (locked / unauthenticated)
 	if isBwAuthRequiredMessage(outputStr) {
 		return nil, ErrBitwardenLocked
 	}
 
-	// Check if output looks like JSON (starts with '[' or '{')
 	if !strings.HasPrefix(outputStr, "[") && !strings.HasPrefix(outputStr, "{") {
 		return nil, fmt.Errorf("unexpected output from bw list items (not JSON): %s", outputStr)
 	}
@@ -235,8 +208,8 @@ func ListItemsInFolder(folderID string) ([]Item, error) {
 // BwUnlock executes bw unlock with the master password and sets BW_SESSION.
 // Uses the same --passwordenv --raw path as login's unlockRaw (the reliable non-interactive API).
 func BwUnlock(masterPassword string) (bool, string) {
-	if _, err := exec.LookPath("bw"); err != nil {
-		return false, "bw command is not installed"
+	if err := requireBwInstalled(); err != nil {
+		return false, err.Error()
 	}
 	if masterPassword == "" {
 		return false, "master password is empty"
@@ -247,8 +220,6 @@ func BwUnlock(masterPassword string) (bool, string) {
 
 	session, err := unlockRaw(masterPassword)
 	if err != nil {
-		// Fallback: passwordfile with trailing newline ("first line" per bw docs).
-		// Empty password files make bw exit 0 with no output — treat that as failure.
 		tmpFile, tmpErr := os.CreateTemp("", "bwsf-password-*")
 		if tmpErr != nil {
 			return false, err.Error()
@@ -264,23 +235,21 @@ func BwUnlock(masterPassword string) (bool, string) {
 			return false, err.Error()
 		}
 
-		cmd := exec.Command("bw", "unlock", "--raw", "--passwordfile", tmpName)
-		cmd.Env = environWithout("BW_SESSION") // avoid stale session confusing unlock
-		var stdoutBuf, stderrBuf bytes.Buffer
-		cmd.Stdout = &stdoutBuf
-		cmd.Stderr = &stderrBuf
-		runErr := cmd.Run()
-		out := strings.TrimSpace(stdoutBuf.String())
-		stderrStr := strings.TrimSpace(stderrBuf.String())
+		res := runBw("bw", []string{"unlock", "--raw", "--passwordfile", tmpName}, bwRunOptions{
+			Env:             environWithout("BW_SESSION"),
+			SeparateStreams: true,
+		})
+		out := strings.TrimSpace(string(res.Output))
+		stderrStr := strings.TrimSpace(string(res.Stderr))
 		session = extractSessionKey(out)
-		if runErr != nil || session == "" {
+		if res.Err != nil || session == "" {
 			msg := err.Error()
 			if stderrStr != "" {
 				msg = stderrStr
 			} else if out != "" {
 				msg = out
-			} else if runErr != nil {
-				msg = runErr.Error()
+			} else if res.Err != nil {
+				msg = res.Err.Error()
 			}
 			return false, msg
 		}

@@ -58,7 +58,15 @@ For example:
 - `.env` ← Save this
 - `.env.production` ← Don't want to save this
 
-Unfortunately, this feature has not been implemented yet.
+Add a project-local `.bwsf/config.json` (or `.jsonc`) and list globs under `not_save_files` (do not set `save_files` at the same time):
+
+```json
+{
+  "not_save_files": [".env.production", "*.auto.tfvars"]
+}
+```
+
+See issue [#133](https://github.com/b4moss/bwsf/issues/133) for details.
 :::
 
 :::faq-item{question="Can I edit files on the Bitwarden host?"}

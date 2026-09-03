@@ -2,9 +2,9 @@
 
 - [x] `dotenvs` フォルダ以外の名称利用可能化（`bwsf setup --folder`）
 - [x] `bwsf clean` コマンド：リモートバックアップ確認後にローカルの管理対象ファイルを削除
-- `bwsf.config.json` ファイルの機能実装
-  - `ignore` や `override_project_name` などの設定が可能に
-- `.git` フォルダによるプロジェクトルートの確認（間違ったディレクトリでのコマンド実行を阻止）
+- [x] `.git` によるプロジェクトルート解決（#134）
+- `.bwsf/config.(json|jsonc)` プロジェクト設定（#133）
+  - `override_project_name` と `save_files` / `not_save_files`（いずれか一方）
 
 # バージョニングについて
 

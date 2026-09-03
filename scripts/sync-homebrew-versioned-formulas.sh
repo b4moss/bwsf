@@ -1,17 +1,28 @@
 #!/usr/bin/env bash
-# Sync versioned Homebrew formulas for every published bwsf release into the tap.
+# Sync retained Homebrew versioned formulas into the tap (see #171).
+#
+# Retention: all patches of the current minor + latest patch of the previous
+# minor present on GitHub Releases. Prereleases are skipped. Out-of-policy
+# bwsf@*.rb formulas are deleted from the tap.
 #
 # Usage:
 #   ./scripts/sync-homebrew-versioned-formulas.sh [--push] [--tap-dir DIR]
 #
 # Without --push, formulas are written to a local tap checkout only.
 # With --push, changes are committed and pushed to the tap default branch.
+#
+# Auth: uses `gh` (set GH_TOKEN / HOMEBREW_TAP_TOKEN for non-interactive CI).
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TAP_REPO="${HOMEBREW_TAP_REPO:-b4moss/homebrew-tap}"
 TAP_DIR=""
 DO_PUSH=0
+
+# Prefer an explicit tap token in CI so push can reach the tap repo.
+if [[ -n "${HOMEBREW_TAP_TOKEN:-}" ]]; then
+  export GH_TOKEN="${HOMEBREW_TAP_TOKEN}"
+fi
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -24,7 +35,7 @@ while [[ $# -gt 0 ]]; do
       shift 2
       ;;
     -h|--help)
-      sed -n '2,12p' "$0"
+      sed -n '2,16p' "$0"
       exit 0
       ;;
     *)
@@ -57,16 +68,18 @@ fi
 git -C "${TAP_DIR}" config user.name "${GIT_AUTHOR_NAME:-bwsf-bot}"
 git -C "${TAP_DIR}" config user.email "${GIT_AUTHOR_EMAIL:-bwsf-bot@users.noreply.github.com}"
 
-git -C "${TAP_DIR}" add 'bwsf@*.rb'
+# Stage adds, updates, and deletions of versioned formulas only.
+git -C "${TAP_DIR}" add -A -- 'bwsf@*.rb'
+
 if git -C "${TAP_DIR}" diff --cached --quiet; then
   echo "no tap changes to push"
   exit 0
 fi
 
 git -C "${TAP_DIR}" commit -m "$(cat <<'EOF'
-Add versioned bwsf formulas for all published releases
+Sync retained bwsf versioned Homebrew formulas
 
-Enable installing historical versions via brew install bwsf@x.y.z.
+Keep current-minor patches and the previous minor's latest; prune the rest.
 EOF
 )"
 

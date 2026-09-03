@@ -1,11 +1,18 @@
 #!/usr/bin/env python3
-"""Generate versioned Homebrew formulas for every GitHub release of bwsf.
+"""Sync retained Homebrew versioned formulas into a tap checkout.
 
-Writes bwsf@<version>.rb files into a tap checkout so past releases remain
-installable via:
+Retention policy (from v0.18.0 / #171):
+  - Keep every stable patch of the current minor (e.g. 0.18.0 .. 0.18.N)
+  - Keep only the latest stable patch of the previous minor that exists on
+    GitHub Releases (e.g. 0.17.3). After a major bump, the previous line is
+    the latest minor of the prior major (e.g. 1.0.0 → keep 0.17.latest).
+  - Exclude drafts, GitHub prereleases, and non-stable tags (rc/beta/…).
+  - Physically delete tap formulas (bwsf@*.rb) outside the retain set.
+
+Writes bwsf@<version>.rb so retained releases remain installable via:
 
   brew tap b4m-oss/tap
-  brew install bwsf@0.15.0
+  brew install bwsf@0.17.3
 
 Asset naming changed when the project was renamed from bwenv → bwsf:
   - v0.11.1+ (and later RCs) ship bwsf_* archives / bwsf binary
@@ -24,8 +31,11 @@ from pathlib import Path
 
 
 REPO = "b4moss/bwsf"
-HOMEPAGE = "https://github.com/b4m-oss/bwsf"
+HOMEPAGE = "https://github.com/b4moss/bwsf"
 DOWNLOAD_BASE = f"https://github.com/{REPO}/releases/download"
+
+STABLE_TAG_RE = re.compile(r"^v(\d+)\.(\d+)\.(\d+)$")
+FORMULA_NAME_RE = re.compile(r"^bwsf@(.+)\.rb$")
 
 
 def run_gh(*args: str) -> str:
@@ -77,6 +87,40 @@ def fetch_checksums(tag: str) -> dict[str, str]:
         return {}
 
 
+def parse_stable_version(tag: str) -> tuple[int, int, int] | None:
+    """Return (major, minor, patch) for stable tags only."""
+    match = STABLE_TAG_RE.fullmatch(tag)
+    if not match:
+        return None
+    return int(match.group(1)), int(match.group(2)), int(match.group(3))
+
+
+def version_string(version: tuple[int, int, int]) -> str:
+    return f"{version[0]}.{version[1]}.{version[2]}"
+
+
+def select_retained_versions(
+    versions: list[tuple[int, int, int]],
+) -> set[tuple[int, int, int]]:
+    """Apply the Homebrew versioned-formula retention policy."""
+    if not versions:
+        return set()
+
+    unique = sorted(set(versions))
+    current = unique[-1]
+    current_minor = (current[0], current[1])
+
+    retained = {v for v in unique if (v[0], v[1]) == current_minor}
+
+    previous_minor_versions = [v for v in unique if (v[0], v[1]) < current_minor]
+    if previous_minor_versions:
+        prev_minor = max((v[0], v[1]) for v in previous_minor_versions)
+        prev_patches = [v for v in previous_minor_versions if (v[0], v[1]) == prev_minor]
+        retained.add(max(prev_patches))
+
+    return retained
+
+
 def list_releases() -> list[dict]:
     raw = run_gh(
         "release",
@@ -89,7 +133,7 @@ def list_releases() -> list[dict]:
         "tagName,isDraft,isPrerelease",
     )
     releases = json.loads(raw)
-    return [r for r in releases if not r.get("isDraft")]
+    return [r for r in releases if not r.get("isDraft") and not r.get("isPrerelease")]
 
 
 def list_assets(tag: str) -> list[str]:
@@ -245,6 +289,30 @@ end
 """
 
 
+def prune_unretained_formulas(
+    tap_dir: Path,
+    retained_versions: set[str],
+    *,
+    dry_run: bool,
+) -> int:
+    """Delete bwsf@*.rb formulas whose version is outside the retain set."""
+    deleted = 0
+    for path in sorted(tap_dir.glob("bwsf@*.rb")):
+        match = FORMULA_NAME_RE.fullmatch(path.name)
+        if not match:
+            continue
+        version = match.group(1)
+        if version in retained_versions:
+            continue
+        if dry_run:
+            print(f"would delete {path}")
+        else:
+            path.unlink()
+            print(f"deleted {path}")
+        deleted += 1
+    return deleted
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -256,7 +324,7 @@ def main() -> int:
     parser.add_argument(
         "--dry-run",
         action="store_true",
-        help="Print formulas that would be written without writing files",
+        help="Print formulas that would be written/deleted without changing files",
     )
     args = parser.parse_args()
 
@@ -265,25 +333,39 @@ def main() -> int:
         print(f"error: tap dir not found: {tap_dir}", file=sys.stderr)
         return 1
 
-    written = 0
+    stable_releases: list[tuple[tuple[int, int, int], str]] = []
     for release in list_releases():
         tag = release["tagName"]
-        if not tag.startswith("v"):
-            print(f"skip {tag}: unexpected tag format", file=sys.stderr)
+        version = parse_stable_version(tag)
+        if version is None:
+            print(f"skip {tag}: not a stable vMAJOR.MINOR.PATCH tag", file=sys.stderr)
             continue
-        version = tag[1:]
+        stable_releases.append((version, tag))
+
+    retained = select_retained_versions([v for v, _ in stable_releases])
+    retained_strings = {version_string(v) for v in retained}
+    print(
+        "retain: "
+        + (", ".join(f"bwsf@{v}" for v in sorted(retained_strings)) or "(none)"),
+        file=sys.stderr,
+    )
+
+    written = 0
+    for version, tag in sorted(stable_releases):
+        if version not in retained:
+            continue
+        version_s = version_string(version)
         assets = list_assets(tag)
         checksums = fetch_checksums(tag)
         if not checksums:
-            # Try to continue only if we somehow have digests elsewhere — skip safely
             print(f"skip {tag}: checksums.txt unavailable", file=sys.stderr)
             continue
 
-        content = generate_formula(tag, version, checksums, assets)
+        content = generate_formula(tag, version_s, checksums, assets)
         if content is None:
             continue
 
-        filename = f"bwsf@{version}.rb"
+        filename = f"bwsf@{version_s}.rb"
         dest = tap_dir / filename
         if args.dry_run:
             print(f"would write {dest}")
@@ -292,8 +374,14 @@ def main() -> int:
             print(f"wrote {dest}")
         written += 1
 
-    print(f"done: {written} versioned formula(s)")
-    return 0 if written else 1
+    deleted = prune_unretained_formulas(
+        tap_dir,
+        retained_strings,
+        dry_run=args.dry_run,
+    )
+
+    print(f"done: {written} versioned formula(s) kept/written, {deleted} pruned")
+    return 0 if written or deleted else 1
 
 
 if __name__ == "__main__":

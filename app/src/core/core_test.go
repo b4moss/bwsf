@@ -466,6 +466,7 @@ func TestPushEnvCore_CreateNewItem(t *testing.T) {
 	err := PushEnvCore(
 		".",
 		"my-project",
+		ManagedFileFilter{},
 		fs,
 		bw,
 		cfg,
@@ -500,6 +501,7 @@ func TestPushEnvCore_UpdateExistingItem(t *testing.T) {
 	err := PushEnvCore(
 		".",
 		"my-project",
+		ManagedFileFilter{},
 		fs,
 		bw,
 		cfg,
@@ -532,6 +534,7 @@ func TestPushEnvCore_OnlyEnvLocal(t *testing.T) {
 	err := PushEnvCore(
 		".",
 		"my-project",
+		ManagedFileFilter{},
 		fs,
 		bw,
 		cfg,
@@ -555,8 +558,7 @@ func TestPushEnvCore_EnvFileNotFound(t *testing.T) {
 
 	err := PushEnvCore(
 		"/some/path", // "." でも ".." でもないのでフォールバックしない
-		"my-project",
-		fs,
+		"my-project", ManagedFileFilter{}, fs,
 		bw,
 		cfg,
 		func() (string, error) { return "pwd", nil },
@@ -587,6 +589,7 @@ func TestPushEnvCore_GetFolderIDError(t *testing.T) {
 	err := PushEnvCore(
 		".",
 		"my-project",
+		ManagedFileFilter{},
 		fs,
 		bw,
 		cfg,
@@ -620,6 +623,7 @@ func TestPushEnvCore_CreateItemError(t *testing.T) {
 	err := PushEnvCore(
 		".",
 		"my-project",
+		ManagedFileFilter{},
 		fs,
 		bw,
 		cfg,
@@ -1749,6 +1753,7 @@ func TestPushEnvCore_GetItemByNameError(t *testing.T) {
 	err := PushEnvCore(
 		".",
 		"my-project",
+		ManagedFileFilter{},
 		fs,
 		bw,
 		cfg,
@@ -1782,6 +1787,7 @@ func TestPushEnvCore_UpdateItemError(t *testing.T) {
 	err := PushEnvCore(
 		".",
 		"my-project",
+		ManagedFileFilter{},
 		fs,
 		bw,
 		cfg,
@@ -1939,6 +1945,7 @@ func TestPushEnvCore_DoubleDotFromDir(t *testing.T) {
 	err := PushEnvCore(
 		"..",
 		"my-project",
+		ManagedFileFilter{},
 		fs,
 		bw,
 		cfg,
@@ -2011,6 +2018,7 @@ func TestPushEnvCore_MultipleEnvFiles(t *testing.T) {
 	err := PushEnvCore(
 		".",
 		"my-project",
+		ManagedFileFilter{},
 		fs,
 		bw,
 		cfg,
@@ -2047,6 +2055,7 @@ func TestPushEnvCore_ExcludesExampleFiles(t *testing.T) {
 	err := PushEnvCore(
 		".",
 		"my-project",
+		ManagedFileFilter{},
 		fs,
 		bw,
 		cfg,
@@ -2078,6 +2087,7 @@ func TestPushEnvCore_NoEnvFiles(t *testing.T) {
 	err := PushEnvCore(
 		"/some/path",
 		"my-project",
+		ManagedFileFilter{},
 		fs,
 		bw,
 		cfg,
@@ -2218,7 +2228,7 @@ func TestGetPushedEnvFiles_Success(t *testing.T) {
 		},
 	}
 
-	files, err := GetPushedEnvFiles(".", fs)
+	files, err := GetPushedEnvFiles(".", ManagedFileFilter{}, fs)
 
 	assert.NoError(t, err)
 	assert.Len(t, files, 2)
@@ -2310,9 +2320,7 @@ func TestCleanEnvCore_MatchRemovesLocal(t *testing.T) {
 	selectCalled := false
 
 	err := CleanEnvCore(
-		".",
-		"my-project",
-		fs,
+		".", "my-project", ManagedFileFilter{}, fs,
 		bw,
 		cfg,
 		func() (string, error) { return "pwd", nil },
@@ -2347,9 +2355,7 @@ func TestCleanEnvCore_OverwriteRemoteThenClean(t *testing.T) {
 	cfg := &config.Config{}
 
 	err := CleanEnvCore(
-		".",
-		"my-project",
-		fs,
+		".", "my-project", ManagedFileFilter{}, fs,
 		bw,
 		cfg,
 		func() (string, error) { return "pwd", nil },
@@ -2383,9 +2389,7 @@ func TestCleanEnvCore_RemoveLocalOnly(t *testing.T) {
 	cfg := &config.Config{}
 
 	err := CleanEnvCore(
-		".",
-		"my-project",
-		fs,
+		".", "my-project", ManagedFileFilter{}, fs,
 		bw,
 		cfg,
 		func() (string, error) { return "pwd", nil },
@@ -2420,9 +2424,7 @@ func TestCleanEnvCore_RemoteItemMissing(t *testing.T) {
 	cfg := &config.Config{}
 
 	err := CleanEnvCore(
-		".",
-		"my-project",
-		fs,
+		".", "my-project", ManagedFileFilter{}, fs,
 		bw,
 		cfg,
 		func() (string, error) { return "pwd", nil },
@@ -2454,9 +2456,7 @@ func TestCleanEnvCore_RemoteEmptyFiles(t *testing.T) {
 	cfg := &config.Config{}
 
 	err := CleanEnvCore(
-		".",
-		"my-project",
-		fs,
+		".", "my-project", ManagedFileFilter{}, fs,
 		bw,
 		cfg,
 		func() (string, error) { return "pwd", nil },
@@ -2489,9 +2489,7 @@ func TestCleanEnvCore_AbortOnMismatch(t *testing.T) {
 	cfg := &config.Config{}
 
 	err := CleanEnvCore(
-		".",
-		"my-project",
-		fs,
+		".", "my-project", ManagedFileFilter{}, fs,
 		bw,
 		cfg,
 		func() (string, error) { return "pwd", nil },
@@ -2534,9 +2532,7 @@ func TestCleanEnvCore_OneFileDiffTreatsAsMismatch(t *testing.T) {
 	var gotMismatched []string
 
 	err := CleanEnvCore(
-		".",
-		"my-project",
-		fs,
+		".", "my-project", ManagedFileFilter{}, fs,
 		bw,
 		cfg,
 		func() (string, error) { return "pwd", nil },
@@ -2602,7 +2598,7 @@ func TestSortFileNames(t *testing.T) {
 
 func managedBaseNames(t *testing.T, fs *mockFileSystem, dir string) []string {
 	t.Helper()
-	paths, err := findEnvFilesFromFS(fs, dir)
+	paths, err := findEnvFilesFromFS(fs, dir, ManagedFileFilter{})
 	assert.NoError(t, err)
 	var names []string
 	for _, p := range paths {
@@ -2677,7 +2673,7 @@ func TestFindManagedFiles_TfvarsOnlySortAlphabetical(t *testing.T) {
 
 func TestFindManagedFiles_ReadDirError(t *testing.T) {
 	fs := &mockFileSystem{readDirErr: errors.New("permission denied")}
-	_, err := findEnvFilesFromFS(fs, ".")
+	_, err := findEnvFilesFromFS(fs, ".", ManagedFileFilter{})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to read directory")
 }
@@ -2690,7 +2686,7 @@ func TestGetPushedEnvFiles_IncludesTfvars(t *testing.T) {
 			&mockDirEntry{name: "terraform.tfvars.example"},
 		},
 	}
-	names, err := GetPushedEnvFiles(".", fs)
+	names, err := GetPushedEnvFiles(".", ManagedFileFilter{}, fs)
 	assert.NoError(t, err)
 	assert.Equal(t, []string{".env", "terraform.tfvars"}, names)
 }
@@ -2707,7 +2703,7 @@ func TestPushEnvCore_TfvarsOnly(t *testing.T) {
 	}
 	logger := &mockLogger{}
 
-	err := PushEnvCore(".", "my-project", fs, bw, &config.Config{}, func() (string, error) {
+	err := PushEnvCore(".", "my-project", ManagedFileFilter{}, fs, bw, &config.Config{}, func() (string, error) {
 		return "pwd", nil
 	}, logger, nil)
 	assert.NoError(t, err)
@@ -2733,7 +2729,7 @@ func TestPushEnvCore_EnvAndTfvarsTogether(t *testing.T) {
 	}
 	logger := &mockLogger{}
 
-	err := PushEnvCore(".", "my-project", fs, bw, &config.Config{}, func() (string, error) {
+	err := PushEnvCore(".", "my-project", ManagedFileFilter{}, fs, bw, &config.Config{}, func() (string, error) {
 		return "pwd", nil
 	}, logger, nil)
 	assert.NoError(t, err)
@@ -2779,7 +2775,7 @@ func TestCleanEnvCore_RemovesMatchingTfvars(t *testing.T) {
 	}
 	logger := &mockLogger{}
 
-	err := CleanEnvCore(".", "my-project", fs, bw, &config.Config{}, func() (string, error) {
+	err := CleanEnvCore(".", "my-project", ManagedFileFilter{}, fs, bw, &config.Config{}, func() (string, error) {
 		return "pwd", nil
 	}, func([]string) (CleanMismatchAction, error) {
 		t.Fatal("should not prompt")
@@ -2806,7 +2802,7 @@ func TestCleanEnvCore_MismatchOnTfvarsOnly(t *testing.T) {
 	logger := &mockLogger{}
 	var got []string
 
-	err := CleanEnvCore(".", "my-project", fs, bw, &config.Config{}, func() (string, error) {
+	err := CleanEnvCore(".", "my-project", ManagedFileFilter{}, fs, bw, &config.Config{}, func() (string, error) {
 		return "pwd", nil
 	}, func(mismatched []string) (CleanMismatchAction, error) {
 		got = append([]string{}, mismatched...)

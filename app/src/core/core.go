@@ -221,8 +221,10 @@ func persistSession(sessions SessionStore, logger Logger) {
 
 // PushEnvCore は管理対象ファイル（.env* / *.tfvars / *.tfvars.json）を Bitwarden にプッシュします。
 // .example を含む名前のファイルは除外します。
+// filter は基盤ルール通過後に適用する（#133 save_files / not_save_files）。
 func PushEnvCore(
 	fromDir, projectName string,
+	filter ManagedFileFilter,
 	fs FileSystem,
 	bw BwClient,
 	cfg *config.Config,
@@ -230,7 +232,7 @@ func PushEnvCore(
 	logger Logger,
 	sessions SessionStore,
 ) error {
-	envFiles, err := findEnvFilesFromFS(fs, fromDir)
+	envFiles, err := findEnvFilesFromFS(fs, fromDir, filter)
 	if err != nil {
 		return fmt.Errorf("failed to find managed files: %w", err)
 	}
@@ -302,9 +304,10 @@ func PushEnvCore(
 // GetPushedEnvFiles は push 対象の管理対象ファイル名一覧を返します（表示用）
 func GetPushedEnvFiles(
 	fromDir string,
+	filter ManagedFileFilter,
 	fs FileSystem,
 ) ([]string, error) {
-	envFiles, err := findEnvFilesFromFS(fs, fromDir)
+	envFiles, err := findEnvFilesFromFS(fs, fromDir, filter)
 	if err != nil {
 		return nil, err
 	}
@@ -319,7 +322,8 @@ func GetPushedEnvFiles(
 
 // findEnvFilesFromFS は FileSystem 経由で管理対象ファイルを検出します。
 // 対象: .env* / *.tfvars / *.tfvars.json（名前に .example を含むものは除外）
-func findEnvFilesFromFS(fs FileSystem, dirPath string) ([]string, error) {
+// filter は isManagedFileName 通過後に basename glob で絞り込みます（#133）。
+func findEnvFilesFromFS(fs FileSystem, dirPath string, filter ManagedFileFilter) ([]string, error) {
 	entries, err := fs.ReadDir(dirPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read directory: %w", err)
@@ -333,6 +337,9 @@ func findEnvFilesFromFS(fs FileSystem, dirPath string) ([]string, error) {
 
 		name := entry.Name()
 		if !isManagedFileName(name) {
+			continue
+		}
+		if !filter.Allow(name) {
 			continue
 		}
 
@@ -481,6 +488,7 @@ func PullEnvCore(
 // CleanEnvCore は管理対象のローカルファイルを、リモートバックアップを確認したうえで削除します。
 func CleanEnvCore(
 	targetDir, projectName string,
+	filter ManagedFileFilter,
 	fs FileSystem,
 	bw BwClient,
 	cfg *config.Config,
@@ -489,7 +497,7 @@ func CleanEnvCore(
 	logger Logger,
 	sessions SessionStore,
 ) error {
-	envFiles, err := findEnvFilesFromFS(fs, targetDir)
+	envFiles, err := findEnvFilesFromFS(fs, targetDir, filter)
 	if err != nil {
 		return fmt.Errorf("failed to find managed files: %w", err)
 	}
@@ -557,7 +565,7 @@ func CleanEnvCore(
 	case CleanActionAbort:
 		return ErrCleanAborted
 	case CleanActionOverwriteRemoteThenClean:
-		if err := PushEnvCore(targetDir, projectName, fs, bw, cfg, promptPassword, logger, sessions); err != nil {
+		if err := PushEnvCore(targetDir, projectName, filter, fs, bw, cfg, promptPassword, logger, sessions); err != nil {
 			return fmt.Errorf("failed to overwrite remote before clean: %w", err)
 		}
 		return removeLocalEnvFiles(fs, envFiles)

@@ -2,12 +2,10 @@ package cmd
 
 import (
 	"fmt"
-	"os"
 	"strings"
 
 	"bwsf/src/config"
 	"bwsf/src/core"
-	"bwsf/src/infra"
 	"bwsf/src/utils"
 
 	"github.com/spf13/cobra"
@@ -38,16 +36,17 @@ func init() {
 }
 
 func runSetup(cmd *cobra.Command, args []string) {
-	// Check if bw command is installed
-	installed, _ := utils.CheckBwCommand()
+	installed, _ := checkBwInstalled()
 	if !installed {
 		utils.Errorln("[ERROR] ❌ bw command is not installed...")
-		os.Exit(1)
+		exitFunc(1)
+		return
 	}
 
 	if err := validateSetupNonInteractiveFlags(); err != nil {
 		utils.Errorln("[ERROR]", err)
-		os.Exit(1)
+		exitFunc(1)
+		return
 	}
 
 	folderName := config.DefaultFolderName
@@ -56,14 +55,16 @@ func runSetup(cmd *cobra.Command, args []string) {
 	if setupFolder != "" {
 		if err := config.ValidateFolderName(setupFolder); err != nil {
 			utils.Errorln("[ERROR]", err)
-			os.Exit(1)
+			exitFunc(1)
+			return
 		}
 		folderName = strings.TrimSpace(setupFolder)
 
 		cfg, err := config.LoadConfig()
 		if err != nil {
 			utils.Errorln("[ERROR] Failed to load config:", err)
-			os.Exit(1)
+			exitFunc(1)
+			return
 		}
 		if cfg == nil {
 			cfg = &config.Config{}
@@ -71,21 +72,22 @@ func runSetup(cmd *cobra.Command, args []string) {
 		cfg.FolderName = folderName
 		if err := config.SaveConfig(cfg); err != nil {
 			utils.Errorln("[ERROR] Failed to save folder name:", err)
-			os.Exit(1)
+			exitFunc(1)
+			return
 		}
 	} else {
 		cfg, err := config.LoadConfig()
 		if err != nil {
 			utils.Errorln("[ERROR] Failed to load config:", err)
-			os.Exit(1)
+			exitFunc(1)
+			return
 		}
 		folderName = config.ResolveFolderName(cfg)
 	}
 
-	// Create dependencies
-	bw := infra.NewBwClient()
-	fs := infra.NewFileSystem()
-	logger := infra.NewLogger()
+	bw := newBwClient()
+	fs := newFileSystem()
+	logger := newLogger()
 
 	selectHostType := utils.SelectHostType
 	inputURL := utils.InputURL
@@ -103,7 +105,6 @@ func runSetup(cmd *cobra.Command, args []string) {
 		confirmCreateFolder = func() (bool, error) { return setupYes, nil }
 	}
 
-	// Call core logic
 	err := core.SetupBitwardenCore(
 		fs,
 		bw,
@@ -116,10 +117,10 @@ func runSetup(cmd *cobra.Command, args []string) {
 	)
 	if err != nil {
 		utils.Errorln("[ERROR]", err)
-		os.Exit(1)
+		exitFunc(1)
+		return
 	}
 
-	// Success message
 	utils.Successln("[INFO] ✅ Sign in to Bitwarden was successful!")
 }
 
