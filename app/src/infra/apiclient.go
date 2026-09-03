@@ -17,8 +17,7 @@ import (
 // ErrAPINotImplemented is retained for older call sites; vault methods no longer return it.
 var ErrAPINotImplemented = errors.New(
 	"API vault operation is unavailable. " +
-		"Authenticate with `bwsf auth` and unlock with your master password when prompted. " +
-		"Use `bwsf backend --set bw` only if you intentionally use the Bitwarden CLI backend",
+		"Authenticate with `bwsf auth` and unlock with your master password when prompted",
 )
 
 // ErrAPINotAuthenticated means Identity login has not succeeded in this process.
@@ -49,9 +48,10 @@ var ErrAPIDuplicateNote = errors.New("multiple secure notes with the same name")
 // Step 2+: Personal API Key + Identity token.
 // Step 3+: master-password unlock (SDK).
 // Step 4+: folder / Secure Note CRUD via CryptoSession.
-// Step 5: default backend is api; bw adapter remains optional.
+// Step 5: API is the only factory-selected backend; bw adapter remains optional.
 type ApiBwClient struct {
 	cfg      *config.Config
+	host     *config.Host
 	store    SecretStore
 	identity *IdentityClient
 	crypto   CryptoSession
@@ -60,13 +60,38 @@ type ApiBwClient struct {
 	token *TokenSet
 }
 
-// NewApiBwClient creates an ApiBwClient with OS keyring and default HTTP client.
+// NewApiBwClient creates an ApiBwClient using the config's default host.
 func NewApiBwClient(cfg *config.Config) *ApiBwClient {
-	return NewApiBwClientWithDeps(cfg, NewKeyringStore(), NewIdentityClient(), NewSDKCryptoSession())
+	var host *config.Host
+	if cfg != nil {
+		host = cfg.DefaultHost()
+	}
+	return NewApiBwClientForHost(cfg, host)
+}
+
+// NewApiBwClientForHost creates an ApiBwClient bound to a specific host.
+func NewApiBwClientForHost(cfg *config.Config, host *config.Host) *ApiBwClient {
+	return NewApiBwClientWithDepsForHost(cfg, host, NewKeyringStore(), NewIdentityClient(), NewSDKCryptoSession())
 }
 
 // NewApiBwClientWithDeps creates an ApiBwClient with injectable dependencies (tests).
+// When host is nil, DefaultHost() from cfg is used.
 func NewApiBwClientWithDeps(cfg *config.Config, store SecretStore, identity *IdentityClient, crypto CryptoSession) *ApiBwClient {
+	var host *config.Host
+	if cfg != nil {
+		host = cfg.DefaultHost()
+	}
+	return NewApiBwClientWithDepsForHost(cfg, host, store, identity, crypto)
+}
+
+// NewApiBwClientWithDepsForHost creates an ApiBwClient for a host with injectable deps.
+func NewApiBwClientWithDepsForHost(
+	cfg *config.Config,
+	host *config.Host,
+	store SecretStore,
+	identity *IdentityClient,
+	crypto CryptoSession,
+) *ApiBwClient {
 	if cfg == nil {
 		cfg = &config.Config{}
 	}
@@ -81,23 +106,33 @@ func NewApiBwClientWithDeps(cfg *config.Config, store SecretStore, identity *Ide
 	}
 	return &ApiBwClient{
 		cfg:      cfg,
+		host:     host,
 		store:    store,
 		identity: identity,
 		crypto:   crypto,
 	}
 }
 
-// EnsureDeviceIdentifier returns a stable device id, persisting one into config when missing.
-func EnsureDeviceIdentifier(cfg *config.Config) (string, error) {
+func (c *ApiBwClient) requireHost() error {
+	if c == nil || c.host == nil {
+		return fmt.Errorf("no host selected; configure a default host or pass --host")
+	}
+	return nil
+}
+
+// EnsureDeviceIdentifier returns a stable device id for host, persisting one when missing.
+func EnsureDeviceIdentifier(cfg *config.Config, host *config.Host) (string, error) {
 	if cfg == nil {
 		return "", fmt.Errorf("config is nil")
 	}
-	if cfg.DeviceIdentifier != "" {
-		return cfg.DeviceIdentifier, nil
+	if host == nil {
+		return "", fmt.Errorf("no host selected; configure a default host or pass --host")
+	}
+	if host.DeviceIdentifier != "" {
+		return host.DeviceIdentifier, nil
 	}
 	id := uuid.NewString()
-	cfg.DeviceIdentifier = id
-	if err := config.SaveConfig(cfg); err != nil {
+	if err := config.UpdateHostDeviceIdentifier(cfg, host.ID, id); err != nil {
 		return "", fmt.Errorf("failed to persist device_identifier: %w", err)
 	}
 	return id, nil
@@ -129,13 +164,16 @@ func (c *ApiBwClient) authenticateWithCredentials(ctx context.Context, creds API
 	if creds.ClientID == "" || creds.ClientSecret == "" {
 		return fmt.Errorf("client_id and client_secret are required")
 	}
+	if err := c.requireHost(); err != nil {
+		return err
+	}
 
-	identityBase, err := ResolveIdentityBase(c.cfg.HostType, c.cfg.SelfhostedURL)
+	identityBase, err := ResolveIdentityBase(c.host.Type, c.host.HostURL)
 	if err != nil {
 		return err
 	}
 
-	deviceID, err := EnsureDeviceIdentifier(c.cfg)
+	deviceID, err := EnsureDeviceIdentifier(c.cfg, c.host)
 	if err != nil {
 		return err
 	}
@@ -163,11 +201,14 @@ func (c *ApiBwClient) EnsureAccessToken(ctx context.Context) (string, error) {
 	}
 
 	if token != nil && token.RefreshToken != "" {
-		identityBase, err := ResolveIdentityBase(c.cfg.HostType, c.cfg.SelfhostedURL)
+		if err := c.requireHost(); err != nil {
+			return "", err
+		}
+		identityBase, err := ResolveIdentityBase(c.host.Type, c.host.HostURL)
 		if err != nil {
 			return "", err
 		}
-		deviceID, err := EnsureDeviceIdentifier(c.cfg)
+		deviceID, err := EnsureDeviceIdentifier(c.cfg, c.host)
 		if err != nil {
 			return "", err
 		}
@@ -256,7 +297,12 @@ func (c *ApiBwClient) syncVault(ctx context.Context) error {
 }
 
 func (c *ApiBwClient) configuredFolderName() string {
-	return config.ResolveFolderName(c.cfg)
+	if c.host != nil {
+		if name := strings.TrimSpace(c.host.TargetSection); name != "" {
+			return name
+		}
+	}
+	return config.DefaultFolderName
 }
 
 func (c *ApiBwClient) findConfiguredFolders(ctx context.Context) ([]VaultFolder, error) {
@@ -437,10 +483,18 @@ func (c *ApiBwClient) UpdateNoteItem(id, notes string) error {
 func (c *ApiBwClient) Login(email, password, serverURL string) error {
 	_ = email
 	_ = password
-	if serverURL != "" && c.cfg.SelfhostedURL == "" {
-		c.cfg.SelfhostedURL = serverURL
-		if c.cfg.HostType == "" {
-			c.cfg.HostType = "selfhosted"
+	if err := c.requireHost(); err != nil {
+		return err
+	}
+	if serverURL != "" {
+		switch c.host.Type {
+		case config.HostTypeSelfhost, "selfhosted", "":
+			if strings.TrimSpace(c.host.HostURL) == "" {
+				c.host.HostURL = serverURL
+			}
+			if c.host.Type == "" {
+				c.host.Type = config.HostTypeSelfhost
+			}
 		}
 	}
 	return c.Authenticate(context.Background())
@@ -448,29 +502,32 @@ func (c *ApiBwClient) Login(email, password, serverURL string) error {
 
 // Unlock restores vault decryption keys with the master password.
 // Caveat (pending Scenario C): keys are obtained via SDK password login using
-// config email + MP. Identity Personal API Key tokens remain separate.
+// host email + MP. Identity Personal API Key tokens remain separate.
 func (c *ApiBwClient) Unlock(masterPassword string) error {
 	if masterPassword == "" {
 		return fmt.Errorf("master password cannot be empty")
+	}
+	if err := c.requireHost(); err != nil {
+		return err
 	}
 	if !c.IsAuthenticated() {
 		if err := c.Authenticate(context.Background()); err != nil {
 			return err
 		}
 	}
-	if c.cfg.Email == "" {
+	if strings.TrimSpace(c.host.Email) == "" {
 		return fmt.Errorf("email is required in config for API vault unlock (run bwsf setup)")
 	}
 
-	deviceID, err := EnsureDeviceIdentifier(c.cfg)
+	deviceID, err := EnsureDeviceIdentifier(c.cfg, c.host)
 	if err != nil {
 		return err
 	}
 	device := DefaultDeviceInfo(deviceID)
 
 	serverURL := ""
-	if c.cfg.HostType == "selfhosted" {
-		serverURL = c.cfg.SelfhostedURL
+	if c.host.Type == config.HostTypeSelfhost || c.host.Type == "selfhosted" {
+		serverURL = c.host.HostURL
 	}
 
 	c.mu.Lock()
@@ -483,7 +540,7 @@ func (c *ApiBwClient) Unlock(masterPassword string) error {
 		c.mu.Unlock()
 	}
 
-	if err := crypto.UnlockWithPassword(context.Background(), c.cfg.Email, masterPassword, serverURL, device); err != nil {
+	if err := crypto.UnlockWithPassword(context.Background(), c.host.Email, masterPassword, serverURL, device); err != nil {
 		return err
 	}
 	return nil

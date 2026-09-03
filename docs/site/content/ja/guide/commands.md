@@ -2,92 +2,79 @@
 
 ## 概要
 
-現行の製品コマンド一覧（v0.19.0）です。コンパクトな棚卸しは [`docs/COMMANDS.md`](https://github.com/b4moss/bwsf/blob/main/docs/COMMANDS.md) にもあります。
+現行の製品コマンド一覧（v0.20.0）です。コンパクトな棚卸しは [`docs/COMMANDS.md`](https://github.com/b4moss/bwsf/blob/main/docs/COMMANDS.md) にもあります。
 
 | コマンド | 説明 | 主なフラグ |
 |---|---|---|
-| `bwsf setup` | Bitwarden ホスト / アカウント設定（API 時はログインなし。`auth` を使用） | `--folder` `--host-type` `--url` `--email` `--password` `--yes` |
-| `bwsf auth` | Personal API Key の保存と認証（`api` バックエンド） | `--clear` |
-| `bwsf backend` | Bitwarden バックエンド（`api` / `bw`）の表示・設定 | `--set` |
+| `bwsf setup` | ホストとグローバル `save_files` の設定（ログインなし。`auth` を使用） | `--folder` `--host-type` `--url` `--email` `--skip-host` `--save-files` `--yes` |
+| `bwsf auth` | Personal API Key の保存と認証 | `--clear` `--host` |
 | `bwsf config show` | 現在のローカル設定を表示 | — |
-| `bwsf push` | 管理対象ファイル（`.env*` / `*.tfvars` / `*.tfvars.json`）を Bitwarden にプッシュ | `--from` |
-| `bwsf pull` | 管理対象ファイルを Bitwarden からプル | `--output` |
-| `bwsf list` | 保存されている全プロジェクトを一覧表示 | — |
-| `bwsf clean` | リモートバックアップ確認後にローカルの管理対象ファイルを削除 | `--from` |
+| `bwsf push` | 管理対象ファイル（`.env*` / `*.tfvars` / `*.tfvars.json`）を Bitwarden にプッシュ | `--from` `--host` |
+| `bwsf pull` | 管理対象ファイルを Bitwarden からプル | `--output` `--host` |
+| `bwsf list` | 保存されている全プロジェクトを一覧表示 | `--host` |
+| `bwsf clean` | リモートバックアップ確認後にローカルの管理対象ファイルを削除 | `--from` `--host` |
 
 付帯（cobra 標準）: `bwsf -v` / `--version`、`bwsf help`、`bwsf completion`。
 
-管理対象は、名前が `.env` で始まるファイル、または末尾が `.tfvars` / `.tfvars.json` のファイルです。名前に `.example` を含むものは除外されます。
+管理対象は、名前が `.env` で始まるファイル、または末尾が `.tfvars` / `.tfvars.json` のファイルです。名前に `.example` を含むものは除外されます。任意の `save_files` glob（`!` による除外）で、その後さらに絞り込みます。
 
-デフォルトバックエンドは **`api`**（Personal API Key + プロセス内 unlock）です。`bw` CLI バックエンドは `bwsf backend --set bw` で利用できます。
+bwsf は **API** のみを使用します。`bw` CLI バックエンドと `bwsf backend` は v0.20.0 で削除されました。
+
+保管庫コマンドのホスト解決順: `--host` → プロジェクトの `host` → グローバルの `is_default`。
 
 ## bwsf setup
 
-Bitwarden ホスト設定を行います。
+Bitwarden ホスト（スキップ可）と任意のグローバル `save_files` を設定します。
 
 ```bash
 bwsf setup
 ```
 
-任意: `dotenvs` 以外の Bitwarden フォルダ名を指定できます。
+設定は `~/.config/bwsf/config.jsonc` に書き込まれます。ホスト追加をスキップ（`hosts: []`）しても、`save_files` は設定できます。
+
+任意: `dotenvs` 以外の Bitwarden フォルダ（`target_section`）を指定できます。
 
 ```bash
 bwsf setup --folder my-envs
 ```
 
-フォルダ名は `~/.config/bwsf/config.json` に保存され、push / pull / list / clean で使われます。名前変更では既存ノートは自動移動されません。
+名前変更では既存ノートは自動移動されません。
 
-### API バックエンド（`backend=api`、デフォルト）
-
-`setup` はホスト種別 / URL / メールのみ保存します。マスターパスワードでのログインは行いません。続けて `bwsf auth` を実行してください。
-
-### `bw` バックエンド（`backend=bw`）
-
-対話入力にマスターパスワードが含まれ、Bitwarden CLI 経由でログインします。
+`setup` はマスターパスワードでのログインを行いません。続けて `bwsf auth` を実行してください。
 
 ### 非対話フラグ
 
-自動化（スモークテストなど）向け:
-
 | フラグ | 説明 |
 |---|---|
-| `--host-type` | `cloud` または `selfhosted` |
+| `--host-type` | `cloud` または `selfhosted`（`bitwarden-cloud` / `bitwarden-selfhost` に対応） |
 | `--url` | セルフホストのサーバー URL（`--host-type=selfhosted` のとき必須） |
 | `--email` | アカウントのメール |
-| `--password` | マスターパスワード（`bw` バックエンド。API のフォルダ確保時は任意） |
-| `--yes` | 確認をすべて yes とみなす（フォルダ作成など） |
-| `--folder` | Bitwarden フォルダ名（デフォルト: `dotenvs`） |
+| `--skip-host` | `hosts: []` のままにする |
+| `--save-files` | グローバル `save_files` glob（`!` 接頭辞 = 除外） |
+| `--yes` | 確認をすべて yes とみなす（フォルダ作成、レガシー移行など） |
+| `--folder` | ホストの `target_section`（デフォルト: `dotenvs`） |
 
 ## bwsf auth
 
-Personal API Key を保存し Identity トークンを取得します（`api` バックエンド）。
+Personal API Key を保存し Identity トークンを取得します。
 
 ```bash
 bwsf auth
 bwsf auth --clear
+bwsf auth --host work
 ```
 
 `client_id` / `client_secret` の入力を求め、OS の秘密保管（**macOS Keychain** / **Linux secret service**）に保存し、Identity の access token を取得します（プロセスメモリ上のみ）。キーはアカウント設定 → セキュリティ → キーで作成します。
 
-## bwsf backend
-
-Bitwarden バックエンドの表示・設定。
-
-```bash
-bwsf backend
-bwsf backend --set api
-bwsf backend --set bw
-```
-
 ## bwsf config show
 
-`~/.config/bwsf/config.json` にある現在のローカル設定を表示します。
+`~/.config/bwsf/config.jsonc` にある現在のローカル設定を表示します。
 
 ```bash
 bwsf config show
 ```
 
-ホスト種別、セルフホスト URL、メール、実効フォルダ名を表示します。Bitwarden にはアクセスしません。設定ファイルが無い場合はエラー終了し、`bwsf setup` を案内します。
+スキーマメタデータ、`save_files`、ホスト（id / type / url / email / target_section / default）を表示します。Bitwarden にはアクセスしません。設定ファイルが無い場合はエラー終了し、`bwsf setup` を案内します。
 
 ## bwsf push
 
@@ -96,146 +83,32 @@ bwsf config show
 ```bash
 cd /path/to/your_project
 bwsf push
+bwsf push --host work
 ```
 
-### オプション
-
-| オプション | 説明 |
-|---|---|
-| `--from <dir>` | 管理対象ファイルがあるディレクトリ（デフォルト: 現在のディレクトリ） |
-
-### 動作
-
-1. 現在のディレクトリ名をプロジェクト名として使用
-2. 管理対象ファイルを検出（`.env*` / `*.tfvars` / `*.tfvars.json`。名前に `.example` を含むものは除外）
-3. 同名プロジェクトの Note が既にある場合は **上書き確認なしで更新**
-4. 設定フォルダ（デフォルト: `dotenvs`）にノートアイテムとして保存
-
-### 使用例
-
-```bash
-# 現在のディレクトリからプッシュ
-cd my-web-app
-bwsf push
-
-# 特定のディレクトリからプッシュ
-bwsf push --from ./config
-```
+ホストの `target_section`（デフォルト: `dotenvs`）に同名プロジェクトの Note が既にある場合は、**上書き確認なしで更新**します。
 
 ## bwsf pull
-
-Bitwarden ボールトから管理対象ファイルを現在のディレクトリにプルします。
 
 ```bash
 cd /path/to/your_project
 bwsf pull
-```
-
-### オプション
-
-| オプション | 説明 |
-|---|---|
-| `--output <dir>` | 出力ディレクトリ（デフォルト: 現在のディレクトリ） |
-
-### 動作
-
-1. 現在のディレクトリ名をプロジェクト名として使用
-2. 設定フォルダ（デフォルト: `dotenvs`）内で一致するプロジェクトを検索
-3. ローカルに同名ファイルが既にある場合、ファイル単位で上書きを確認
-4. Note から管理対象ファイルを書き出す
-
-### 使用例
-
-```bash
-# 現在のディレクトリにプル
-cd my-web-app
-bwsf pull
-
-# 特定のディレクトリにプル
-bwsf pull --output ./config
+bwsf pull --host work
 ```
 
 ## bwsf list
 
-Bitwarden ボールトに保存されている全プロジェクトを一覧表示します。
-
 ```bash
 bwsf list
-```
-
-### 出力
-
-標準出力にプロジェクト名を 1 行ずつ表示します。設定フォルダにアイテムが無い場合:
-
-```
-No items found in dotenvs folder
-```
-
-アイテムがある場合の例:
-
-```
-my-web-app
-api-server
-mobile-app
+bwsf list --host work
 ```
 
 ## bwsf clean
 
-Bitwarden 側のバックアップを確認したうえで、ローカルの管理対象ファイルを削除します。
-
 ```bash
 cd /path/to/your_project
 bwsf clean
+bwsf clean --host work
 ```
 
-### オプション
-
-| オプション | 説明 |
-|---|---|
-| `--from <dir>` | 削除対象の管理対象ファイルがあるディレクトリ（デフォルト: カレントディレクトリ） |
-
-### 挙動
-
-1. カレントディレクトリ名をプロジェクト名として使う
-2. リモートに同名 Note アイテムが無い、または管理対象ファイルが空なら中止する
-3. 内容が一致すれば確認なしでローカルを削除する
-4. 1 ファイルでも差分があれば単一選択で分岐する（Abort / Overwrite remote then clean / Remove local）
-
-## よくあるワークフロー
-
-### 新規プロジェクトのセットアップ
-
-```bash
-# 管理対象ファイルを作成
-echo "API_KEY=secret123" > .env
-echo 'region = "ap-northeast-1"' > terraform.tfvars
-
-# Bitwarden にプッシュ
-bwsf push
-```
-
-### 新しいマシンでの同期
-
-```bash
-# プロジェクトをクローン
-git clone https://github.com/yourorg/my-web-app.git
-cd my-web-app
-
-# Bitwarden から管理対象ファイルをプル
-bwsf pull
-```
-
-### マルチ環境のセットアップ
-
-```bash
-# 複数の環境ファイルを作成
-echo "API_URL=http://localhost:3000" > .env
-echo "API_URL=https://staging.example.com" > .env.staging
-echo "API_URL=https://api.example.com" > .env.production
-
-# すべての管理対象ファイルをプッシュ
-bwsf push
-
-# 別のマシンで全ファイルをプル
-bwsf pull
-```
+リモートの Bitwarden バックアップを確認したうえで、ローカルの管理対象ファイルを削除します。

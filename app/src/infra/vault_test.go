@@ -17,7 +17,7 @@ func newUnlockedAPIClient(t *testing.T, cfg *config.Config, crypto *MockCryptoSe
 	t.Helper()
 	withTempHome(t)
 	if cfg == nil {
-		cfg = &config.Config{HostType: "cloud", Email: "a@example.com", Backend: config.BackendAPI}
+		cfg = testConfig("cloud", "", "a@example.com", "")
 	}
 	store := NewMemorySecretStore()
 	_ = SaveAPICredentials(store, APICredentials{ClientID: "user.cid", ClientSecret: "sec"})
@@ -55,9 +55,7 @@ func TestApiBwClient_GetDotenvsFolderID_CustomFolderName(t *testing.T) {
 	crypto := &MockCryptoSession{
 		Folders: []VaultFolder{{ID: "f9", Name: "envnotes"}},
 	}
-	client := newUnlockedAPIClient(t, &config.Config{
-		HostType: "cloud", Email: "a@example.com", Backend: config.BackendAPI, FolderName: "envnotes",
-	}, crypto)
+	client := newUnlockedAPIClient(t, testConfig("cloud", "", "a@example.com", "envnotes"), crypto)
 
 	id, err := client.GetDotenvsFolderID()
 	require.NoError(t, err)
@@ -196,7 +194,7 @@ func TestApiBwClient_VaultRequiresUnlock(t *testing.T) {
 	}
 	crypto := &MockCryptoSession{}
 	client := NewApiBwClientWithDeps(
-		&config.Config{HostType: "cloud", Email: "a@example.com"},
+		testConfig("cloud", "", "a@example.com", ""),
 		store,
 		identity,
 		crypto,

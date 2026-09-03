@@ -12,30 +12,32 @@ import (
 
 const gitRootFallbackWarn = "[WARN] No .git found in ancestor directories; falling back to current directory"
 
-// resolveProjectAndFileDir resolves Bitwarden Note name, file Dir, and #133
-// managed-file filter for push/pull/clean.
-func resolveProjectAndFileDir(cmd *cobra.Command, flagName string) (projectName, fileDir string, filter core.ManagedFileFilter, err error) {
+// resolveProjectAndFileDir resolves Bitwarden Note name, file Dir, managed-file
+// filter, and project host id for push/pull/clean.
+func resolveProjectAndFileDir(cmd *cobra.Command, flagName string) (projectName, fileDir string, filter core.ManagedFileFilter, projectHost string, err error) {
 	wd, err := os.Getwd()
 	if err != nil {
-		return "", "", filter, err
+		return "", "", filter, "", err
 	}
+
+	globalCfg, _ := config.LoadConfigWithMigrate(migrateHooks())
 
 	pc, _, err := config.ResolveProjectConfig(wd, utils.SelectProjectConfigPath)
 	if err != nil {
-		return "", "", filter, err
+		return "", "", filter, "", err
 	}
 	override := ""
 	if pc != nil {
 		override = pc.EffectiveOverride()
-		filter = core.ManagedFileFilter{
-			SaveFiles:    pc.EffectiveSaveFiles(),
-			NotSaveFiles: pc.EffectiveNotSaveFiles(),
-		}
+		projectHost = pc.EffectiveHost()
+	}
+	filter = core.ManagedFileFilter{
+		SaveFiles: EffectiveManagedSaveFiles(globalCfg, pc),
 	}
 
 	ctx, err := project.Resolve(wd, override)
 	if err != nil {
-		return "", "", filter, err
+		return "", "", filter, "", err
 	}
 	if ctx.UsedCwdFallback {
 		utils.Warningln(gitRootFallbackWarn)
@@ -43,9 +45,9 @@ func resolveProjectAndFileDir(cmd *cobra.Command, flagName string) (projectName,
 
 	flagValue, err := cmd.Flags().GetString(flagName)
 	if err != nil {
-		return "", "", filter, err
+		return "", "", filter, "", err
 	}
 
 	fileDir = project.SelectFileDir(cmd.Flags().Changed(flagName), flagValue, ctx.WorkDir)
-	return ctx.ProjectName, fileDir, filter, nil
+	return ctx.ProjectName, fileDir, filter, projectHost, nil
 }

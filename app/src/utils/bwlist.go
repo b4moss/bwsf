@@ -34,7 +34,7 @@ type Item struct {
 	Name string `json:"name"`
 }
 
-// resolveConfiguredFolderName loads folder_name from config (default: "dotenvs").
+// resolveConfiguredFolderName loads target_section from the default host (default: "dotenvs").
 func resolveConfiguredFolderName() string {
 	cfg, err := config.LoadConfig()
 	if err != nil {
@@ -44,7 +44,7 @@ func resolveConfiguredFolderName() string {
 }
 
 // GetDotenvsFolderID retrieves the folder ID for the configured Bitwarden folder
-// (folder_name in config, default "dotenvs"). Signature kept for BwClient compatibility.
+// (target_section on the default host, default "dotenvs"). Signature kept for BwClient compatibility.
 func GetDotenvsFolderID() (string, error) {
 	return GetFolderID(resolveConfiguredFolderName())
 }

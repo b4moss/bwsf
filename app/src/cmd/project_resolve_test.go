@@ -34,7 +34,7 @@ func TestResolveProjectAndFileDir_WithGitSubdir(t *testing.T) {
 	c := &cobra.Command{}
 	c.Flags().String("from", ".", "from")
 
-	name, dir, _, err := resolveProjectAndFileDir(c, "from")
+	name, dir, _, _, err := resolveProjectAndFileDir(c, "from")
 	require.NoError(t, err)
 	assert.Equal(t, filepath.Base(repo), name)
 	samePath(t, repo, dir)
@@ -56,7 +56,7 @@ func TestResolveProjectAndFileDir_WithGitFlagOverridesDir(t *testing.T) {
 	c.Flags().String("from", ".", "from")
 	require.NoError(t, c.Flags().Set("from", sub))
 
-	name, dir, _, err := resolveProjectAndFileDir(c, "from")
+	name, dir, _, _, err := resolveProjectAndFileDir(c, "from")
 	require.NoError(t, err)
 	assert.Equal(t, filepath.Base(repo), name)
 	samePath(t, sub, dir)
@@ -74,7 +74,7 @@ func TestResolveProjectAndFileDir_WithoutGitFallback(t *testing.T) {
 	c := &cobra.Command{}
 	c.Flags().String("from", ".", "from")
 
-	name, fileDir, _, err := resolveProjectAndFileDir(c, "from")
+	name, fileDir, _, _, err := resolveProjectAndFileDir(c, "from")
 	require.NoError(t, err)
 	assert.Equal(t, filepath.Base(dir), name)
 	samePath(t, dir, fileDir)
@@ -100,10 +100,10 @@ func TestResolveProjectAndFileDir_OverrideProjectName(t *testing.T) {
 	c := &cobra.Command{}
 	c.Flags().String("from", ".", "from")
 
-	name, dir, filter, err := resolveProjectAndFileDir(c, "from")
+	name, dir, filter, projectHost, err := resolveProjectAndFileDir(c, "from")
 	require.NoError(t, err)
 	assert.Equal(t, "my-api", name)
 	samePath(t, repo, dir)
 	assert.Empty(t, filter.SaveFiles)
-	assert.Empty(t, filter.NotSaveFiles)
+	assert.Empty(t, projectHost)
 }

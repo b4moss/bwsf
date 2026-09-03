@@ -13,6 +13,25 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func e2eConfig(email, selfURL string) *config.Config {
+	h := config.Host{
+		ID:            config.DefaultHostID,
+		Type:          config.HostTypeCloud,
+		HostURL:       config.DefaultCloudURL,
+		Email:         email,
+		TargetSection: config.DefaultFolderName,
+		IsDefault:     true,
+	}
+	if selfURL != "" {
+		h.Type = config.HostTypeSelfhost
+		h.HostURL = selfURL
+	}
+	cfg := config.NewEmptyConfig()
+	cfg.Settings.Hosts = []config.Host{h}
+	return cfg
+}
+
+
 // =============================================================================
 // E2Eテスト
 // bwsfの主要コマンドフロー（setup, list, push, pull）をモックでテスト
@@ -39,11 +58,7 @@ DEBUG=true`
 	fs.SetFile("/project/.env", []byte(testEnvContent))
 
 	// テスト用の設定
-	cfg := &config.Config{
-		HostType:      "selfhosted",
-		SelfhostedURL: "https://vault.example.com",
-		Email:         "test@example.com",
-	}
+	cfg := e2eConfig("test@example.com", "https://vault.example.com")
 
 	// パスワード入力のモック
 	promptPassword := func() (string, error) {
@@ -134,10 +149,7 @@ func TestE2E_PushUpdate(t *testing.T) {
 
 	bw.SetupTestData()
 
-	cfg := &config.Config{
-		HostType: "cloud",
-		Email:    "test@example.com",
-	}
+	cfg := e2eConfig("test@example.com", "")
 
 	promptPassword := func() (string, error) {
 		return "testpassword", nil
@@ -176,10 +188,7 @@ func TestE2E_MultipleProjects(t *testing.T) {
 
 	bw.SetupTestData()
 
-	cfg := &config.Config{
-		HostType: "cloud",
-		Email:    "test@example.com",
-	}
+	cfg := e2eConfig("test@example.com", "")
 
 	promptPassword := func() (string, error) {
 		return "testpassword", nil
@@ -225,10 +234,7 @@ func TestE2E_PullNotFound(t *testing.T) {
 
 	bw.SetupTestData()
 
-	cfg := &config.Config{
-		HostType: "cloud",
-		Email:    "test@example.com",
-	}
+	cfg := e2eConfig("test@example.com", "")
 
 	promptPassword := func() (string, error) {
 		return "testpassword", nil
@@ -252,10 +258,7 @@ func TestE2E_EnvDataFormat(t *testing.T) {
 
 	bw.SetupTestData()
 
-	cfg := &config.Config{
-		HostType: "cloud",
-		Email:    "test@example.com",
-	}
+	cfg := e2eConfig("test@example.com", "")
 
 	promptPassword := func() (string, error) {
 		return "testpassword", nil
@@ -312,10 +315,7 @@ func TestE2E_LockedVault(t *testing.T) {
 	bw.SetupTestData()
 	bw.SetUnlocked(false) // ロック状態にする
 
-	cfg := &config.Config{
-		HostType: "cloud",
-		Email:    "test@example.com",
-	}
+	cfg := e2eConfig("test@example.com", "")
 
 	// パスワード入力でアンロック
 	promptPassword := func() (string, error) {

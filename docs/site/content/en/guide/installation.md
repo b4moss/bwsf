@@ -10,16 +10,14 @@
 | Linux | ✅ Supported |
 | Windows | 🚧 Planned |
 
-### Dependencies (default API backend)
+### Dependencies
 
 - A Bitwarden account (Cloud or self-hosted / Vaultwarden)
 - A **Personal API Key** (Account Settings → Security → Keys)
 - OS secret store access (**macOS Keychain** / **Linux secret service**)
 - **Homebrew** (to install bwsf)
 
-The Bitwarden CLI (`bw`) is **not required** for the default `api` backend. Install it only if you use `bwsf backend --set bw`.
-
-[Install bw (optional)](https://bitwarden.com/help/cli/#download-and-install)
+The Bitwarden CLI (`bw`) is **not required** (removed in v0.20.0).
 
 ## Install bwsf
 
@@ -57,23 +55,17 @@ Versioned formulas are keg-only, so you may need to adjust your `PATH` or run
 
 ```bash
 bwsf -v
-# bwsf version 0.19.0
+# bwsf version 0.20.0
 ```
 
 ## Initial Setup
 
 ```bash
-bwsf setup                 # host type / URL / email (+ optional folder)
+bwsf setup                 # hosts (skippable) + optional save_files / folder
 bwsf auth                  # Personal API Key → OS secret store
 ```
 
-For the default API backend, `setup` does **not** log in with a master password. Authentication is `bwsf auth`. Vault unlock (master password) happens when you run `push` / `pull` / `list`.
-
-Optional: switch to the Bitwarden CLI backend:
-
-```bash
-bwsf backend --set bw
-```
+`setup` does **not** log in with a master password. Authentication is `bwsf auth`. Vault unlock (master password) happens when you run `push` / `pull` / `list`. Settings are saved to `~/.config/bwsf/config.jsonc`.
 
 ## Uninstall
 
