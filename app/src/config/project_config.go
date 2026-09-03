@@ -1,23 +1,29 @@
 package config
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 )
 
-const (
-	projectConfigDir      = ".bwsf"
-	projectConfigJSON     = "config.json"
-	projectConfigJSONC    = "config.jsonc"
-)
-
-// ProjectConfig is the schema for `.bwsf/config.(json|jsonc)` (#133).
+// ProjectConfig is the schema for `.bwsf/config.(json|jsonc)` (#133 / #177).
 type ProjectConfig struct {
 	OverrideProjectName string   `json:"override_project_name,omitempty"`
+	Host                string   `json:"host,omitempty"`
 	SaveFiles           []string `json:"save_files,omitempty"`
-	NotSaveFiles        []string `json:"not_save_files,omitempty"`
+
+	// notSaveFilesPresent is set during parse when the banned key exists.
+	notSaveFilesPresent bool `json:"-"`
+}
+
+// rawProjectConfig is used to detect banned keys.
+type rawProjectConfig struct {
+	OverrideProjectName string          `json:"override_project_name"`
+	Host                string          `json:"host"`
+	SaveFiles           []string        `json:"save_files"`
+	NotSaveFiles        json.RawMessage `json:"not_save_files"`
 }
 
 // PathSelector chooses one config path when multiple candidates exist.
@@ -31,20 +37,20 @@ func (p *ProjectConfig) EffectiveOverride() string {
 	return strings.TrimSpace(p.OverrideProjectName)
 }
 
-// EffectiveSaveFiles returns save_files when that mode is active (non-empty after trim).
+// EffectiveHost returns a non-empty project host id, or "".
+func (p *ProjectConfig) EffectiveHost() string {
+	if p == nil {
+		return ""
+	}
+	return strings.TrimSpace(p.Host)
+}
+
+// EffectiveSaveFiles returns save_files when non-empty after trim.
 func (p *ProjectConfig) EffectiveSaveFiles() []string {
 	if p == nil {
 		return nil
 	}
 	return nonEmptyStrings(p.SaveFiles)
-}
-
-// EffectiveNotSaveFiles returns not_save_files when that mode is active.
-func (p *ProjectConfig) EffectiveNotSaveFiles() []string {
-	if p == nil {
-		return nil
-	}
-	return nonEmptyStrings(p.NotSaveFiles)
 }
 
 func nonEmptyStrings(in []string) []string {
@@ -58,40 +64,44 @@ func nonEmptyStrings(in []string) []string {
 	return out
 }
 
-// Validate ensures save_files and not_save_files are not both set.
+// Validate rejects not_save_files (removed in v0.20).
 func (p *ProjectConfig) Validate() error {
 	if p == nil {
 		return nil
 	}
-	save := nonEmptyStrings(p.SaveFiles)
-	notSave := nonEmptyStrings(p.NotSaveFiles)
-	if len(save) > 0 && len(notSave) > 0 {
-		return fmt.Errorf("project config: set only one of save_files or not_save_files")
+	if p.notSaveFilesPresent {
+		return fmt.Errorf("not_save_files is removed; use save_files with ! prefixes")
 	}
 	return nil
 }
 
-// Normalize clears blank override and empty filter entries for consistent use.
+// Normalize clears blank override and empty filter entries.
 func (p *ProjectConfig) Normalize() {
 	if p == nil {
 		return
 	}
 	p.OverrideProjectName = strings.TrimSpace(p.OverrideProjectName)
+	p.Host = strings.TrimSpace(p.Host)
 	p.SaveFiles = nonEmptyStrings(p.SaveFiles)
-	p.NotSaveFiles = nonEmptyStrings(p.NotSaveFiles)
 }
 
 // ParseProjectConfigJSONC unmarshals and validates project config bytes.
 func ParseProjectConfigJSONC(data []byte) (*ProjectConfig, error) {
-	var pc ProjectConfig
-	if err := UnmarshalJSONC(data, &pc); err != nil {
+	var raw rawProjectConfig
+	if err := UnmarshalJSONC(data, &raw); err != nil {
 		return nil, fmt.Errorf("failed to parse project config: %w", err)
+	}
+	pc := &ProjectConfig{
+		OverrideProjectName: raw.OverrideProjectName,
+		Host:                raw.Host,
+		SaveFiles:           raw.SaveFiles,
+		notSaveFilesPresent: len(raw.NotSaveFiles) > 0 && string(raw.NotSaveFiles) != "null",
 	}
 	pc.Normalize()
 	if err := pc.Validate(); err != nil {
 		return nil, err
 	}
-	return &pc, nil
+	return pc, nil
 }
 
 // LoadProjectConfigFile reads and parses a `.bwsf/config.(json|jsonc)` file.
@@ -108,9 +118,13 @@ func fileExists(path string) bool {
 	return err == nil && !st.IsDir()
 }
 
+const (
+	projectConfigDir   = ".bwsf"
+	projectConfigJSON  = "config.json"
+	projectConfigJSONC = "config.jsonc"
+)
+
 // FindProjectConfigPaths walks cwd and ancestors for `.bwsf/config.json` or `.jsonc`.
-// Candidates are ordered from cwd toward the filesystem root.
-// Both config.json and config.jsonc in the same .bwsf directory is an error.
 func FindProjectConfigPaths(cwd string) ([]string, error) {
 	dir, err := filepath.Abs(cwd)
 	if err != nil {
@@ -143,7 +157,6 @@ func FindProjectConfigPaths(cwd string) ([]string, error) {
 }
 
 // ResolveProjectConfig finds and loads project config for cwd.
-// Returns (nil, "", nil) when no config file exists.
 func ResolveProjectConfig(cwd string, selectPath PathSelector) (*ProjectConfig, string, error) {
 	paths, err := FindProjectConfigPaths(cwd)
 	if err != nil {

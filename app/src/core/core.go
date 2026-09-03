@@ -210,9 +210,10 @@ func WithUnlockRetry(
 		return fn()
 	}
 
-	// bw 経路互換: Unlock 失敗後に Login → Unlock
-	if cfg != nil && cfg.Email != "" {
-		loginErr := bw.Login(cfg.Email, password, cfg.SelfhostedURL)
+	// Unlock 失敗後に Login → Unlock（解決済み host の email / URL を使用）
+	email, serverURL := hostLoginFields(cfg)
+	if email != "" {
+		loginErr := bw.Login(email, password, serverURL)
 		if loginErr != nil {
 			// api Login は API Key 認証なので、ここでの失敗は認証切れとして返す
 			if IsNotAuthenticatedError(loginErr) {
@@ -240,6 +241,22 @@ func WithUnlockRetry(
 	}
 
 	return fmt.Errorf("failed to unlock vault: %w", unlockErr)
+}
+
+// hostLoginFields returns email and self-host server URL from the default host.
+func hostLoginFields(cfg *config.Config) (email, serverURL string) {
+	if cfg == nil {
+		return "", ""
+	}
+	h := cfg.DefaultHost()
+	if h == nil {
+		return "", ""
+	}
+	email = strings.TrimSpace(h.Email)
+	if h.Type == config.HostTypeSelfhost {
+		serverURL = strings.TrimSpace(h.HostURL)
+	}
+	return email, serverURL
 }
 
 // persistSession はプロセス内の BW_SESSION を SessionStore へ保存します（失敗は非致命）。
@@ -747,6 +764,7 @@ func ListDotenvsCore(
 }
 
 // collectHostEmailConfig prompts for host type, optional self-hosted URL, and email.
+// Host type values are "cloud" or "selfhosted" (CLI/prompt shorthand).
 func collectHostEmailConfig(
 	selectHostType func() (string, error),
 	inputURL func() (string, error),
@@ -757,7 +775,8 @@ func collectHostEmailConfig(
 		return "", "", "", fmt.Errorf("failed to select host type: %w", err)
 	}
 
-	if hostType == "selfhosted" {
+	normalized := normalizePromptHostType(hostType)
+	if normalized == config.HostTypeSelfhost {
 		selfhostedURL, err = inputURL()
 		if err != nil {
 			return "", "", "", fmt.Errorf("failed to get URL: %w", err)
@@ -778,19 +797,81 @@ func collectHostEmailConfig(
 	return hostType, selfhostedURL, email, nil
 }
 
-// preserveSetupFields copies fields that setup must not wipe (backend, device id, folder).
-func preserveSetupFields(newConfig, existing *config.Config) {
-	if existing == nil {
-		return
-	}
-	newConfig.Backend = existing.Backend
-	newConfig.DeviceIdentifier = existing.DeviceIdentifier
-	if newConfig.FolderName == "" {
-		newConfig.FolderName = existing.FolderName
+func normalizePromptHostType(hostType string) string {
+	switch strings.TrimSpace(strings.ToLower(hostType)) {
+	case "selfhosted", "self-hosted", config.HostTypeSelfhost:
+		return config.HostTypeSelfhost
+	default:
+		return config.HostTypeCloud
 	}
 }
 
-// SetupAPIConfigCore configures host/email for the API backend without Login.
+// MapPromptHostToV2 converts cloud/selfhosted prompt values into a v2 Host.
+func MapPromptHostToV2(hostType, url, email, targetSection string) (config.Host, error) {
+	hType := normalizePromptHostType(hostType)
+	hURL := strings.TrimSpace(url)
+	switch hType {
+	case config.HostTypeSelfhost:
+		if hURL == "" {
+			return config.Host{}, fmt.Errorf("self-hosted URL cannot be empty")
+		}
+	default:
+		if hURL == "" {
+			hURL = config.DefaultCloudURL
+		}
+	}
+	section := strings.TrimSpace(targetSection)
+	if section == "" {
+		section = config.DefaultFolderName
+	}
+	return config.Host{
+		ID:            config.DefaultHostID,
+		Type:          hType,
+		HostURL:       hURL,
+		Email:         strings.TrimSpace(email),
+		TargetSection: section,
+		IsDefault:     true,
+	}, nil
+}
+
+// preserveSetupFields copies device_identifier onto matching host ids.
+func preserveSetupFields(newConfig, existing *config.Config) {
+	if existing == nil || newConfig == nil {
+		return
+	}
+	for i := range newConfig.Settings.Hosts {
+		nh := &newConfig.Settings.Hosts[i]
+		if nh.DeviceIdentifier != "" {
+			continue
+		}
+		if eh := existing.FindHost(nh.ID); eh != nil {
+			nh.DeviceIdentifier = eh.DeviceIdentifier
+		}
+	}
+}
+
+// UpsertDefaultHost sets or replaces the default host entry in cfg.
+func UpsertDefaultHost(cfg *config.Config, host config.Host) {
+	if cfg == nil {
+		return
+	}
+	host.IsDefault = true
+	if host.ID == "" {
+		host.ID = config.DefaultHostID
+	}
+	for i := range cfg.Settings.Hosts {
+		cfg.Settings.Hosts[i].IsDefault = false
+	}
+	for i := range cfg.Settings.Hosts {
+		if cfg.Settings.Hosts[i].ID == host.ID {
+			cfg.Settings.Hosts[i] = host
+			return
+		}
+	}
+	cfg.Settings.Hosts = append(cfg.Settings.Hosts, host)
+}
+
+// SetupAPIConfigCore configures a default host (type/url/email) without Login.
 // Authentication is performed separately via `bwsf auth`.
 // Folder creation is handled by EnsureConfiguredFolderCore after auth/unlock is available.
 func SetupAPIConfigCore(
@@ -799,12 +880,23 @@ func SetupAPIConfigCore(
 	inputURL func() (string, error),
 	inputEmail func() (string, error),
 ) error {
+	return SetupAPIConfigCoreWithFolder(logger, selectHostType, inputURL, inputEmail, "")
+}
+
+// SetupAPIConfigCoreWithFolder is SetupAPIConfigCore with an optional target_section.
+func SetupAPIConfigCoreWithFolder(
+	logger Logger,
+	selectHostType func() (string, error),
+	inputURL func() (string, error),
+	inputEmail func() (string, error),
+	targetSection string,
+) error {
 	existingConfig, err := config.LoadConfig()
 	if err != nil {
 		return fmt.Errorf("failed to load existing config: %w", err)
 	}
 	if existingConfig != nil {
-		logger.Info("Existing configuration found. Host/email settings will be updated.")
+		logger.Info("Existing configuration found. Host settings will be updated.")
 	}
 
 	hostType, selfhostedURL, email, err := collectHostEmailConfig(selectHostType, inputURL, inputEmail)
@@ -812,19 +904,35 @@ func SetupAPIConfigCore(
 		return err
 	}
 
-	newConfig := &config.Config{
-		HostType:      hostType,
-		SelfhostedURL: selfhostedURL,
-		Email:         email,
-		Backend:       config.BackendAPI,
-	}
-	preserveSetupFields(newConfig, existingConfig)
-	// Ensure API backend remains selected even when no prior config existed.
-	if newConfig.Backend == "" {
-		newConfig.Backend = config.BackendAPI
+	section := strings.TrimSpace(targetSection)
+	if section == "" && existingConfig != nil {
+		if dh := existingConfig.DefaultHost(); dh != nil {
+			section = dh.TargetSection
+		}
 	}
 
-	if err := config.SaveConfig(newConfig); err != nil {
+	host, err := MapPromptHostToV2(hostType, selfhostedURL, email, section)
+	if err != nil {
+		return err
+	}
+	if existingConfig != nil {
+		if dh := existingConfig.DefaultHost(); dh != nil && host.ID == config.DefaultHostID {
+			host.ID = dh.ID
+		}
+	}
+
+	cfg := existingConfig
+	if cfg == nil {
+		cfg = config.NewEmptyConfig()
+	}
+	var priorHosts []config.Host
+	if existingConfig != nil {
+		priorHosts = append([]config.Host(nil), existingConfig.Settings.Hosts...)
+	}
+	UpsertDefaultHost(cfg, host)
+	preserveSetupFields(cfg, &config.Config{Settings: config.GlobalSettings{Hosts: priorHosts}})
+
+	if err := config.SaveConfig(cfg); err != nil {
 		return fmt.Errorf("failed to save configuration: %w", err)
 	}
 
@@ -833,7 +941,7 @@ func SetupAPIConfigCore(
 }
 
 // EnsureConfiguredFolderCore checks the configured Bitwarden folder and optionally creates it.
-// Does not auto-create from push/pull/list; intended for setup flows (bw and api).
+// Uses the resolved / default host target_section via ResolveFolderName.
 func EnsureConfiguredFolderCore(
 	bw BwClient,
 	cfg *config.Config,
@@ -845,6 +953,9 @@ func EnsureConfiguredFolderCore(
 		return fmt.Errorf("bitwarden client is required")
 	}
 	resolvedFolder := config.ResolveFolderName(cfg)
+	if h := cfg.DefaultHost(); h != nil && strings.TrimSpace(h.TargetSection) != "" {
+		resolvedFolder = h.TargetSection
+	}
 
 	var exists bool
 	err := WithUnlockRetry(bw, cfg, promptPassword, logger, nil, func() error {
@@ -878,7 +989,7 @@ func EnsureConfiguredFolderCore(
 	return nil
 }
 
-// SetupBitwardenCore は Bitwarden のセットアップを行うコアロジックです。
+// SetupBitwardenCore is removed in v0.20 (API-only). Kept as a stub that errors.
 func SetupBitwardenCore(
 	fs FileSystem,
 	bw BwClient,
@@ -889,74 +1000,9 @@ func SetupBitwardenCore(
 	inputPassword func() (string, error),
 	confirmCreateFolder func() (bool, error),
 ) error {
-	// 既存設定を読み込み
-	existingConfig, err := config.LoadConfig()
-	if err != nil {
-		return fmt.Errorf("failed to load existing config: %w", err)
-	}
-	if existingConfig != nil {
-		logger.Info("Existing configuration found. It will be overwritten.")
-	}
-
-	hostType, selfhostedURL, email, err := collectHostEmailConfig(selectHostType, inputURL, inputEmail)
-	if err != nil {
-		return err
-	}
-
-	// パスワードを入力
-	password, err := inputPassword()
-	if err != nil {
-		return fmt.Errorf("failed to get password: %w", err)
-	}
-
-	// ログイン
-	if err := bw.Login(email, password, selfhostedURL); err != nil {
-		return fmt.Errorf("failed to login: %w", err)
-	}
-
-	// 設定を保存（folder_name / backend / device_identifier は既存値を維持）
-	folderName := ""
-	if existingConfig != nil {
-		folderName = existingConfig.FolderName
-	}
-	newConfig := &config.Config{
-		HostType:      hostType,
-		SelfhostedURL: selfhostedURL,
-		Email:         email,
-		FolderName:    folderName,
-	}
-	preserveSetupFields(newConfig, existingConfig)
-	if err := config.SaveConfig(newConfig); err != nil {
-		return fmt.Errorf("failed to save configuration: %w", err)
-	}
-
-	resolvedFolder := config.ResolveFolderName(newConfig)
-
-	// 設定フォルダの存在確認
-	exists, err := bw.DotenvsFolderExists()
-	if err != nil {
-		// エラーが発生した場合はログを出力して続行（致命的ではない）
-		logger.Info("Could not check ", resolvedFolder, " folder: ", err.Error())
-		return nil
-	}
-
-	if !exists {
-		// フォルダがない場合、作成するか確認
-		confirmed, confirmErr := confirmCreateFolder()
-		if confirmErr != nil {
-			return fmt.Errorf("failed to confirm folder creation: %w", confirmErr)
-		}
-
-		if confirmed {
-			// フォルダを作成
-			if createErr := bw.CreateDotenvsFolder(); createErr != nil {
-				return fmt.Errorf("failed to create %s folder: %w", resolvedFolder, createErr)
-			}
-			logger.Info(resolvedFolder, " folder created successfully")
-		}
-	}
-
-	return nil
+	_, _, _, _, _, _, _ = fs, bw, logger, selectHostType, inputURL, inputEmail, inputPassword
+	_ = confirmCreateFolder
+	return fmt.Errorf("bw CLI setup path removed; v0.20+ uses API only — run `bwsf setup` then `bwsf auth`")
 }
 
 // parseEnvContent は .env ファイルの内容をパースします。
