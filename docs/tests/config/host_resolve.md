@@ -23,7 +23,7 @@ Issue: [#177](https://github.com/b4moss/bwsf/issues/177)
 | H5 | `hosts` 非空なのに default 無し／複数は **ロード時スキーマエラー**（本解決関数の前段。[`global_v2.md`](./global_v2.md)） |
 | H6 | プロジェクト `host` は **id 参照のみ**。グローバルに同 id が必要 |
 | H7 | #177 で `--host` を付けるコマンド: **`push` / `pull` / `list` / `clean`** |
-| H8 | `unlock` / `lock` の `--host` は [#153](https://github.com/b4moss/bwsf/issues/153) / [`../cmd/unlock_lock.md`](../cmd/unlock_lock.md)。`auth login` / `auth logout` は #174。解決関数は共有。**本仕様（#177）のコマンド登録テストは H7 のみ** |
+| H8 | `unlock` / `lock` の `--host` は [#153](https://github.com/b4moss/bwsf/issues/153) / [`../cmd/unlock_lock.md`](../cmd/unlock_lock.md)。`auth login` / `auth logout` は [#174](https://github.com/b4moss/bwsf/issues/174) / [`../cmd/auth_login_logout.md`](../cmd/auth_login_logout.md)。解決関数は共有。**本仕様（#177）のコマンド登録テストは H7 のみ** |
 
 ---
 
@@ -76,7 +76,7 @@ Issue: [#177](https://github.com/b4moss/bwsf/issues/177)
 
 - Keychain の host 単位キー → [`../infra/secretstore_hosts.md`](../infra/secretstore_hosts.md)（#153）
 - unlock / lock の CLI 登録 → [`../cmd/unlock_lock.md`](../cmd/unlock_lock.md)（#153）
-- auth login / logout（#174）
+- auth login / logout → [`../cmd/auth_login_logout.md`](../cmd/auth_login_logout.md)（#174）
 - `bwsf init` が書くプロジェクト `host`（#193）。本仕様は「読んだときの解決」のみ
 
 ---

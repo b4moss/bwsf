@@ -38,8 +38,8 @@ v0.20.0 §3（[#153](https://github.com/b4moss/bwsf/issues/153)）との関係:
 ### ClearSession
 
 - メモリ上の access_token（および refresh_token）と復号鍵を破棄する。
-- OS Keychain 上の Personal API Key は削除しない（それは `bwsf auth --clear` / 将来の `auth logout`）。
-- （§3）OS Keychain 上の **`vault_unlock` も削除しない**（それは `bwsf lock` / 将来の `auth logout`）。
+- OS Keychain 上の Personal API Key は削除しない（それは `bwsf auth logout`）。
+- （§3）OS Keychain 上の **`vault_unlock` も削除しない**（それは `bwsf lock` / `auth logout`）。
 - 複数回呼んでも安全（冪等）。
 
 #### テスト：正常系
