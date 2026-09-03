@@ -3,7 +3,6 @@ package utils
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"strings"
 )
 
@@ -39,47 +38,34 @@ func extractSessionKey(output string) string {
 
 // BwLogin executes bw login command and returns success status and error message
 func BwLogin(email, password, serverURL string) (bool, string) {
-	// Check if bw command exists
-	_, err := exec.LookPath("bw")
-	if err != nil {
-		return false, "bw command is not installed"
+	if err := requireBwInstalled(); err != nil {
+		return false, err.Error()
 	}
 
-	// Start spinner
 	StartSpinner("Logging in...")
 	defer StopSpinner()
 
-	// If self-hosted, configure server first
-	// But first check if we need to logout
 	if serverURL != "" {
-		// Check current server config
-		checkCmd := exec.Command("bw", "config", "server")
-		checkOutput, _ := checkCmd.CombinedOutput()
-		currentServer := strings.TrimSpace(string(checkOutput))
+		checkRes := runBw("bw", []string{"config", "server"}, bwRunOptions{})
+		currentServer := strings.TrimSpace(string(checkRes.Output))
 
-		// If server URL is different, logout first
 		if currentServer != "" && currentServer != serverURL {
-			logoutCmd := exec.Command("bw", "logout")
-			logoutCmd.Run() // Ignore errors, just try to logout
+			_ = runBw("bw", []string{"logout"}, bwRunOptions{})
 		}
 
-		configCmd := exec.Command("bw", "config", "server", serverURL)
-		configOutput, err := configCmd.CombinedOutput()
-		if err != nil {
-			errorMsg := strings.TrimSpace(string(configOutput))
+		configRes := runBw("bw", []string{"config", "server", serverURL}, bwRunOptions{})
+		if configRes.Err != nil {
+			errorMsg := strings.TrimSpace(string(configRes.Output))
 			if errorMsg == "" {
-				errorMsg = err.Error()
+				errorMsg = configRes.Err.Error()
 			}
-			// If error is about logout required, try logout and retry
 			if strings.Contains(errorMsg, "Logout required") {
-				logoutCmd := exec.Command("bw", "logout")
-				logoutCmd.Run() // Ignore errors
-				// Retry config
-				configOutput, err = configCmd.CombinedOutput()
-				if err != nil {
-					errorMsg = strings.TrimSpace(string(configOutput))
+				_ = runBw("bw", []string{"logout"}, bwRunOptions{})
+				configRes = runBw("bw", []string{"config", "server", serverURL}, bwRunOptions{})
+				if configRes.Err != nil {
+					errorMsg = strings.TrimSpace(string(configRes.Output))
 					if errorMsg == "" {
-						errorMsg = err.Error()
+						errorMsg = configRes.Err.Error()
 					}
 					return false, fmt.Sprintf("Failed to configure server: %s", errorMsg)
 				}
@@ -89,19 +75,15 @@ func BwLogin(email, password, serverURL string) (bool, string) {
 		}
 	}
 
-	// Prefer --raw so Docker / non-interactive runs get a session key.
 	args := []string{"login", email, password, "--raw"}
+	res := runBw("bw", args, bwRunOptions{})
+	outputStr := strings.TrimSpace(string(res.Output))
 
-	cmd := exec.Command("bw", args...)
-	output, err := cmd.CombinedOutput()
-	outputStr := strings.TrimSpace(string(output))
-
-	if err != nil {
+	if res.Err != nil {
 		errorMsg := outputStr
 		if errorMsg == "" {
-			errorMsg = err.Error()
+			errorMsg = res.Err.Error()
 		}
-		// Already logged in: try to unlock for a session instead of failing hard.
 		if strings.Contains(strings.ToLower(errorMsg), "already logged in") {
 			if session, unlockErr := unlockRaw(password); unlockErr == nil {
 				os.Setenv("BW_SESSION", session)
@@ -112,7 +94,6 @@ func BwLogin(email, password, serverURL string) (bool, string) {
 		return false, errorMsg
 	}
 
-	// --raw returns the session key on success
 	if session := extractSessionKey(outputStr); session != "" {
 		os.Setenv("BW_SESSION", session)
 		return true, ""
@@ -137,15 +118,14 @@ func unlockRaw(password string) (string, error) {
 		return "", fmt.Errorf("master password is empty")
 	}
 
-	cmd := exec.Command("bw", "unlock", "--raw", "--passwordenv", "BW_PASSWORD")
-	// Drop stale BW_SESSION / BW_PASSWORD so unlock is not confused by a prior session.
-	cmd.Env = append(environWithout("BW_PASSWORD", "BW_SESSION"), "BW_PASSWORD="+password)
-	out, err := cmd.CombinedOutput()
-	combined := strings.TrimSpace(string(out))
+	res := runBw("bw", []string{"unlock", "--raw", "--passwordenv", "BW_PASSWORD"}, bwRunOptions{
+		Env: append(environWithout("BW_PASSWORD", "BW_SESSION"), "BW_PASSWORD="+password),
+	})
+	combined := strings.TrimSpace(string(res.Output))
 	session := extractSessionKey(combined)
-	if err != nil {
+	if res.Err != nil {
 		if combined == "" {
-			return "", err
+			return "", res.Err
 		}
 		return "", fmt.Errorf("%s", combined)
 	}
@@ -186,7 +166,7 @@ func truncateForErr(s string) string {
 
 // CheckBwCommand checks if bw command is installed
 func CheckBwCommand() (bool, string) {
-	path, err := exec.LookPath("bw")
+	path, err := lookPath("bw")
 	if err != nil {
 		return false, ""
 	}

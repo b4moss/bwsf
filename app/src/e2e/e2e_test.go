@@ -7,7 +7,7 @@ import (
 
 	"bwsf/src/config"
 	"bwsf/src/core"
-	"bwsf/src/infra"
+	"bwsf/src/testutil"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -25,9 +25,9 @@ import (
 // 4. Pull (.envファイルをダウンロード)
 func TestE2E_FullWorkflow(t *testing.T) {
 	// モックを作成
-	bw := infra.NewMockBwClient()
-	fs := infra.NewMockFileSystem()
-	logger := infra.NewMockLogger()
+	bw := testutil.NewMockBwClient()
+	fs := testutil.NewMockFileSystem()
+	logger := testutil.NewMockLogger()
 
 	// テストデータをセットアップ
 	bw.SetupTestData()
@@ -128,9 +128,9 @@ DEBUG=true`
 
 // TestE2E_PushUpdate は既存アイテムの更新をテストします。
 func TestE2E_PushUpdate(t *testing.T) {
-	bw := infra.NewMockBwClient()
-	fs := infra.NewMockFileSystem()
-	logger := infra.NewMockLogger()
+	bw := testutil.NewMockBwClient()
+	fs := testutil.NewMockFileSystem()
+	logger := testutil.NewMockLogger()
 
 	bw.SetupTestData()
 
@@ -170,9 +170,9 @@ func TestE2E_PushUpdate(t *testing.T) {
 
 // TestE2E_MultipleProjects は複数プロジェクトの管理をテストします。
 func TestE2E_MultipleProjects(t *testing.T) {
-	bw := infra.NewMockBwClient()
-	fs := infra.NewMockFileSystem()
-	logger := infra.NewMockLogger()
+	bw := testutil.NewMockBwClient()
+	fs := testutil.NewMockFileSystem()
+	logger := testutil.NewMockLogger()
 
 	bw.SetupTestData()
 
@@ -219,9 +219,9 @@ func TestE2E_MultipleProjects(t *testing.T) {
 
 // TestE2E_PullNotFound は存在しないプロジェクトのPullをテストします。
 func TestE2E_PullNotFound(t *testing.T) {
-	bw := infra.NewMockBwClient()
-	fs := infra.NewMockFileSystem()
-	logger := infra.NewMockLogger()
+	bw := testutil.NewMockBwClient()
+	fs := testutil.NewMockFileSystem()
+	logger := testutil.NewMockLogger()
 
 	bw.SetupTestData()
 
@@ -246,9 +246,9 @@ func TestE2E_PullNotFound(t *testing.T) {
 
 // TestE2E_EnvDataFormat は.envファイルのJSON変換をテストします。
 func TestE2E_EnvDataFormat(t *testing.T) {
-	bw := infra.NewMockBwClient()
-	fs := infra.NewMockFileSystem()
-	logger := infra.NewMockLogger()
+	bw := testutil.NewMockBwClient()
+	fs := testutil.NewMockFileSystem()
+	logger := testutil.NewMockLogger()
 
 	bw.SetupTestData()
 
@@ -305,9 +305,9 @@ FEATURE_BETA=false`
 
 // TestE2E_LockedVault はロック状態のVaultへのアクセスをテストします。
 func TestE2E_LockedVault(t *testing.T) {
-	bw := infra.NewMockBwClient()
-	fs := infra.NewMockFileSystem()
-	logger := infra.NewMockLogger()
+	bw := testutil.NewMockBwClient()
+	fs := testutil.NewMockFileSystem()
+	logger := testutil.NewMockLogger()
 
 	bw.SetupTestData()
 	bw.SetUnlocked(false) // ロック状態にする

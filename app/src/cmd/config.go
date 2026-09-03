@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"os"
 
 	"bwsf/src/config"
 	"bwsf/src/utils"
@@ -32,7 +31,8 @@ func runConfigShow(cmd *cobra.Command, args []string) {
 	text, err := config.LoadConfigShowText()
 	if err != nil {
 		utils.Errorln("[ERROR]", err)
-		os.Exit(1)
+		exitFunc(1)
+		return
 	}
 	fmt.Print(text)
 }
