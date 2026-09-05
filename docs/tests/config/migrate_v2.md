@@ -117,7 +117,7 @@ Issue: [#177](https://github.com/b4moss/bwsf/issues/177)
 
 ## 5. 対象外
 
-- Keychain キーの移行／読み替え（#153）
+- Keychain キーの移行／読み替え → [`../infra/secretstore_hosts.md`](../infra/secretstore_hosts.md)（#153）
 - プロジェクト `.bwsf` の `not_save_files` 自動変換（手動で `save_files` + `!` へ。残存はスキーマエラー）
 - `bwsf init` → [`../cmd/init.md`](../cmd/init.md)（#193）
 

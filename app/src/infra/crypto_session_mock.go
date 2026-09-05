@@ -8,10 +8,15 @@ import (
 
 // MockCryptoSession is a test double for CryptoSession with an in-memory vault.
 type MockCryptoSession struct {
-	UnlockErr error
-	SyncErr   error
-	unlocked  bool
-	Calls     []string
+	UnlockErr  error
+	SyncErr    error
+	ExportErr  error
+	RestoreErr error
+	ExportBlob string // optional fixed blob returned by ExportUnlockBlob
+	unlocked   bool
+	Calls      []string
+	LastBlob   string
+	LastMP     string // last UnlockWithPassword password (tests: must not appear in blob)
 
 	Folders []VaultFolder
 	Items   []VaultItem
@@ -24,9 +29,9 @@ func (m *MockCryptoSession) UnlockWithPassword(ctx context.Context, email, passw
 	m.Calls = append(m.Calls, "UnlockWithPassword")
 	_ = ctx
 	_ = email
-	_ = password
 	_ = serverURL
 	_ = device
+	m.LastMP = password
 	if m.UnlockErr != nil {
 		return m.UnlockErr
 	}
@@ -41,6 +46,43 @@ func (m *MockCryptoSession) Lock() {
 
 func (m *MockCryptoSession) Unlocked() bool {
 	return m.unlocked
+}
+
+func (m *MockCryptoSession) ExportUnlockBlob(ctx context.Context) (string, error) {
+	m.Calls = append(m.Calls, "ExportUnlockBlob")
+	_ = ctx
+	if !m.unlocked {
+		return "", fmt.Errorf("not unlocked")
+	}
+	if m.ExportErr != nil {
+		return "", m.ExportErr
+	}
+	if m.ExportBlob != "" {
+		return m.ExportBlob, nil
+	}
+	// Opaque mock blob: never embeds the master password.
+	return "v1:mock-unlock-blob", nil
+}
+
+func (m *MockCryptoSession) RestoreUnlockBlob(ctx context.Context, blob, serverURL string) error {
+	m.Calls = append(m.Calls, "RestoreUnlockBlob")
+	_ = ctx
+	_ = serverURL
+	m.LastBlob = blob
+	if m.RestoreErr != nil {
+		return m.RestoreErr
+	}
+	if strings.TrimSpace(blob) == "" {
+		return fmt.Errorf("empty unlock blob")
+	}
+	if blob == "invalid" || strings.HasPrefix(blob, "bad:") {
+		return fmt.Errorf("invalid unlock blob")
+	}
+	if strings.HasPrefix(blob, "v") && !strings.HasPrefix(blob, "v1:") {
+		return fmt.Errorf("unknown unlock blob version")
+	}
+	m.unlocked = true
+	return nil
 }
 
 func (m *MockCryptoSession) requireUnlocked() error {

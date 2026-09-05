@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 
+	"bwsf/src/config"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -16,7 +18,7 @@ func TestApiBwClient_Unlock_SuccessAndClearSession(t *testing.T) {
 	withTempHome(t)
 
 	store := NewMemorySecretStore()
-	_ = SaveAPICredentials(store, APICredentials{ClientID: "user.cid", ClientSecret: "sec"})
+	_ = SaveAPICredentials(store, config.DefaultHostID, APICredentials{ClientID: "user.cid", ClientSecret: "sec"})
 	identity := &IdentityClient{
 		HTTPClient: &http.Client{
 			Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
@@ -55,7 +57,7 @@ func TestApiBwClient_Unlock_SuccessAndClearSession(t *testing.T) {
 	assert.False(t, client.IsUnlocked())
 	assert.Contains(t, crypto.Calls, "Lock")
 
-	_ = SaveAPICredentials(store, APICredentials{ClientID: "user.cid", ClientSecret: "sec"})
+	_ = SaveAPICredentials(store, config.DefaultHostID, APICredentials{ClientID: "user.cid", ClientSecret: "sec"})
 	require.NoError(t, client.Authenticate(context.Background()))
 	assert.True(t, client.IsAuthenticated())
 }
@@ -75,7 +77,7 @@ func TestApiBwClient_Unlock_EmptyPassword(t *testing.T) {
 func TestApiBwClient_Unlock_MissingEmail(t *testing.T) {
 	withTempHome(t)
 	store := NewMemorySecretStore()
-	_ = SaveAPICredentials(store, APICredentials{ClientID: "user.cid", ClientSecret: "sec"})
+	_ = SaveAPICredentials(store, config.DefaultHostID, APICredentials{ClientID: "user.cid", ClientSecret: "sec"})
 	identity := &IdentityClient{
 		HTTPClient: &http.Client{
 			Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
@@ -98,7 +100,7 @@ func TestApiBwClient_Unlock_MissingEmail(t *testing.T) {
 func TestApiBwClient_Unlock_CryptoFailure(t *testing.T) {
 	withTempHome(t)
 	store := NewMemorySecretStore()
-	_ = SaveAPICredentials(store, APICredentials{ClientID: "user.cid", ClientSecret: "sec"})
+	_ = SaveAPICredentials(store, config.DefaultHostID, APICredentials{ClientID: "user.cid", ClientSecret: "sec"})
 	identity := &IdentityClient{
 		HTTPClient: &http.Client{
 			Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {

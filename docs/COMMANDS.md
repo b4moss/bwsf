@@ -12,6 +12,8 @@
 | `bwsf setup` | ホスト / グローバル `save_files` 設定（Login なし。認証は `auth`） | `--folder` `--host-type` `--url` `--email` `--skip-host` `--save-files` `--yes` |
 | `bwsf init` | プロジェクト `.bwsf/config.jsonc` を生成（グローバル設定が必要。`hosts: []` 可） | `--host` `--skip-host` `--save-files` `--override-project-name` `--yes` |
 | `bwsf auth` | Personal API Key の保存・認証 | `--clear` `--host` |
+| `bwsf unlock` | 解決 host の vault セッションを Unlock し `vault_unlock` を Keychain に保存 | `--host` |
+| `bwsf lock` | 解決 host の `vault_unlock` を削除（API Key は残す） | `--host` `--all` |
 | `bwsf config show` | ローカル設定（`~/.config/bwsf/config.jsonc`）の表示 | （なし） |
 | `bwsf push` | 管理対象ファイルを Bitwarden へプッシュ | `--from` `--host` |
 | `bwsf pull` | Bitwarden から管理対象ファイルを取得 | `--output` `--host` |
