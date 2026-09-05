@@ -156,6 +156,76 @@ func FindProjectConfigPaths(cwd string) ([]string, error) {
 	return paths, nil
 }
 
+// GetProjectConfigWritePath returns dir/.bwsf/config.jsonc (always the write target).
+func GetProjectConfigWritePath(dir string) string {
+	return filepath.Join(dir, projectConfigDir, projectConfigJSONC)
+}
+
+// FindLocalProjectConfigFiles returns existing .bwsf/config.json and/or .jsonc under dir (cwd only).
+func FindLocalProjectConfigFiles(dir string) (jsonPath, jsoncPath string, err error) {
+	abs, err := filepath.Abs(dir)
+	if err != nil {
+		return "", "", err
+	}
+	bwsfDir := filepath.Join(abs, projectConfigDir)
+	jp := filepath.Join(bwsfDir, projectConfigJSON)
+	jcp := filepath.Join(bwsfDir, projectConfigJSONC)
+	if fileExists(jp) {
+		jsonPath = jp
+	}
+	if fileExists(jcp) {
+		jsoncPath = jcp
+	}
+	return jsonPath, jsoncPath, nil
+}
+
+// LocalProjectConfigExists reports whether dir/.bwsf/config.json or .jsonc exists.
+func LocalProjectConfigExists(dir string) bool {
+	jsonPath, jsoncPath, err := FindLocalProjectConfigFiles(dir)
+	if err != nil {
+		return false
+	}
+	return jsonPath != "" || jsoncPath != ""
+}
+
+// SaveProjectConfig writes project config as .bwsf/config.jsonc under dir and
+// removes a sibling config.json if present (same pattern as SaveConfig).
+func SaveProjectConfig(dir string, pc *ProjectConfig) error {
+	if pc == nil {
+		return fmt.Errorf("project config is nil")
+	}
+	pc.Normalize()
+	if err := pc.Validate(); err != nil {
+		return err
+	}
+
+	abs, err := filepath.Abs(dir)
+	if err != nil {
+		return err
+	}
+	bwsfDir := filepath.Join(abs, projectConfigDir)
+	if err := mkdirAll(bwsfDir, 0755); err != nil {
+		return fmt.Errorf("failed to create .bwsf directory: %w", err)
+	}
+
+	data, err := json.MarshalIndent(pc, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal project config: %w", err)
+	}
+	data = append(data, '\n')
+
+	jsoncPath := filepath.Join(bwsfDir, projectConfigJSONC)
+	if err := writeFile(jsoncPath, data, 0600); err != nil {
+		return fmt.Errorf("failed to write project config: %w", err)
+	}
+
+	jsonPath := filepath.Join(bwsfDir, projectConfigJSON)
+	if fileExists(jsonPath) {
+		_ = os.Remove(jsonPath)
+	}
+	return nil
+}
+
 // ResolveProjectConfig finds and loads project config for cwd.
 func ResolveProjectConfig(cwd string, selectPath PathSelector) (*ProjectConfig, string, error) {
 	paths, err := FindProjectConfigPaths(cwd)

@@ -57,6 +57,29 @@ bwsf setup --folder my-envs
 | `--yes` | 確認をすべて yes とみなす（フォルダ作成、レガシー移行など） |
 | `--folder` | ホストの `target_section`（デフォルト: `dotenvs`） |
 
+## bwsf init
+
+**カレントディレクトリ**に `.bwsf/config.jsonc` を生成します（git root へは自動上昇しません）。
+
+```bash
+bwsf init
+bwsf init --skip-host --yes
+bwsf init --host default --save-files '.env*,!.env.local' --override-project-name my-api
+```
+
+グローバル設定が必要です（`bwsf setup`。`hosts: []` 可）。プロジェクトの `host` はグローバル `hosts[]` への id 参照のみ。既存ファイルがある場合は上書き確認（`--yes` でスキップ）。
+
+### 非対話フラグ
+
+| フラグ | 説明 |
+|---|---|
+| `--host <id>` | プロジェクト `host`（グローバルに存在する id） |
+| `--skip-host` | プロジェクト `host` を書かない |
+| `--save-files` | プロジェクト `save_files` glob（`!` = 除外） |
+| `--override-project-name` | プロジェクト名の上書き（空ならキー省略） |
+| `--yes` | 上書き確認をスキップ |
+
+
 ## bwsf auth
 
 Personal API Key 認証を管理します。引数なしの `bwsf auth` はヘルプのみです。

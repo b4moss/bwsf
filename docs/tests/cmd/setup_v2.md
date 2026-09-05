@@ -98,7 +98,7 @@ Issue: [#177](https://github.com/b4moss/bwsf/issues/177)
 
 - `auth login` / `logout` 本体（#174 → [`auth_login_logout.md`](./auth_login_logout.md)）
 - Keychain 書き込み（setup は設定ファイルのみ）
-- `bwsf init`（#193）
+- `bwsf init` → [`init.md`](./init.md)（#193）
 
 ---
 

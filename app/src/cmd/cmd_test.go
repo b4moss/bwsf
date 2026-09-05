@@ -72,6 +72,31 @@ func TestSetupCmd_Registered(t *testing.T) {
 	assert.True(t, found)
 }
 
+func TestInitCmd_Registered(t *testing.T) {
+	assert.NotNil(t, initCmd)
+	assert.Equal(t, "init", initCmd.Use)
+	found := false
+	for _, cmd := range rootCmd.Commands() {
+		if cmd.Use == "init" {
+			found = true
+			break
+		}
+	}
+	assert.True(t, found, "init command should be registered")
+}
+
+func TestInitCmd_NonInteractiveFlags(t *testing.T) {
+	for _, name := range []string{"host", "skip-host", "save-files", "override-project-name"} {
+		assert.NotNil(t, initCmd.Flags().Lookup(name), "missing flag --%s", name)
+	}
+}
+
+func TestInitCmd_Description(t *testing.T) {
+	assert.NotEmpty(t, initCmd.Short)
+	assert.NotEmpty(t, initCmd.Long)
+	assert.Contains(t, initCmd.Long, "bwsf setup")
+}
+
 func TestBackendCmd_Registered(t *testing.T) {
 	assert.NotNil(t, backendCmd)
 	assert.Equal(t, "backend", backendCmd.Use)
