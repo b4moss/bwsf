@@ -37,10 +37,16 @@ func stubCmdDeps(t *testing.T, bw core.BwClient, fs core.FileSystem) *exitRecord
 	origFS := newFileSystem
 	origLog := newLogger
 	origSess := newSessionStore
+	origStore := newSecretStore
+	origUnlock := newUnlockClient
+	origAuth := newAuthClient
 	origExit := exitFunc
 	origConfirm := confirmOverwrite
 	origSelect := selectCleanMismatch
 	origPass := inputPassword
+	origReuse := confirmAPIKeyReuse
+	origCID := inputAPIClientID
+	origCSec := inputAPIClientSecret
 
 	rec := &exitRecorder{}
 	checkBwInstalled = func() (bool, string) { return true, "/mock/bw" }
@@ -65,6 +71,9 @@ func stubCmdDeps(t *testing.T, bw core.BwClient, fs core.FileSystem) *exitRecord
 	selectCleanMismatch = func(mismatchedFiles []string) (string, error) {
 		return utils.CleanMismatchAbort, nil
 	}
+	confirmAPIKeyReuse = func(string) (bool, error) { return false, nil }
+	inputAPIClientID = func() (string, error) { return "test.client.id", nil }
+	inputAPIClientSecret = func() (string, error) { return "test-client-secret", nil }
 
 	t.Cleanup(func() {
 		checkBwInstalled = origCheck
@@ -74,10 +83,16 @@ func stubCmdDeps(t *testing.T, bw core.BwClient, fs core.FileSystem) *exitRecord
 		newFileSystem = origFS
 		newLogger = origLog
 		newSessionStore = origSess
+		newSecretStore = origStore
+		newUnlockClient = origUnlock
+		newAuthClient = origAuth
 		exitFunc = origExit
 		confirmOverwrite = origConfirm
 		selectCleanMismatch = origSelect
 		inputPassword = origPass
+		confirmAPIKeyReuse = origReuse
+		inputAPIClientID = origCID
+		inputAPIClientSecret = origCSec
 	})
 	return rec
 }
@@ -454,4 +469,375 @@ func TestRunConfigShow_NoConfig(t *testing.T) {
 	runConfigShow(configShowCmd, nil)
 	assert.True(t, rec.called)
 	assert.Equal(t, 1, rec.code)
+}
+
+func resetInitFlags(t *testing.T) {
+	t.Helper()
+	initHost = ""
+	initSkipHost = false
+	initSaveFiles = nil
+	initOverrideProjectName = ""
+	initOverrideFlagSet = false
+	migrateYes = false
+	if f := initCmd.Flags().Lookup("override-project-name"); f != nil {
+		f.Changed = false
+	}
+}
+
+func setInitOverrideFlag(t *testing.T, value string) {
+	t.Helper()
+	require.NoError(t, initCmd.Flags().Set("override-project-name", value))
+	initOverrideProjectName = value
+	initOverrideFlagSet = true
+}
+
+func readProjectConfigCWD(t *testing.T, dir string) *config.ProjectConfig {
+	t.Helper()
+	pc, err := config.LoadProjectConfigFile(config.GetProjectConfigWritePath(dir))
+	require.NoError(t, err)
+	return pc
+}
+
+func TestRunInit_NoGlobalConfig(t *testing.T) {
+	withTempHome(t)
+	dir, _ := chdirTempProject(t)
+	rec := stubCmdDeps(t, nil, nil)
+	resetInitFlags(t)
+	t.Cleanup(func() { resetInitFlags(t) })
+
+	initSkipHost = true
+	migrateYes = true
+	runInit(initCmd, nil)
+
+	assert.True(t, rec.called)
+	assert.Equal(t, 1, rec.code)
+	assert.NoFileExists(t, config.GetProjectConfigWritePath(dir))
+	_, err := os.Stat(filepath.Join(dir, ".bwsf"))
+	assert.True(t, os.IsNotExist(err))
+}
+
+func TestRunInit_EmptyHosts(t *testing.T) {
+	withTempHome(t)
+	require.NoError(t, config.SaveConfig(config.NewEmptyConfig()))
+	dir, _ := chdirTempProject(t)
+	rec := stubCmdDeps(t, nil, nil)
+	resetInitFlags(t)
+	t.Cleanup(func() { resetInitFlags(t) })
+
+	initSkipHost = true
+	migrateYes = true
+	runInit(initCmd, nil)
+
+	assert.False(t, rec.called)
+	pc := readProjectConfigCWD(t, dir)
+	assert.Empty(t, pc.Host)
+	assert.Empty(t, pc.SaveFiles)
+	assert.Empty(t, pc.OverrideProjectName)
+}
+
+func TestRunInit_HostSelect(t *testing.T) {
+	withTempHome(t)
+	cfg := config.NewEmptyConfig()
+	cfg.Settings.Hosts = []config.Host{
+		{ID: "default", Type: config.HostTypeCloud, HostURL: config.DefaultCloudURL, Email: "a@b.c", TargetSection: "dotenvs", IsDefault: true},
+		{ID: "work", Type: config.HostTypeCloud, HostURL: config.DefaultCloudURL, Email: "w@b.c", TargetSection: "dotenvs"},
+	}
+	require.NoError(t, config.SaveConfig(cfg))
+	dir, _ := chdirTempProject(t)
+	rec := stubCmdDeps(t, nil, nil)
+	resetInitFlags(t)
+	t.Cleanup(func() { resetInitFlags(t) })
+
+	initHost = "work"
+	migrateYes = true
+	runInit(initCmd, nil)
+
+	assert.False(t, rec.called)
+	pc := readProjectConfigCWD(t, dir)
+	assert.Equal(t, "work", pc.Host)
+}
+
+func TestRunInit_SkipHost(t *testing.T) {
+	withTempHome(t)
+	writeMinimalConfig(t)
+	dir, _ := chdirTempProject(t)
+	rec := stubCmdDeps(t, nil, nil)
+	resetInitFlags(t)
+	t.Cleanup(func() { resetInitFlags(t) })
+
+	initSkipHost = true
+	migrateYes = true
+	runInit(initCmd, nil)
+
+	assert.False(t, rec.called)
+	pc := readProjectConfigCWD(t, dir)
+	assert.Empty(t, pc.Host)
+}
+
+func TestRunInit_UnknownHost(t *testing.T) {
+	withTempHome(t)
+	writeMinimalConfig(t)
+	dir, _ := chdirTempProject(t)
+	rec := stubCmdDeps(t, nil, nil)
+	resetInitFlags(t)
+	t.Cleanup(func() { resetInitFlags(t) })
+
+	initHost = "missing"
+	migrateYes = true
+	runInit(initCmd, nil)
+
+	assert.True(t, rec.called)
+	assert.Equal(t, 1, rec.code)
+	assert.NoFileExists(t, config.GetProjectConfigWritePath(dir))
+}
+
+func TestRunInit_SaveFilesAndOverride(t *testing.T) {
+	withTempHome(t)
+	require.NoError(t, config.SaveConfig(config.NewEmptyConfig()))
+	dir, _ := chdirTempProject(t)
+	rec := stubCmdDeps(t, nil, nil)
+	resetInitFlags(t)
+	t.Cleanup(func() { resetInitFlags(t) })
+
+	initSkipHost = true
+	initSaveFiles = []string{".env*", "!.env.local"}
+	setInitOverrideFlag(t, "my-api")
+	migrateYes = true
+	runInit(initCmd, nil)
+
+	assert.False(t, rec.called)
+	pc := readProjectConfigCWD(t, dir)
+	assert.Equal(t, []string{".env*", "!.env.local"}, pc.SaveFiles)
+	assert.Equal(t, "my-api", pc.OverrideProjectName)
+}
+
+func TestRunInit_OverwriteYes(t *testing.T) {
+	withTempHome(t)
+	require.NoError(t, config.SaveConfig(config.NewEmptyConfig()))
+	dir, _ := chdirTempProject(t)
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, ".bwsf"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, ".bwsf", "config.jsonc"), []byte(`{"host":"old"}`), 0o600))
+
+	rec := stubCmdDeps(t, nil, nil)
+	resetInitFlags(t)
+	t.Cleanup(func() { resetInitFlags(t) })
+
+	initSkipHost = true
+	migrateYes = true
+	runInit(initCmd, nil)
+
+	assert.False(t, rec.called)
+	pc := readProjectConfigCWD(t, dir)
+	assert.Empty(t, pc.Host)
+}
+
+func TestRunInit_OverwriteConfirmNo(t *testing.T) {
+	withTempHome(t)
+	require.NoError(t, config.SaveConfig(config.NewEmptyConfig()))
+	dir, _ := chdirTempProject(t)
+	existing := filepath.Join(dir, ".bwsf", "config.jsonc")
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, ".bwsf"), 0o755))
+	require.NoError(t, os.WriteFile(existing, []byte(`{"host":"keep"}`), 0o600))
+
+	origConfirm := confirmInitOverwrite
+	confirmInitOverwrite = func(string) (bool, error) { return false, nil }
+	t.Cleanup(func() { confirmInitOverwrite = origConfirm })
+
+	rec := stubCmdDeps(t, nil, nil)
+	resetInitFlags(t)
+	t.Cleanup(func() { resetInitFlags(t) })
+
+	initSkipHost = true
+	runInit(initCmd, nil)
+
+	assert.True(t, rec.called)
+	data, err := os.ReadFile(existing)
+	require.NoError(t, err)
+	assert.Contains(t, string(data), "keep")
+}
+
+func TestRunInit_OverwriteConfirmYesConvertsJSON(t *testing.T) {
+	withTempHome(t)
+	require.NoError(t, config.SaveConfig(config.NewEmptyConfig()))
+	dir, _ := chdirTempProject(t)
+	bwsf := filepath.Join(dir, ".bwsf")
+	require.NoError(t, os.MkdirAll(bwsf, 0o755))
+	jsonPath := filepath.Join(bwsf, "config.json")
+	require.NoError(t, os.WriteFile(jsonPath, []byte(`{"host":"old"}`), 0o600))
+
+	origConfirm := confirmInitOverwrite
+	confirmInitOverwrite = func(string) (bool, error) { return true, nil }
+	t.Cleanup(func() { confirmInitOverwrite = origConfirm })
+
+	rec := stubCmdDeps(t, nil, nil)
+	resetInitFlags(t)
+	t.Cleanup(func() { resetInitFlags(t) })
+
+	initSkipHost = true
+	runInit(initCmd, nil)
+
+	assert.False(t, rec.called)
+	require.FileExists(t, config.GetProjectConfigWritePath(dir))
+	assert.NoFileExists(t, jsonPath)
+}
+
+func TestRunInit_WritesCWDNotGitRoot(t *testing.T) {
+	withTempHome(t)
+	require.NoError(t, config.SaveConfig(config.NewEmptyConfig()))
+
+	repo := t.TempDir()
+	require.NoError(t, os.Mkdir(filepath.Join(repo, ".git"), 0o755))
+	sub := filepath.Join(repo, "app")
+	require.NoError(t, os.MkdirAll(sub, 0o755))
+
+	orig, err := os.Getwd()
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = os.Chdir(orig) })
+	require.NoError(t, os.Chdir(sub))
+
+	rec := stubCmdDeps(t, nil, nil)
+	resetInitFlags(t)
+	t.Cleanup(func() { resetInitFlags(t) })
+
+	initSkipHost = true
+	migrateYes = true
+	runInit(initCmd, nil)
+
+	assert.False(t, rec.called)
+	require.FileExists(t, config.GetProjectConfigWritePath(sub))
+	assert.NoFileExists(t, config.GetProjectConfigWritePath(repo))
+}
+
+func TestRunInit_InteractiveHostAndSaveFiles(t *testing.T) {
+	withTempHome(t)
+	cfg := config.NewEmptyConfig()
+	cfg.Settings.Hosts = []config.Host{
+		{ID: "default", Type: config.HostTypeCloud, HostURL: config.DefaultCloudURL, Email: "a@b.c", TargetSection: "dotenvs", IsDefault: true},
+		{ID: "work", Type: config.HostTypeCloud, HostURL: config.DefaultCloudURL, Email: "w@b.c", TargetSection: "dotenvs"},
+	}
+	require.NoError(t, config.SaveConfig(cfg))
+	dir, _ := chdirTempProject(t)
+
+	origSelectHost := selectInitHostID
+	origSF := selectSaveFilesAction
+	origGlobs := inputSaveFilesGlobs
+	origOV := selectOverrideNameAction
+	selectInitHostID = func(*config.Config) (string, error) { return "work", nil }
+	selectSaveFilesAction = func() (string, error) { return "set", nil }
+	inputSaveFilesGlobs = func() ([]string, error) { return []string{".env*", "!.env.local"}, nil }
+	selectOverrideNameAction = func() (string, error) { return "unset", nil }
+	t.Cleanup(func() {
+		selectInitHostID = origSelectHost
+		selectSaveFilesAction = origSF
+		inputSaveFilesGlobs = origGlobs
+		selectOverrideNameAction = origOV
+	})
+
+	rec := stubCmdDeps(t, nil, nil)
+	resetInitFlags(t)
+	t.Cleanup(func() { resetInitFlags(t) })
+
+	runInit(initCmd, nil)
+
+	assert.False(t, rec.called)
+	pc := readProjectConfigCWD(t, dir)
+	assert.Equal(t, "work", pc.Host)
+	assert.Equal(t, []string{".env*", "!.env.local"}, pc.SaveFiles)
+	assert.Empty(t, pc.OverrideProjectName)
+}
+
+func TestRunInit_InteractiveSkipHost(t *testing.T) {
+	withTempHome(t)
+	writeMinimalConfig(t)
+	dir, _ := chdirTempProject(t)
+
+	origSelectHost := selectInitHostID
+	origSF := selectSaveFilesAction
+	origOV := selectOverrideNameAction
+	origInput := inputOverrideProjectName
+	selectInitHostID = func(*config.Config) (string, error) { return "", nil }
+	selectSaveFilesAction = func() (string, error) { return "unset", nil }
+	selectOverrideNameAction = func() (string, error) { return "set", nil }
+	inputOverrideProjectName = func() (string, error) { return "my-api", nil }
+	t.Cleanup(func() {
+		selectInitHostID = origSelectHost
+		selectSaveFilesAction = origSF
+		selectOverrideNameAction = origOV
+		inputOverrideProjectName = origInput
+	})
+
+	rec := stubCmdDeps(t, nil, nil)
+	resetInitFlags(t)
+	t.Cleanup(func() { resetInitFlags(t) })
+
+	runInit(initCmd, nil)
+
+	assert.False(t, rec.called)
+	pc := readProjectConfigCWD(t, dir)
+	assert.Empty(t, pc.Host)
+	assert.Equal(t, "my-api", pc.OverrideProjectName)
+}
+
+func TestRunInit_EmptyHosts_NoHostPrompt(t *testing.T) {
+	withTempHome(t)
+	require.NoError(t, config.SaveConfig(config.NewEmptyConfig()))
+	dir, _ := chdirTempProject(t)
+
+	hostCalled := false
+	origSelectHost := selectInitHostID
+	origSF := selectSaveFilesAction
+	origOV := selectOverrideNameAction
+	selectInitHostID = func(*config.Config) (string, error) {
+		hostCalled = true
+		return "", nil
+	}
+	selectSaveFilesAction = func() (string, error) { return "unset", nil }
+	selectOverrideNameAction = func() (string, error) { return "unset", nil }
+	t.Cleanup(func() {
+		selectInitHostID = origSelectHost
+		selectSaveFilesAction = origSF
+		selectOverrideNameAction = origOV
+	})
+
+	rec := stubCmdDeps(t, nil, nil)
+	resetInitFlags(t)
+	t.Cleanup(func() { resetInitFlags(t) })
+
+	runInit(initCmd, nil)
+
+	assert.False(t, rec.called)
+	assert.False(t, hostCalled)
+	assert.Empty(t, readProjectConfigCWD(t, dir).Host)
+}
+
+func TestRunInit_EmptySaveFilesGlobsUnset(t *testing.T) {
+	withTempHome(t)
+	writeMinimalConfig(t)
+	dir, _ := chdirTempProject(t)
+
+	origSelectHost := selectInitHostID
+	origSF := selectSaveFilesAction
+	origGlobs := inputSaveFilesGlobs
+	origOV := selectOverrideNameAction
+	selectInitHostID = func(*config.Config) (string, error) { return "", nil }
+	selectSaveFilesAction = func() (string, error) { return "set", nil }
+	inputSaveFilesGlobs = func() ([]string, error) { return []string{"  ", ","}, nil }
+	selectOverrideNameAction = func() (string, error) { return "unset", nil }
+	t.Cleanup(func() {
+		selectInitHostID = origSelectHost
+		selectSaveFilesAction = origSF
+		inputSaveFilesGlobs = origGlobs
+		selectOverrideNameAction = origOV
+	})
+
+	rec := stubCmdDeps(t, nil, nil)
+	resetInitFlags(t)
+	t.Cleanup(func() { resetInitFlags(t) })
+
+	runInit(initCmd, nil)
+
+	assert.False(t, rec.called)
+	data, err := os.ReadFile(config.GetProjectConfigWritePath(dir))
+	require.NoError(t, err)
+	assert.NotContains(t, string(data), "save_files")
 }

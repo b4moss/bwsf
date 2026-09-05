@@ -6,8 +6,11 @@ Current product commands (v0.20.0). A compact inventory also lives in [`docs/COM
 
 | Command | Description | Main flags |
 |---|---|---|
-| `bwsf setup` | Configure hosts and global `save_files` (no login; use `auth`) | `--folder` `--host-type` `--url` `--email` `--skip-host` `--save-files` `--yes` |
-| `bwsf auth` | Store Personal API Key and authenticate | `--clear` `--host` |
+| `bwsf setup` | Configure hosts and global `save_files` (no login; use `auth login`) | `--folder` `--host-type` `--url` `--email` `--skip-host` `--save-files` `--yes` |
+| `bwsf auth login` | Store API Key, verify Identity, unlock vault | `--host` |
+| `bwsf auth logout` | Remove API Key and `vault_unlock` | `--host` `--all` |
+| `bwsf unlock` | Unlock vault session and persist `vault_unlock` | `--host` |
+| `bwsf lock` | Clear `vault_unlock` (keeps API Key) | `--host` `--all` |
 | `bwsf config show` | Show current local configuration | — |
 | `bwsf push` | Push managed files (`.env*`, `*.tfvars`, `*.tfvars.json`) to Bitwarden | `--from` `--host` |
 | `bwsf pull` | Pull managed files from Bitwarden | `--output` `--host` |
@@ -40,7 +43,7 @@ bwsf setup --folder my-envs
 
 Renaming does **not** migrate existing notes.
 
-`setup` does **not** log in with a master password. Run `bwsf auth` afterward.
+`setup` does **not** log in with a master password. Run `bwsf auth login` afterward.
 
 ### Non-interactive flags
 
@@ -54,17 +57,43 @@ Renaming does **not** migrate existing notes.
 | `--yes` | Assume yes for confirmations (folder create, legacy migration) |
 | `--folder` | Host `target_section` (default: `dotenvs`) |
 
-## bwsf auth
+## bwsf init
 
-Store a Personal API Key and obtain an Identity token.
+Create `./.bwsf/config.jsonc` in the **current directory** (does not walk up to a git root).
 
 ```bash
-bwsf auth
-bwsf auth --clear
-bwsf auth --host work
+bwsf init
+bwsf init --skip-host --yes
+bwsf init --host default --save-files '.env*,!.env.local' --override-project-name my-api
 ```
 
-Prompts for `client_id` / `client_secret`, stores them in the OS secret store (**macOS Keychain** / **Linux secret service**), and obtains an Identity access token (kept in memory for the process). Create a key under Account Settings → Security → Keys.
+Requires an existing global config (`bwsf setup`; `hosts: []` is OK). Optional project `host` is an id reference into global `hosts[]`. Existing project config prompts for overwrite unless `--yes`.
+
+### Non-interactive flags
+
+| Flag | Description |
+|---|---|
+| `--host <id>` | Write project `host` (must exist in global config) |
+| `--skip-host` | Omit project `host` |
+| `--save-files` | Project `save_files` globs (`!` = exclude) |
+| `--override-project-name` | Project name override (empty omits the key) |
+| `--yes` | Skip overwrite confirmation |
+
+
+## bwsf auth
+
+Manage Personal API Key authentication. Bare `bwsf auth` prints help only.
+
+```bash
+bwsf auth login
+bwsf auth login --host work
+bwsf auth logout
+bwsf auth logout --all
+```
+
+`auth login` prompts for `client_id` / `client_secret` (or reuses a stored key), verifies Identity, then unlocks the vault and persists `vault_unlock` (same outcome as `bwsf unlock`). Create a key under Account Settings → Security → Keys.
+
+`auth logout` removes the API Key **and** `vault_unlock` for the resolved host. `bwsf lock` clears only the vault session.
 
 ## bwsf config show
 

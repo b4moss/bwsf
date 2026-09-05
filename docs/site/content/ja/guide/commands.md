@@ -6,8 +6,11 @@
 
 | コマンド | 説明 | 主なフラグ |
 |---|---|---|
-| `bwsf setup` | ホストとグローバル `save_files` の設定（ログインなし。`auth` を使用） | `--folder` `--host-type` `--url` `--email` `--skip-host` `--save-files` `--yes` |
-| `bwsf auth` | Personal API Key の保存と認証 | `--clear` `--host` |
+| `bwsf setup` | ホストとグローバル `save_files` の設定（ログインなし。`auth login` を使用） | `--folder` `--host-type` `--url` `--email` `--skip-host` `--save-files` `--yes` |
+| `bwsf auth login` | API Key 保存 → Identity 確認 → unlock | `--host` |
+| `bwsf auth logout` | API Key と `vault_unlock` を削除 | `--host` `--all` |
+| `bwsf unlock` | vault セッションを Unlock し `vault_unlock` を保存 | `--host` |
+| `bwsf lock` | `vault_unlock` を削除（API Key は残す） | `--host` `--all` |
 | `bwsf config show` | 現在のローカル設定を表示 | — |
 | `bwsf push` | 管理対象ファイル（`.env*` / `*.tfvars` / `*.tfvars.json`）を Bitwarden にプッシュ | `--from` `--host` |
 | `bwsf pull` | 管理対象ファイルを Bitwarden からプル | `--output` `--host` |
@@ -40,7 +43,7 @@ bwsf setup --folder my-envs
 
 名前変更では既存ノートは自動移動されません。
 
-`setup` はマスターパスワードでのログインを行いません。続けて `bwsf auth` を実行してください。
+`setup` はマスターパスワードでのログインを行いません。続けて `bwsf auth login` を実行してください。
 
 ### 非対話フラグ
 
@@ -54,17 +57,43 @@ bwsf setup --folder my-envs
 | `--yes` | 確認をすべて yes とみなす（フォルダ作成、レガシー移行など） |
 | `--folder` | ホストの `target_section`（デフォルト: `dotenvs`） |
 
-## bwsf auth
+## bwsf init
 
-Personal API Key を保存し Identity トークンを取得します。
+**カレントディレクトリ**に `.bwsf/config.jsonc` を生成します（git root へは自動上昇しません）。
 
 ```bash
-bwsf auth
-bwsf auth --clear
-bwsf auth --host work
+bwsf init
+bwsf init --skip-host --yes
+bwsf init --host default --save-files '.env*,!.env.local' --override-project-name my-api
 ```
 
-`client_id` / `client_secret` の入力を求め、OS の秘密保管（**macOS Keychain** / **Linux secret service**）に保存し、Identity の access token を取得します（プロセスメモリ上のみ）。キーはアカウント設定 → セキュリティ → キーで作成します。
+グローバル設定が必要です（`bwsf setup`。`hosts: []` 可）。プロジェクトの `host` はグローバル `hosts[]` への id 参照のみ。既存ファイルがある場合は上書き確認（`--yes` でスキップ）。
+
+### 非対話フラグ
+
+| フラグ | 説明 |
+|---|---|
+| `--host <id>` | プロジェクト `host`（グローバルに存在する id） |
+| `--skip-host` | プロジェクト `host` を書かない |
+| `--save-files` | プロジェクト `save_files` glob（`!` = 除外） |
+| `--override-project-name` | プロジェクト名の上書き（空ならキー省略） |
+| `--yes` | 上書き確認をスキップ |
+
+
+## bwsf auth
+
+Personal API Key 認証を管理します。引数なしの `bwsf auth` はヘルプのみです。
+
+```bash
+bwsf auth login
+bwsf auth login --host work
+bwsf auth logout
+bwsf auth logout --all
+```
+
+`auth login` は `client_id` / `client_secret` の入力（または保存済みキーの再利用）→ Identity 確認 → vault unlock（`vault_unlock` 保存）まで一気通貫です。キーはアカウント設定 → セキュリティ → キーで作成します。
+
+`auth logout` は解決 host の API Key **と** `vault_unlock` を削除します。`bwsf lock` は vault セッションのみです。
 
 ## bwsf config show
 

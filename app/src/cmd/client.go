@@ -28,7 +28,7 @@ func reportCommandError(err error) {
 	}
 	if core.IsNotAuthenticatedError(err) || errors.Is(err, infra.ErrAPINotAuthenticated) {
 		utils.Errorln("[ERROR]", err)
-		utils.Infoln("[INFO] Run: bwsf auth")
+		utils.Infoln("[INFO] Run: bwsf auth login")
 		return
 	}
 	utils.Errorln("[ERROR]", err)

@@ -3,6 +3,12 @@
 対象パッケージ: `app/src/infra`  
 前提: Personal API Key 認証（Step 2）済み。vault CRUD は未実装のまま。
 
+v0.20.0 §3（[#153](https://github.com/b4moss/bwsf/issues/153)）との関係:
+
+- Keychain キーの host 単位化・`vault_unlock` → [`secretstore_hosts.md`](./secretstore_hosts.md)
+- Export / Restore / 自動 restore → [`../core/vault_unlock_restore.md`](../core/vault_unlock_restore.md)
+- 本文書は **プロセスメモリ上の Unlock / ClearSession / IsUnlocked** の契約を維持する
+
 ---
 
 ### Unlock
@@ -12,6 +18,7 @@
 - 成功後、以降の vault 操作（Step 4）が使える「unlocked」状態になる。
 - マスターパスワードは Keychain に保存しない（都度引数／プロンプト）。
 - API Key / トークン / 鍵材料をログに出さない。
+- （§3）Unlock 成功後、実装は当該 host の `vault_unlock` を Keychain に保存してよい（詳細は [`vault_unlock_restore.md`](../core/vault_unlock_restore.md)）。
 
 #### テスト：正常系
 
@@ -31,7 +38,8 @@
 ### ClearSession
 
 - メモリ上の access_token（および refresh_token）と復号鍵を破棄する。
-- OS Keychain 上の Personal API Key は削除しない（それは `bwsf auth --clear`）。
+- OS Keychain 上の Personal API Key は削除しない（それは `bwsf auth logout`）。
+- （§3）OS Keychain 上の **`vault_unlock` も削除しない**（それは `bwsf lock` / `auth logout`）。
 - 複数回呼んでも安全（冪等）。
 
 #### テスト：正常系
@@ -39,11 +47,12 @@
 - `Unlock` 成功後に `ClearSession` すると、トークン無効かつ unlocked でなくなる。
 - 認証のみ（未 unlock）の状態で `ClearSession` すると、トークンが破棄される。
 - 何も保持していない状態で `ClearSession` してもパニックせず `nil`（または何もしない）。
+- （§3）`vault_unlock` 保存後に `ClearSession` しても、Keychain の `vault_unlock` が残る。
 
 #### テスト: 異常系
 
 - （副作用の検証）`ClearSession` 後に Keychain の API Key が残っていること（削除されていないこと）。
-- `ClearSession` 後の vault 的操作入口が「未認証」または「未 unlock」として失敗すること（Step 3 では stub でも状態判定で確認可）。
+- `ClearSession` 後の vault 的操作入口が「未認証」または「未 unlock」として失敗すること（Step 3 では stub でも状態判定で確認可。§3 では別インスタンスからの restore 成功は [`vault_unlock_restore.md`](../core/vault_unlock_restore.md)）。
 
 ---
 

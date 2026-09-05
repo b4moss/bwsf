@@ -26,7 +26,8 @@ Simple usage below:
 | command | |
 |----|----|
 | bwsf setup | Configure hosts and global `save_files` (API only) |
-| bwsf auth | Store Personal API Key and authenticate |
+| bwsf auth login | Store API Key, verify Identity, unlock vault |
+| bwsf auth logout | Remove API Key and vault session |
 | bwsf config show | Show current local configuration |
 | bwsf push | Push managed files to your Bitwarden host |
 | bwsf pull | Pull managed files from your Bitwarden host |
@@ -151,17 +152,17 @@ Removes local managed files after verifying the remote Bitwarden backup.
 
 ```shell
 bwsf setup                 # hosts + optional save_files (+ optional folder)
-bwsf auth                  # store Personal API Key; obtain Identity token
-bwsf push                  # prompts master password to unlock, then syncs
+bwsf auth login            # store Personal API Key; unlock vault (vault_unlock)
+bwsf push                  # restores vault_unlock when present, else prompts MP
 bwsf pull
 bwsf list
 ```
 
-`bwsf auth` prompts for `client_id` / `client_secret`, stores them in the OS secret store (**macOS Keychain** / **Linux secret service**), and obtains an Identity access token (kept in memory for the process). Use `bwsf auth --clear` to remove the stored key.
+`bwsf auth login` prompts for `client_id` / `client_secret`, stores them in the OS secret store (**macOS Keychain** / **Linux secret service**), verifies Identity, then unlocks the vault and persists `vault_unlock`. Use `bwsf auth logout` to remove the stored key and session (`bwsf lock` clears the session only). Bare `bwsf auth` prints help.
 
 Create a Personal API Key in the Bitwarden web vault under Account Settings → Security → Keys.
 
-On each `push` / `pull` / `list`, bwsf prompts for your **master password** to unlock vault keys in memory, then discards keys and tokens when the command exits.
+On each `push` / `pull` / `list`, bwsf restores `vault_unlock` when available, or prompts for your **master password**, then discards in-memory keys and tokens when the command exits.
 
 Caveat: unlock uses the Community SDK password-login path with config email + master password for key material. Identity Personal API Key tokens remain separate.
 

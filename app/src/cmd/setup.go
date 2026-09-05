@@ -34,7 +34,7 @@ var (
 var setupCmd = &cobra.Command{
 	Use:   "setup",
 	Short: "Setup Bitwarden host configuration",
-	Long:  "Configure Bitwarden hosts and save_files (API only). Authentication is via `bwsf auth` after setup.",
+	Long:  "Configure Bitwarden hosts and save_files (API only). Authentication is via `bwsf auth login` after setup.",
 	Run:   runSetup,
 }
 
@@ -74,7 +74,7 @@ func runSetup(cmd *cobra.Command, args []string) {
 
 	maybeEnsureFolder(cfg, logger)
 
-	utils.Successln("[INFO] ✅ Configuration saved. Run `bwsf auth` to authenticate.")
+	utils.Successln("[INFO] ✅ Configuration saved. Run `bwsf auth login` to authenticate.")
 }
 
 func nonInteractiveSetup() bool {
@@ -315,7 +315,7 @@ func interactiveChangeDefault(cfg *config.Config) error {
 
 func maybeEnsureFolder(cfg *config.Config, logger core.Logger) {
 	if cfg.DefaultHost() == nil {
-		utils.Infoln("[INFO] No host configured; skip folder ensure. Run `bwsf auth` after adding a host.")
+		utils.Infoln("[INFO] No host configured; skip folder ensure. Run `bwsf auth login` after adding a host.")
 		return
 	}
 	folderName := config.ResolveFolderName(cfg)
@@ -331,7 +331,7 @@ func maybeEnsureFolder(cfg *config.Config, logger core.Logger) {
 
 	if err := core.EnsureConfiguredFolderCore(bw, cfg, logger, utils.InputPassword, confirmCreateFolder); err != nil {
 		if core.IsNotAuthenticatedError(err) {
-			utils.Infoln("[INFO] Folder check skipped until `bwsf auth` (and unlock) succeeds.")
+			utils.Infoln("[INFO] Folder check skipped until `bwsf auth login` succeeds.")
 		} else {
 			utils.Warningln("[WARN] Folder ensure:", err)
 		}

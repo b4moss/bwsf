@@ -38,7 +38,7 @@ From v0.20.0, bwsf uses the Bitwarden **API** only (Personal API Key). Typical f
 
 ```bash
 bwsf setup
-bwsf auth
+bwsf auth login
 bwsf push   # prompts master password to unlock
 ```
 

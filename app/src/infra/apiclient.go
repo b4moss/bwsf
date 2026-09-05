@@ -17,12 +17,12 @@ import (
 // ErrAPINotImplemented is retained for older call sites; vault methods no longer return it.
 var ErrAPINotImplemented = errors.New(
 	"API vault operation is unavailable. " +
-		"Authenticate with `bwsf auth` and unlock with your master password when prompted",
+		"Authenticate with `bwsf auth login` and unlock with your master password when prompted",
 )
 
 // ErrAPINotAuthenticated means Identity login has not succeeded in this process.
 var ErrAPINotAuthenticated = errors.New(
-	"API backend is not authenticated. Run `bwsf auth` to store your Personal API Key and obtain a token",
+	"API backend is not authenticated. Run `bwsf auth login` to store your Personal API Key and obtain a token",
 )
 
 // ErrAPINotUnlocked means Identity auth succeeded but vault decryption keys are missing.
@@ -140,7 +140,10 @@ func EnsureDeviceIdentifier(cfg *config.Config, host *config.Host) (string, erro
 
 // Authenticate loads the Personal API Key from the secret store and obtains an Identity token.
 func (c *ApiBwClient) Authenticate(ctx context.Context) error {
-	creds, err := LoadAPICredentials(c.store)
+	if err := c.requireHost(); err != nil {
+		return err
+	}
+	creds, err := LoadAPICredentials(c.store, c.host.ID)
 	if err != nil {
 		if errors.Is(err, ErrSecretNotFound) {
 			return ErrAPINotAuthenticated
@@ -153,7 +156,10 @@ func (c *ApiBwClient) Authenticate(ctx context.Context) error {
 // AuthenticateWithCredentials stores creds (optional persist) and obtains a token.
 func (c *ApiBwClient) AuthenticateWithCredentials(ctx context.Context, creds APICredentials, persist bool) error {
 	if persist {
-		if err := SaveAPICredentials(c.store, creds); err != nil {
+		if err := c.requireHost(); err != nil {
+			return err
+		}
+		if err := SaveAPICredentials(c.store, c.host.ID, creds); err != nil {
 			return err
 		}
 	}
@@ -212,7 +218,7 @@ func (c *ApiBwClient) EnsureAccessToken(ctx context.Context) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		creds, _ := LoadAPICredentials(c.store)
+		creds, _ := LoadAPICredentials(c.store, c.host.ID)
 		refreshed, err := c.identity.RefreshAccessToken(
 			ctx, identityBase, token.RefreshToken, creds.ClientID, DefaultDeviceInfo(deviceID),
 		)
@@ -259,6 +265,84 @@ func (c *ApiBwClient) ClearSession() {
 	if crypto != nil {
 		crypto.Lock()
 	}
+}
+
+// HostID returns the bound host id, or "".
+func (c *ApiBwClient) HostID() string {
+	if c == nil || c.host == nil {
+		return ""
+	}
+	return c.host.ID
+}
+
+// TryRestoreVaultUnlock loads hosts/<id>/vault_unlock and restores crypto keys.
+// Returns restored=true on success. Missing blob → (false, nil).
+// On restore failure the blob is deleted and (false, nil) is returned.
+func (c *ApiBwClient) TryRestoreVaultUnlock() (bool, error) {
+	if err := c.requireHost(); err != nil {
+		return false, err
+	}
+	blob, err := LoadVaultUnlock(c.store, c.host.ID)
+	if err != nil {
+		if errors.Is(err, ErrSecretNotFound) {
+			return false, nil
+		}
+		return false, err
+	}
+	if strings.TrimSpace(blob) == "" {
+		_ = ClearVaultUnlock(c.store, c.host.ID)
+		return false, nil
+	}
+
+	c.mu.Lock()
+	crypto := c.crypto
+	c.mu.Unlock()
+	if crypto == nil {
+		crypto = NewSDKCryptoSession()
+		c.mu.Lock()
+		c.crypto = crypto
+		c.mu.Unlock()
+	}
+
+	serverURL := ""
+	if c.host.Type == config.HostTypeSelfhost || c.host.Type == "selfhosted" {
+		serverURL = c.host.HostURL
+	}
+	if err := crypto.RestoreUnlockBlob(context.Background(), blob, serverURL); err != nil {
+		_ = ClearVaultUnlock(c.store, c.host.ID)
+		return false, nil
+	}
+	return true, nil
+}
+
+// DiscardVaultUnlock deletes the host's vault_unlock blob (and locks in-memory crypto).
+func (c *ApiBwClient) DiscardVaultUnlock() error {
+	return c.LockVaultUnlock()
+}
+
+// LockVaultUnlock deletes vault_unlock for the bound host (API keys remain)
+// and clears in-memory crypto. Missing blob is a no-op success.
+func (c *ApiBwClient) LockVaultUnlock() error {
+	if err := c.requireHost(); err != nil {
+		return err
+	}
+	c.mu.Lock()
+	crypto := c.crypto
+	c.mu.Unlock()
+	if crypto != nil {
+		crypto.Lock()
+	}
+	return ClearVaultUnlock(c.store, c.host.ID)
+}
+
+// LockVaultSession is an alias of LockVaultUnlock.
+func (c *ApiBwClient) LockVaultSession() error {
+	return c.LockVaultUnlock()
+}
+
+// LockVaultSessionForHost deletes vault_unlock for an explicit host id (CLI lock / lock --all).
+func LockVaultSessionForHost(store SecretStore, hostID string) error {
+	return ClearVaultUnlock(store, hostID)
 }
 
 // TokenExpiresAt exposes token expiry for diagnostics/tests.
@@ -479,7 +563,7 @@ func (c *ApiBwClient) UpdateNoteItem(id, notes string) error {
 }
 
 // Login for the API backend authenticates with a stored Personal API Key.
-// email/password are ignored (CLI-compatible signature); use `bwsf auth` to store the key.
+// email/password are ignored (CLI-compatible signature); use `bwsf auth login` to store the key.
 func (c *ApiBwClient) Login(email, password, serverURL string) error {
 	_ = email
 	_ = password
@@ -542,6 +626,14 @@ func (c *ApiBwClient) Unlock(masterPassword string) error {
 
 	if err := crypto.UnlockWithPassword(context.Background(), c.host.Email, masterPassword, serverURL, device); err != nil {
 		return err
+	}
+
+	blob, err := crypto.ExportUnlockBlob(context.Background())
+	if err != nil {
+		return fmt.Errorf("vault unlocked but failed to export session: %w", err)
+	}
+	if err := SaveVaultUnlock(c.store, c.host.ID, blob); err != nil {
+		return fmt.Errorf("vault unlocked but failed to persist session: %w", err)
 	}
 	return nil
 }

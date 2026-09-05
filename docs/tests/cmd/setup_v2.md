@@ -16,7 +16,7 @@ Issue: [#177](https://github.com/b4moss/bwsf/issues/177)
 
 | # | 方針 |
 |---|------|
-| S1 | **API のみ**。`backend=bw` の Login 付き setup 経路は廃止。Personal API Key は setup では扱わず、案内は `bwsf auth`（後続で `auth login`） |
+| S1 | **API のみ**。`backend=bw` の Login 付き setup 経路は廃止。Personal API Key は setup では扱わず、案内は `bwsf auth login`（[`auth_login_logout.md`](./auth_login_logout.md)） |
 | S2 | host は対話で **「追加する / スキップ」** を選べる。スキップ可 → `hosts: []` のまま保存してよい |
 | S3 | 初回追加（既存 `hosts` 空）の初期値: `id: "default"`, `is_default: true`。cloud なら `host_url: "https://vault.bitwarden.com"` |
 | S4 | 既に host があるとき: 対話で **「追加 / 既存更新 / デフォルト変更 / スキップ」** |
@@ -90,15 +90,15 @@ Issue: [#177](https://github.com/b4moss/bwsf/issues/177)
 | # | 期待 |
 |---|------|
 | X1 | `backend=bw` 専用の password Login フローが setup から呼ばれない |
-| X2 | 完了メッセージに認証は別コマンドである旨（`bwsf auth` / 将来 `auth login`） |
+| X2 | 完了メッセージに認証は別コマンドである旨（`bwsf auth login`） |
 
 ---
 
 ## 5. 対象外
 
-- `auth login` / `logout` 本体（#174）
+- `auth login` / `logout` 本体（#174 → [`auth_login_logout.md`](./auth_login_logout.md)）
 - Keychain 書き込み（setup は設定ファイルのみ）
-- `bwsf init`（#193）
+- `bwsf init` → [`init.md`](./init.md)（#193）
 
 ---
 

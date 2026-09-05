@@ -42,7 +42,7 @@ After installing bwsf:
 
 ```bash
 bwsf setup                 # hosts (skippable) + optional save_files / folder
-bwsf auth                  # store Personal API Key; obtain Identity token
+bwsf auth login             # store Personal API Key; unlock vault
 ```
 
 `setup` writes `~/.config/bwsf/config.jsonc`. `auth` stores your Personal API Key in the OS secret store.

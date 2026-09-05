@@ -1,8 +1,10 @@
 package cmd
 
 import (
+	"context"
 	"os"
 
+	"bwsf/src/config"
 	"bwsf/src/core"
 	"bwsf/src/infra"
 	"bwsf/src/utils"
@@ -15,8 +17,28 @@ var (
 	newFileSystem    = func() core.FileSystem { return infra.NewFileSystem() }
 	newLogger        = func() core.Logger { return infra.NewLogger() }
 	newSessionStore  = func() core.SessionStore { return infra.NewSessionStore() }
-	exitFunc         = os.Exit
-	confirmOverwrite = utils.ConfirmOverwrite
+	newSecretStore   = func() infra.SecretStore { return infra.NewKeyringStore() }
+	newUnlockClient  = func(cfg *config.Config, host *config.Host, store infra.SecretStore) unlockClient {
+		return infra.NewApiBwClientWithDepsForHost(cfg, host, store, infra.NewIdentityClient(), infra.NewSDKCryptoSession())
+	}
+	newAuthClient = func(cfg *config.Config, host *config.Host, store infra.SecretStore) authClient {
+		return infra.NewApiBwClientWithDepsForHost(cfg, host, store, infra.NewIdentityClient(), infra.NewSDKCryptoSession())
+	}
+	exitFunc            = os.Exit
+	confirmOverwrite    = utils.ConfirmOverwrite
 	selectCleanMismatch = utils.SelectCleanMismatchAction
-	inputPassword    = utils.InputPassword
+	inputPassword       = utils.InputPassword
 )
+
+// unlockClient is the subset of ApiBwClient used by unlock and login unlock chain.
+type unlockClient interface {
+	Unlock(masterPassword string) error
+	ClearSession()
+}
+
+// authClient is the subset used by auth login (Identity + unlock).
+type authClient interface {
+	AuthenticateWithCredentials(ctx context.Context, creds infra.APICredentials, persist bool) error
+	Unlock(masterPassword string) error
+	ClearSession()
+}

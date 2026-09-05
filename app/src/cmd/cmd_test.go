@@ -72,6 +72,31 @@ func TestSetupCmd_Registered(t *testing.T) {
 	assert.True(t, found)
 }
 
+func TestInitCmd_Registered(t *testing.T) {
+	assert.NotNil(t, initCmd)
+	assert.Equal(t, "init", initCmd.Use)
+	found := false
+	for _, cmd := range rootCmd.Commands() {
+		if cmd.Use == "init" {
+			found = true
+			break
+		}
+	}
+	assert.True(t, found, "init command should be registered")
+}
+
+func TestInitCmd_NonInteractiveFlags(t *testing.T) {
+	for _, name := range []string{"host", "skip-host", "save-files", "override-project-name"} {
+		assert.NotNil(t, initCmd.Flags().Lookup(name), "missing flag --%s", name)
+	}
+}
+
+func TestInitCmd_Description(t *testing.T) {
+	assert.NotEmpty(t, initCmd.Short)
+	assert.NotEmpty(t, initCmd.Long)
+	assert.Contains(t, initCmd.Long, "bwsf setup")
+}
+
 func TestBackendCmd_Registered(t *testing.T) {
 	assert.NotNil(t, backendCmd)
 	assert.Equal(t, "backend", backendCmd.Use)
@@ -183,7 +208,7 @@ func TestListCmd_Description(t *testing.T) {
 func TestSetupCmd_Description(t *testing.T) {
 	assert.NotEmpty(t, setupCmd.Short)
 	assert.NotEmpty(t, setupCmd.Long)
-	assert.Contains(t, setupCmd.Long, "bwsf auth")
+	assert.Contains(t, setupCmd.Long, "bwsf auth login")
 }
 
 func TestBackendCmd_Description(t *testing.T) {
@@ -203,17 +228,31 @@ func TestAuthCmd_Registered(t *testing.T) {
 		}
 	}
 	assert.True(t, found)
-}
 
-func TestAuthCmd_ClearFlag(t *testing.T) {
-	flag := authCmd.Flags().Lookup("clear")
-	assert.NotNil(t, flag)
-	assert.Equal(t, "false", flag.DefValue)
+	foundLogin, foundLogout := false, false
+	for _, c := range authCmd.Commands() {
+		switch c.Use {
+		case "login":
+			foundLogin = true
+		case "logout":
+			foundLogout = true
+		}
+	}
+	assert.True(t, foundLogin)
+	assert.True(t, foundLogout)
+	assert.NotNil(t, authLoginCmd.Flags().Lookup("host"))
+	assert.NotNil(t, authLogoutCmd.Flags().Lookup("host"))
+	assert.NotNil(t, authLogoutCmd.Flags().Lookup("all"))
+	assert.Nil(t, authCmd.Flags().Lookup("clear"))
+	assert.Nil(t, authLoginCmd.Flags().Lookup("clear"))
+	assert.Nil(t, authLogoutCmd.Flags().Lookup("clear"))
 }
 
 func TestAuthCmd_Description(t *testing.T) {
 	assert.NotEmpty(t, authCmd.Short)
 	assert.NotEmpty(t, authCmd.Long)
+	assert.Contains(t, authCmd.Long, "login")
+	assert.Contains(t, authCmd.Long, "unlock")
 }
 
 func TestBackendCmd_Removed(t *testing.T) {

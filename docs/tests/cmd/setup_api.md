@@ -3,7 +3,7 @@
 > **v0.20.0 / #177:** setup 全体（host スキップ・`save_files`・bw 経路廃止）は [`setup_v2.md`](./setup_v2.md) が優先。本文書の「api 時は Login しない／auth は別コマンド」は setup_v2 でも維持。
 
 対象パッケージ: `app/src/cmd` / 必要なら `app/src/core` の Setup  
-合意: `backend=api` のとき setup は設定のみ。認証は `bwsf auth`。
+合意: `backend=api` のとき setup は設定のみ。認証は `bwsf auth login`。
 
 ---
 
@@ -11,13 +11,13 @@
 
 - `backend=api`（またはセット後に api）では、Bitwarden への `Login`（email/password）を行わない。
 - host_type / selfhosted_url / email 等、設定ファイルに必要な項目の入力・保存のみ行う。
-- 完了後、api 利用には `bwsf auth` が必要である旨を案内する。
+- 完了後、api 利用には `bwsf auth login` が必要である旨を案内する。
 - フォルダ作成確認は Step 3 ではスキップしてよい。**本実装とテストは Step 4**（[`setup_api_folder.md`](./setup_api_folder.md)）。
 
 #### テスト：正常系
 
 - `backend=api` で setup を実行すると、config が保存され、`Login` が呼ばれない。
-- setup 後のメッセージ／ログに `bwsf auth` への案内が含まれる。
+- setup 後のメッセージ／ログに `bwsf auth login` への案内が含まれる。
 - `backend=bw` では従来どおり Login を含むフローが維持される（退行）。
 
 #### テスト: 異常系

@@ -6,8 +6,8 @@ on:
     - cron: "30 1 * * 1"
   push:
     branches:
+      # publish_results requires the default branch only
       - main
-      - develop
 
 permissions: read-all
 

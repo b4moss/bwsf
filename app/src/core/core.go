@@ -126,7 +126,7 @@ func IsLockedError(err error) bool {
 		strings.Contains(errMsg, "Vault is locked")
 }
 
-// IsNotAuthenticatedError は API 未認証（bwsf auth が必要）かを判定します。
+// IsNotAuthenticatedError は API 未認証（bwsf auth login が必要）かを判定します。
 func IsNotAuthenticatedError(err error) bool {
 	if err == nil {
 		return false
@@ -150,8 +150,16 @@ func IsNotUnlockedError(err error) bool {
 		strings.Contains(errMsg, "Enter your master password to unlock")
 }
 
+// VaultUnlockRestorer is optionally implemented by API BwClient for host-scoped
+// vault_unlock auto-restore (#153).
+type VaultUnlockRestorer interface {
+	TryRestoreVaultUnlock() (restored bool, err error)
+	DiscardVaultUnlock() error
+}
+
 // WithUnlockRetry は Bitwarden がロックされている場合に Unlock/Login を挟んでリトライする共通処理です。
 // SessionStore がある場合、BW_SESSION の自動 restore / save を行います（#130）。
+// API クライアントが VaultUnlockRestorer を実装する場合、vault_unlock を先に restore します（#153）。
 // 認証切れはパスワードでは回復できないため、プロンプトせずそのまま返します。
 func WithUnlockRetry(
 	bw BwClient,
@@ -163,6 +171,19 @@ func WithUnlockRetry(
 ) error {
 	sessions = resolveSessionStore(sessions)
 	restoredFromStore := false
+	restoredVaultUnlock := false
+
+	if r, ok := bw.(VaultUnlockRestorer); ok {
+		okRestore, restoreErr := r.TryRestoreVaultUnlock()
+		if restoreErr != nil {
+			logger.Info("failed to restore vault unlock:", restoreErr)
+			if delErr := r.DiscardVaultUnlock(); delErr != nil {
+				logger.Info("failed to discard vault unlock:", delErr)
+			}
+		} else if okRestore {
+			restoredVaultUnlock = true
+		}
+	}
 
 	// 環境変数 BW_SESSION が既にあれば優先し、SessionStore には触れない。
 	if strings.TrimSpace(os.Getenv("BW_SESSION")) == "" {
@@ -189,6 +210,14 @@ func WithUnlockRetry(
 	}
 
 	// ストアから復元したセッションが無効なら破棄してフォールバックする。
+	if restoredVaultUnlock {
+		if r, ok := bw.(VaultUnlockRestorer); ok {
+			if delErr := r.DiscardVaultUnlock(); delErr != nil {
+				logger.Info("failed to discard invalid vault unlock:", delErr)
+			}
+		}
+		restoredVaultUnlock = false
+	}
 	if restoredFromStore {
 		if delErr := sessions.Delete(); delErr != nil {
 			logger.Info("failed to delete invalid session from store:", delErr)
@@ -882,7 +911,7 @@ func UpsertDefaultHost(cfg *config.Config, host config.Host) {
 }
 
 // SetupAPIConfigCore configures a default host (type/url/email) without Login.
-// Authentication is performed separately via `bwsf auth`.
+// Authentication is performed separately via `bwsf auth login`.
 // Folder creation is handled by EnsureConfiguredFolderCore after auth/unlock is available.
 func SetupAPIConfigCore(
 	logger Logger,
@@ -946,7 +975,7 @@ func SetupAPIConfigCoreWithFolder(
 		return fmt.Errorf("failed to save configuration: %w", err)
 	}
 
-	logger.Info("Configuration saved. Run `bwsf auth` to authenticate with a Personal API Key.")
+	logger.Info("Configuration saved. Run `bwsf auth login` to authenticate with a Personal API Key.")
 	return nil
 }
 
@@ -1012,7 +1041,7 @@ func SetupBitwardenCore(
 ) error {
 	_, _, _, _, _, _, _ = fs, bw, logger, selectHostType, inputURL, inputEmail, inputPassword
 	_ = confirmCreateFolder
-	return fmt.Errorf("bw CLI setup path removed; v0.20+ uses API only — run `bwsf setup` then `bwsf auth`")
+	return fmt.Errorf("bw CLI setup path removed; v0.20+ uses API only — run `bwsf setup` then `bwsf auth login`")
 }
 
 // parseEnvContent は .env ファイルの内容をパースします。

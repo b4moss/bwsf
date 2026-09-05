@@ -62,10 +62,10 @@ bwsf -v
 
 ```bash
 bwsf setup                 # hosts (skippable) + optional save_files / folder
-bwsf auth                  # Personal API Key → OS secret store
+bwsf auth login             # Personal API Key → OS secret store + unlock
 ```
 
-`setup` does **not** log in with a master password. Authentication is `bwsf auth`. Vault unlock (master password) happens when you run `push` / `pull` / `list`. Settings are saved to `~/.config/bwsf/config.jsonc`.
+`setup` does **not** log in with a master password. Authentication is `bwsf auth login` (stores the API Key and unlocks the vault). Later `push` / `pull` / `list` can restore `vault_unlock` or prompt again. Settings are saved to `~/.config/bwsf/config.jsonc`.
 
 ## Uninstall
 

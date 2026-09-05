@@ -73,10 +73,10 @@ bwsf -v
 
 ```bash
 bwsf setup                 # ホスト（スキップ可）+ 任意の save_files / folder
-bwsf auth                  # Personal API Key を OS 秘密保管へ
+bwsf auth login             # Personal API Key を OS 秘密保管へ + unlock
 ```
 
-`setup` はマスターパスワードでのログインを行いません。認証は `bwsf auth` です。保管庫の unlock（マスターパスワード）は `push` / `pull` / `list` 実行時に行います。設定は `~/.config/bwsf/config.jsonc` に保存されます。
+`setup` はマスターパスワードでのログインを行いません。認証は `bwsf auth login` です（API Key 保存と vault unlock）。その後の `push` / `pull` / `list` は `vault_unlock` の restore、または再プロンプトになります。設定は `~/.config/bwsf/config.jsonc` に保存されます。
 
 ----
 
