@@ -110,25 +110,13 @@ Step 4 の実装計画正本: [Issue #53 Step 4 実装計画](https://github.com
 | [`config/host_resolve.md`](./config/host_resolve.md) | §1.1 解決順、`push`/`pull`/`list`/`clean` の `--host` |
 | [`cmd/setup_v2.md`](./cmd/setup_v2.md) | setup の host スキップ／既存 host 操作／`save_files` 対話、bw setup 廃止 |
 
-## Issue #153 / v0.20.0 — host 単位セッションと unlock/lock（§3）
+## Issue #193 / v0.20.0 — `bwsf init`（§5）
 
-製品正本: [`../specs/v0.20.0-multi-host.md`](../specs/v0.20.0-multi-host.md) §3（host 解決は §1.1）。前提は #177（§2）。
+製品正本: [`../specs/v0.20.0-multi-host.md`](../specs/v0.20.0-multi-host.md) §5。前提は #177（グローバル設定ファイル。`hosts: []` 可）。
 
 | 文書 | 内容 |
 |------|------|
-| [`infra/secretstore_hosts.md`](./infra/secretstore_hosts.md) | Keychain キー `hosts/<id>/...`、旧 flat 読み替え／移行、`vault_unlock` |
-| [`cmd/unlock_lock.md`](./cmd/unlock_lock.md) | `bwsf unlock` / `lock` / `lock --all`、`--host`、auth との境界 |
-| [`core/vault_unlock_restore.md`](./core/vault_unlock_restore.md) | push/pull/list/clean の自動 restore、無効時破棄＋再プロンプト |
-| [`cmd/session_lifecycle.md`](./cmd/session_lifecycle.md) | 終了時はメモリのみ破棄。Keychain の `vault_unlock` は残す（§3 改訂） |
-
-### 旧テスト仕様との関係（#153）
-
-| 旧文書 | 扱い |
-|--------|------|
-| [`infra/apiclient_unlock.md`](./infra/apiclient_unlock.md) | メモリ上 Unlock / ClearSession は維持。**ClearSession は Keychain の `vault_unlock` を消さない**（secretstore_hosts / vault_unlock_restore が優先） |
-| [`core/unlock_retry_api.md`](./core/unlock_retry_api.md) | 認証切れ vs 未 unlock の分岐は維持。**restore 挿入は vault_unlock_restore が優先** |
-| [`config/host_resolve.md`](./config/host_resolve.md) | 解決順は維持。**unlock/lock の `--host` 登録は unlock_lock が優先**（H8 の #153 分） |
-| [`config/migrate_v2.md`](./config/migrate_v2.md) | 設定ファイル写像は維持。**Keychain 移行は secretstore_hosts が優先**（M8） |
+| [`cmd/init.md`](./cmd/init.md) | `bwsf init` 対話、`.bwsf/config.jsonc` 生成、host / save_files / override、上書きと `--yes` |
 
 ### 旧テスト仕様との関係（v0.20 実装時）
 

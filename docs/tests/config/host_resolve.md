@@ -74,10 +74,9 @@ Issue: [#177](https://github.com/b4moss/bwsf/issues/177)
 
 ## 3. 対象外
 
-- Keychain の host 単位キー → [`../infra/secretstore_hosts.md`](../infra/secretstore_hosts.md)（#153）
-- unlock / lock の CLI 登録 → [`../cmd/unlock_lock.md`](../cmd/unlock_lock.md)（#153）
-- auth login / logout（#174）
-- `bwsf init` が書くプロジェクト `host`（#193）。本仕様は「読んだときの解決」のみ
+- Keychain の host 単位キー（#153）
+- auth / unlock の CLI 登録（#174 / #153）
+- `bwsf init` が書くプロジェクト `host` → [`../cmd/init.md`](../cmd/init.md)（#193）。本仕様は「読んだときの解決」のみ
 
 ---
 

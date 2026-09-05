@@ -8,7 +8,7 @@
 - [x] Global multi-host config v2 (#177) — `~/.config/bwsf/config.jsonc`
 - [ ] Per-host Keychain / unlock·lock (#153)
 - [ ] `auth login` / `logout` (#174)
-- [ ] `bwsf init` (#193)
+- [x] `bwsf init` (#193)
 
 # About Versioning
 

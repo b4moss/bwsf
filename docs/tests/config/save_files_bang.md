@@ -115,7 +115,7 @@ HOME にグローバル、cwd 側にプロジェクト設定。push/clean の管
 ## 5. 対象外
 
 - 基盤ルール自体の変更（[`../core/managed_files_tfvars.md`](../core/managed_files_tfvars.md)）
-- `bwsf init` によるプロジェクト生成（#193）
+- `bwsf init` によるプロジェクト生成 → [`../cmd/init.md`](../cmd/init.md)（#193）
 - list がプロジェクト設定を読むかどうかの変更（#133 どおり list は読まない。フィルタ配線の主対象は push / pull / clean）
 
 ---

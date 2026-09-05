@@ -7,6 +7,7 @@ Current product commands (v0.20.0). A compact inventory also lives in [`docs/COM
 | Command | Description | Main flags |
 |---|---|---|
 | `bwsf setup` | Configure hosts and global `save_files` (no login; use `auth`) | `--folder` `--host-type` `--url` `--email` `--skip-host` `--save-files` `--yes` |
+| `bwsf init` | Create `./.bwsf/config.jsonc` (requires global config) | `--host` `--skip-host` `--save-files` `--override-project-name` `--yes` |
 | `bwsf auth` | Store Personal API Key and authenticate | `--clear` `--host` |
 | `bwsf config show` | Show current local configuration | — |
 | `bwsf push` | Push managed files (`.env*`, `*.tfvars`, `*.tfvars.json`) to Bitwarden | `--from` `--host` |
@@ -53,6 +54,29 @@ Renaming does **not** migrate existing notes.
 | `--save-files` | Global `save_files` globs (`!` prefix = exclude) |
 | `--yes` | Assume yes for confirmations (folder create, legacy migration) |
 | `--folder` | Host `target_section` (default: `dotenvs`) |
+
+## bwsf init
+
+Create `./.bwsf/config.jsonc` in the **current directory** (does not walk up to a git root).
+
+```bash
+bwsf init
+bwsf init --skip-host --yes
+bwsf init --host default --save-files '.env*,!.env.local' --override-project-name my-api
+```
+
+Requires an existing global config (`bwsf setup`; `hosts: []` is OK). Optional project `host` is an id reference into global `hosts[]`. Existing project config prompts for overwrite unless `--yes`.
+
+### Non-interactive flags
+
+| Flag | Description |
+|---|---|
+| `--host <id>` | Write project `host` (must exist in global config) |
+| `--skip-host` | Omit project `host` |
+| `--save-files` | Project `save_files` globs (`!` = exclude) |
+| `--override-project-name` | Project name override (empty omits the key) |
+| `--yes` | Skip overwrite confirmation |
+
 
 ## bwsf auth
 

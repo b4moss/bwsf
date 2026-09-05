@@ -7,6 +7,7 @@
 | コマンド | 説明 | 主なフラグ |
 |---|---|---|
 | `bwsf setup` | ホストとグローバル `save_files` の設定（ログインなし。`auth` を使用） | `--folder` `--host-type` `--url` `--email` `--skip-host` `--save-files` `--yes` |
+| `bwsf init` | カレントに `.bwsf/config.jsonc` を生成（要グローバル設定） | `--host` `--skip-host` `--save-files` `--override-project-name` `--yes` |
 | `bwsf auth` | Personal API Key の保存と認証 | `--clear` `--host` |
 | `bwsf config show` | 現在のローカル設定を表示 | — |
 | `bwsf push` | 管理対象ファイル（`.env*` / `*.tfvars` / `*.tfvars.json`）を Bitwarden にプッシュ | `--from` `--host` |
@@ -53,6 +54,29 @@ bwsf setup --folder my-envs
 | `--save-files` | グローバル `save_files` glob（`!` 接頭辞 = 除外） |
 | `--yes` | 確認をすべて yes とみなす（フォルダ作成、レガシー移行など） |
 | `--folder` | ホストの `target_section`（デフォルト: `dotenvs`） |
+
+## bwsf init
+
+**カレントディレクトリ**に `.bwsf/config.jsonc` を生成します（git root へは自動上昇しません）。
+
+```bash
+bwsf init
+bwsf init --skip-host --yes
+bwsf init --host default --save-files '.env*,!.env.local' --override-project-name my-api
+```
+
+グローバル設定が必要です（`bwsf setup`。`hosts: []` 可）。プロジェクトの `host` はグローバル `hosts[]` への id 参照のみ。既存ファイルがある場合は上書き確認（`--yes` でスキップ）。
+
+### 非対話フラグ
+
+| フラグ | 説明 |
+|---|---|
+| `--host <id>` | プロジェクト `host`（グローバルに存在する id） |
+| `--skip-host` | プロジェクト `host` を書かない |
+| `--save-files` | プロジェクト `save_files` glob（`!` = 除外） |
+| `--override-project-name` | プロジェクト名の上書き（空ならキー省略） |
+| `--yes` | 上書き確認をスキップ |
+
 
 ## bwsf auth
 
