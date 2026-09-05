@@ -43,7 +43,7 @@
 ### WithAuthAndUnlockRetry
 
 - 業務関数 `fn` を実行し、失敗理由に応じて回復を試みる。
-- **認証切れ**: パスワードプロンプトでは回復しない。呼び出し元へ認証エラーを返す（cmd が `bwsf auth` を案内）。
+- **認証切れ**: パスワードプロンプトでは回復しない。呼び出し元へ認証エラーを返す（cmd が `bwsf auth login` を案内）。
 - **未 unlock**: `promptPassword` → `bw.Unlock` → `fn` 再実行。
 - bw 経路: 既存の Login→Unlock フォールバックを維持してよい（退行テストで固定）。
 

@@ -94,7 +94,7 @@ Issue: [#153](https://github.com/b4moss/bwsf/issues/153)
 
 ## 4. 既存 `auth`（flat コマンド）との接続
 
-#174 の `auth login` / `logout` は **本仕様の対象外**。ただし現行 flat `bwsf auth` が Keychain を書く場合は、**解決済み host id** で §1 のキーを使う（退行防止）。
+#174 の `auth login` / `logout` CLI 契約は [`../cmd/auth_login_logout.md`](../cmd/auth_login_logout.md)。本仕様は Keychain キー形状のみ。login / logout が書く場合も **解決済み host id** で §1 のキーを使う。
 
 #### テスト：正常系
 
@@ -113,7 +113,7 @@ Issue: [#153](https://github.com/b4moss/bwsf/issues/153)
 
 ## 対象外
 
-- `bwsf auth login` / `auth logout` / 引数なし `auth` ヘルプ化（#174）
+- `bwsf auth login` / `auth logout` / 引数なし `auth` ヘルプ化（#174 → [`../cmd/auth_login_logout.md`](../cmd/auth_login_logout.md)）
 - `bwsf init`（#193）
 - 設定ファイルの flat→v2 写像（#177 / [`migrate_v2.md`](../config/migrate_v2.md)）
 - SDK `ExportSession` / `RestoreSession` の詳細（[`vault_unlock_restore.md`](../core/vault_unlock_restore.md) / CryptoSession 実装）

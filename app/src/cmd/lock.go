@@ -17,7 +17,7 @@ var lockCmd = &cobra.Command{
 	Short: "Lock the vault session for a host",
 	Long: `Remove the opaque vault_unlock session blob from the OS secret store.
 
-Personal API Keys are kept — use bwsf auth --clear (or future auth logout) to remove them.
+Personal API Keys are kept — use bwsf auth logout to remove them.
 Host resolution: --host → project .bwsf host → global is_default.
 Use --all to clear vault_unlock for every registered host (no-op if hosts is empty).`,
 	Run: runLock,

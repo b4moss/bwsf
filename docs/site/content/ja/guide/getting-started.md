@@ -42,7 +42,7 @@ bwsf をインストールしたら:
 
 ```bash
 bwsf setup                 # ホスト（スキップ可）+ 任意の save_files / folder
-bwsf auth                  # Personal API Key を保存し Identity トークンを取得
+bwsf auth login             # Personal API Key を保存し vault を unlock
 ```
 
 `setup` は `~/.config/bwsf/config.jsonc` に書き込みます。`auth` は Personal API Key を OS の秘密保管に保存します。

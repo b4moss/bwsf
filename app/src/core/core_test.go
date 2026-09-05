@@ -406,7 +406,7 @@ func TestWithUnlockRetry_NotAuthenticatedNoPrompt(t *testing.T) {
 	cfg := &config.Config{}
 	promptCalled := false
 
-	authErr := errors.New("API backend is not authenticated. Run `bwsf auth`")
+	authErr := errors.New("API backend is not authenticated. Run `bwsf auth login`")
 	err := WithUnlockRetry(
 		bw,
 		cfg,
@@ -2715,7 +2715,7 @@ func TestSetupAPIConfigCore_CloudSuccess_NoLogin(t *testing.T) {
 	assert.Equal(t, "device-preserve-me", h.DeviceIdentifier)
 
 	joined := fmt.Sprint(logger.infos)
-	assert.Contains(t, joined, "bwsf auth")
+	assert.Contains(t, joined, "bwsf auth login")
 }
 
 // 正常系: selfhosted + URL を保存し、Login しない
@@ -2897,7 +2897,7 @@ func TestEnsureConfiguredFolderCore_CreateError(t *testing.T) {
 
 func TestEnsureConfiguredFolderCore_NotAuthenticated(t *testing.T) {
 	bw := &mockBwClient{
-		folderExistsErr: errors.New("API backend is not authenticated. Run `bwsf auth`"),
+		folderExistsErr: errors.New("API backend is not authenticated. Run `bwsf auth login`"),
 	}
 	logger := &mockLogger{}
 	err := EnsureConfiguredFolderCore(

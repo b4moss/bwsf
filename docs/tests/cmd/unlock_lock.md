@@ -20,12 +20,12 @@ Issue: [#153](https://github.com/b4moss/bwsf/issues/153)
 | U1 | コマンド **`bwsf unlock`** / **`bwsf lock`** を登録する |
 | U2 | host 解決は §1.1: **CLI `--host`** → **プロジェクト `host`** → **`is_default`**（[`ResolveHost`](../config/host_resolve.md) を共有） |
 | U3 | `unlock` / `lock` はいずれも `--host` を受け付ける |
-| U4 | `unlock` の責務は **vault セッションのみ**（API Key の取得・削除はしない。それは現行 `auth` / 将来の `auth login`·`logout`） |
+| U4 | `unlock` の責務は **vault セッションのみ**（API Key の取得・削除はしない。それは [`auth_login_logout.md`](./auth_login_logout.md)） |
 | U5 | `unlock` 成功時: MP で Unlock → Keychain に当該 host の `vault_unlock` を保存。MP 自体は保存しない |
 | U6 | `lock` は解決した **1 host** の `vault_unlock` のみ削除。API Key は残す |
 | U7 | `lock --all` は登録済み **全 host** の `vault_unlock` を削除。`hosts` が空なら **no-op 成功** |
 | U8 | 未認証（API Key 無し）で `unlock` した場合は auth 案内エラー（MP に進まない、または Unlock 前に失敗） |
-| U9 | ヘルプ文で auth（API Key）と unlock/lock（vault セッション）の境界を分かる範囲で明示する（詳細な login/logout 文言は #174） |
+| U9 | ヘルプ文で auth（API Key）と unlock/lock（vault セッション）の境界を分かる範囲で明示する（login/logout 文言の詳細は [`auth_login_logout.md`](./auth_login_logout.md)） |
 
 ---
 
@@ -98,7 +98,6 @@ Issue: [#153](https://github.com/b4moss/bwsf/issues/153)
 
 ## 対象外
 
-- `auth login` / `auth logout` / `logout --all`（#174）
-- 旧 flat `auth` / `--clear` の削除（#174）
+- `auth login` / `auth logout` / `logout --all` / 旧 flat `auth`・`--clear` 削除（#174 → [`auth_login_logout.md`](./auth_login_logout.md)）
 - `bwsf init`（#193）
 - push/pull/list/clean 内の自動 restore 詳細（[`vault_unlock_restore.md`](../core/vault_unlock_restore.md)）

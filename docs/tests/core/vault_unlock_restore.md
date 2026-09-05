@@ -115,6 +115,6 @@ host 解決
 ## 対象外
 
 - `bwsf unlock` / `lock` CLI の引数表（[`unlock_lock.md`](../cmd/unlock_lock.md)）
-- `auth logout` による API Key + `vault_unlock` 一括削除（#174）
+- `auth logout` による API Key + `vault_unlock` 一括削除（#174 → [`../cmd/auth_login_logout.md`](../cmd/auth_login_logout.md)）
 - `bwsf init`（#193）
 - 旧 `BW_SESSION` / darwin SessionStore の維持・廃止判断（API 経路の契約外。壊さない範囲で放置可）

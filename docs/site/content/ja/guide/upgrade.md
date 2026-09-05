@@ -15,5 +15,6 @@ brew upgrade bwsf
 - `not_save_files` を削除（グローバル・プロジェクトとも）。代わりに `save_files` の `!` 接頭辞を使用
 - `backend` フィールドと `bwsf backend` を削除 — API のみ（`bw` CLI 経路は廃止）
 - 保管庫コマンドは `--host <id>` を受け付け（解決順: CLI → プロジェクトの `host` → `is_default`）
+- フラット `bwsf auth` / `auth --clear` を削除 — `bwsf auth login` / `auth logout` を使用（`logout` は `vault_unlock` も削除）
 
 製品仕様: [v0.20.0-multi-host.md](https://github.com/b4moss/bwsf/blob/main/docs/specs/v0.20.0-multi-host.md)

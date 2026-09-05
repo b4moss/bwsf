@@ -38,7 +38,7 @@ v0.20.0 から、bwsf は Bitwarden **API** のみを使用します（Personal 
 
 ```bash
 bwsf setup
-bwsf auth
+bwsf auth login
 bwsf push   # マスターパスワードで unlock
 ```
 

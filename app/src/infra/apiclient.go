@@ -17,12 +17,12 @@ import (
 // ErrAPINotImplemented is retained for older call sites; vault methods no longer return it.
 var ErrAPINotImplemented = errors.New(
 	"API vault operation is unavailable. " +
-		"Authenticate with `bwsf auth` and unlock with your master password when prompted",
+		"Authenticate with `bwsf auth login` and unlock with your master password when prompted",
 )
 
 // ErrAPINotAuthenticated means Identity login has not succeeded in this process.
 var ErrAPINotAuthenticated = errors.New(
-	"API backend is not authenticated. Run `bwsf auth` to store your Personal API Key and obtain a token",
+	"API backend is not authenticated. Run `bwsf auth login` to store your Personal API Key and obtain a token",
 )
 
 // ErrAPINotUnlocked means Identity auth succeeded but vault decryption keys are missing.
@@ -563,7 +563,7 @@ func (c *ApiBwClient) UpdateNoteItem(id, notes string) error {
 }
 
 // Login for the API backend authenticates with a stored Personal API Key.
-// email/password are ignored (CLI-compatible signature); use `bwsf auth` to store the key.
+// email/password are ignored (CLI-compatible signature); use `bwsf auth login` to store the key.
 func (c *ApiBwClient) Login(email, password, serverURL string) error {
 	_ = email
 	_ = password

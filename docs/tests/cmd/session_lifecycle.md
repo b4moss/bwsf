@@ -17,8 +17,8 @@
 | # | 方針 |
 |---|------|
 | L1 | 各 vault 系コマンド終了時、**プロセスメモリ上**の Identity トークン・復号鍵は `ClearSession`（または同等）で破棄する |
-| L2 | Keychain の **Personal API Key** と **`vault_unlock`** はコマンド終了では削除しない（削除は `lock` / 将来の `auth logout` / API Key clear） |
-| L3 | 明示の **`bwsf lock`** /（将来）**`auth logout`** が Keychain 側セッションの寿命を制御する（旧「明示 lock は作らない」合意は **§3 で破棄**） |
+| L2 | Keychain の **Personal API Key** と **`vault_unlock`** はコマンド終了では削除しない（削除は `lock` / [`auth logout`](./auth_login_logout.md)） |
+| L3 | 明示の **`bwsf lock`** / **`auth logout`** が Keychain 側セッションの寿命を制御する（旧「明示 lock は作らない」合意は **§3 で破棄**） |
 | L4 | 次回の push/pull/list/clean は `vault_unlock` があれば restore し、無ければ MP プロンプトへ（[`vault_unlock_restore.md`](../core/vault_unlock_restore.md)） |
 
 ---
@@ -34,7 +34,7 @@
 - api 経路で処理が成功終了したあと、クライアントが unlocked / authenticated でない（ClearSession 済み）。
 - 同時に、事前に保存していた `hosts/<id>/vault_unlock` と API Key が Keychain 上に残っている。
 - api 経路で処理がエラー終了したあとでも ClearSession が呼ばれている（Keychain は業務失敗だけでは消さない）。
-- `bwsf auth` 自体はトークン取得が目的のため、終了時はメモリ破棄してよい（Keychain の API Key は残す）。
+- `bwsf auth login` はトークン取得＋unlock まで進むが、終了時はメモリ破棄してよい（Keychain の API Key / `vault_unlock` は残す）。
 
 #### テスト: 異常系
 
@@ -44,7 +44,7 @@
 
 ### エラー表示分岐（認証切れ vs 未 unlock）
 
-- 認証切れ: `bwsf auth` を案内し、MP プロンプトに進まない（または再試行ヘルパがプロンプトしない）。
+- 認証切れ: `bwsf auth login` を案内し、MP プロンプトに進まない（または再試行ヘルパがプロンプトしない）。
 - 未 unlock かつ有効な `vault_unlock` 無し: MP プロンプトへ進む。
 - 無効な `vault_unlock`: 破棄してから MP プロンプト（[`vault_unlock_restore.md`](../core/vault_unlock_restore.md)）。
 
@@ -63,5 +63,5 @@
 
 ## 対象外
 
-- `auth login` / `logout`（#174）
+- `auth login` / `logout` 本体（#174 → [`auth_login_logout.md`](./auth_login_logout.md)）
 - `bwsf init`（#193）

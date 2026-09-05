@@ -162,7 +162,7 @@ func TestApiBwClient_VaultRequiresAuth(t *testing.T) {
 	assert.ErrorIs(t, err, ErrAPINotAuthenticated)
 
 	assert.ErrorIs(t, client.Login("e", "p", ""), ErrAPINotAuthenticated)
-	assert.Contains(t, ErrAPINotImplemented.Error(), "bwsf auth")
+	assert.Contains(t, ErrAPINotImplemented.Error(), "bwsf auth login")
 }
 
 // 正常系: ApiBwClient が BwClient インターフェースを実装している
