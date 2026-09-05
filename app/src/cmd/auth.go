@@ -42,7 +42,12 @@ func runAuth(cmd *cobra.Command, args []string) {
 	store := infra.NewKeyringStore()
 
 	if authClear {
-		if err := infra.ClearAPICredentials(store); err != nil {
+		host, err := ensureHostConfigForAPI(cfg, authHost)
+		if err != nil {
+			utils.Errorln("[ERROR]", err)
+			os.Exit(1)
+		}
+		if err := infra.ClearAPICredentials(store, host.ID); err != nil {
 			utils.Errorln("[ERROR]", err)
 			os.Exit(1)
 		}
@@ -70,7 +75,7 @@ func runAuth(cmd *cobra.Command, args []string) {
 	utils.Infoln("[INFO] Host: " + host.ID)
 	utils.Infoln("[INFO] Identity URL: " + identityBase)
 
-	creds, err := promptAPICredentials(store)
+	creds, err := promptAPICredentials(store, host.ID)
 	if err != nil {
 		utils.Errorln("[ERROR]", err)
 		os.Exit(1)
@@ -127,8 +132,8 @@ func ensureHostConfigForAPI(cfg *config.Config, cliHost string) (*config.Host, e
 	return cfg.FindHost(host.ID), nil
 }
 
-func promptAPICredentials(store infra.SecretStore) (infra.APICredentials, error) {
-	existing, err := infra.LoadAPICredentials(store)
+func promptAPICredentials(store infra.SecretStore, hostID string) (infra.APICredentials, error) {
+	existing, err := infra.LoadAPICredentials(store, hostID)
 	if err == nil && existing.ClientID != "" {
 		utils.Infoln("[INFO] Found Personal API Key in OS secret store (client_id=" + maskSecret(existing.ClientID) + ")")
 		reuse, confirmErr := utils.ConfirmYesNo("Use stored Personal API Key? (y/N): ")
