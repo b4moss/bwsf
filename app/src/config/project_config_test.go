@@ -10,22 +10,25 @@ import (
 )
 
 func TestParseProjectConfigJSONC_Variants(t *testing.T) {
-	t.Run("plain_override_and_not_save", func(t *testing.T) {
-		pc, err := ParseProjectConfigJSONC([]byte(`{
+	t.Run("not_save_files_rejected", func(t *testing.T) {
+		_, err := ParseProjectConfigJSONC([]byte(`{
 			"override_project_name": "my-api",
 			"not_save_files": [".env.local", "*.auto.tfvars"]
 		}`))
-		require.NoError(t, err)
-		assert.Equal(t, "my-api", pc.EffectiveOverride())
-		assert.Equal(t, []string{".env.local", "*.auto.tfvars"}, pc.EffectiveNotSaveFiles())
-		assert.Empty(t, pc.EffectiveSaveFiles())
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "not_save_files")
 	})
 
 	t.Run("save_files_only", func(t *testing.T) {
 		pc, err := ParseProjectConfigJSONC([]byte(`{"save_files":[".env",".env.production"]}`))
 		require.NoError(t, err)
 		assert.Equal(t, []string{".env", ".env.production"}, pc.EffectiveSaveFiles())
-		assert.Empty(t, pc.EffectiveNotSaveFiles())
+	})
+
+	t.Run("save_files_with_negation", func(t *testing.T) {
+		pc, err := ParseProjectConfigJSONC([]byte(`{"save_files":[".env*", "!.env.local"]}`))
+		require.NoError(t, err)
+		assert.Equal(t, []string{".env*", "!.env.local"}, pc.EffectiveSaveFiles())
 	})
 
 	t.Run("jsonc_comments", func(t *testing.T) {
@@ -48,6 +51,12 @@ func TestParseProjectConfigJSONC_Variants(t *testing.T) {
 		require.NoError(t, err)
 		assert.Empty(t, pc.EffectiveSaveFiles())
 	})
+
+	t.Run("host_field", func(t *testing.T) {
+		pc, err := ParseProjectConfigJSONC([]byte(`{"host":"work"}`))
+		require.NoError(t, err)
+		assert.Equal(t, "work", pc.EffectiveHost())
+	})
 }
 
 func TestParseProjectConfigJSONC_BothListsError(t *testing.T) {
@@ -56,12 +65,101 @@ func TestParseProjectConfigJSONC_BothListsError(t *testing.T) {
 		"not_save_files": [".env.local"]
 	}`))
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "save_files")
+	assert.Contains(t, err.Error(), "not_save_files")
 }
 
 func TestParseProjectConfigJSONC_Invalid(t *testing.T) {
 	_, err := ParseProjectConfigJSONC([]byte(`{`))
 	require.Error(t, err)
+}
+
+func TestGetProjectConfigWritePath(t *testing.T) {
+	dir := "/tmp/proj"
+	assert.Equal(t, filepath.Join(dir, ".bwsf", "config.jsonc"), GetProjectConfigWritePath(dir))
+}
+
+func TestSaveProjectConfig_WritesJSONC(t *testing.T) {
+	dir := t.TempDir()
+	pc := &ProjectConfig{
+		Host:                "work",
+		OverrideProjectName: "my-api",
+		SaveFiles:           []string{".env*", "!.env.local"},
+	}
+	require.NoError(t, SaveProjectConfig(dir, pc))
+
+	path := GetProjectConfigWritePath(dir)
+	require.FileExists(t, path)
+	assert.NoFileExists(t, filepath.Join(dir, ".bwsf", "config.json"))
+
+	loaded, err := LoadProjectConfigFile(path)
+	require.NoError(t, err)
+	assert.Equal(t, "work", loaded.Host)
+	assert.Equal(t, "my-api", loaded.OverrideProjectName)
+	assert.Equal(t, []string{".env*", "!.env.local"}, loaded.SaveFiles)
+}
+
+func TestSaveProjectConfig_Omitempty(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, SaveProjectConfig(dir, &ProjectConfig{}))
+
+	data, err := os.ReadFile(GetProjectConfigWritePath(dir))
+	require.NoError(t, err)
+	body := string(data)
+	assert.NotContains(t, body, "host")
+	assert.NotContains(t, body, "save_files")
+	assert.NotContains(t, body, "override_project_name")
+}
+
+func TestSaveProjectConfig_RemovesSiblingJSON(t *testing.T) {
+	dir := t.TempDir()
+	bwsf := filepath.Join(dir, ".bwsf")
+	require.NoError(t, os.MkdirAll(bwsf, 0o755))
+	jsonPath := filepath.Join(bwsf, "config.json")
+	require.NoError(t, os.WriteFile(jsonPath, []byte(`{"host":"old"}`), 0o600))
+
+	require.NoError(t, SaveProjectConfig(dir, &ProjectConfig{Host: "new"}))
+	require.FileExists(t, GetProjectConfigWritePath(dir))
+	assert.NoFileExists(t, jsonPath)
+}
+
+func TestSaveProjectConfig_Nil(t *testing.T) {
+	err := SaveProjectConfig(t.TempDir(), nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "nil")
+}
+
+func TestSaveProjectConfig_WriteError(t *testing.T) {
+	restore := OverrideSaveConfigIO(nil, func(string, []byte, os.FileMode) error {
+		return assert.AnError
+	})
+	t.Cleanup(restore)
+
+	err := SaveProjectConfig(t.TempDir(), &ProjectConfig{Host: "x"})
+	require.Error(t, err)
+}
+
+func TestFindLocalProjectConfigFiles(t *testing.T) {
+	dir := t.TempDir()
+	jp, jcp, err := FindLocalProjectConfigFiles(dir)
+	require.NoError(t, err)
+	assert.Empty(t, jp)
+	assert.Empty(t, jcp)
+
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, ".bwsf"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, ".bwsf", "config.jsonc"), []byte(`{}`), 0o600))
+	jp, jcp, err = FindLocalProjectConfigFiles(dir)
+	require.NoError(t, err)
+	assert.Empty(t, jp)
+	assert.NotEmpty(t, jcp)
+}
+
+func TestLocalProjectConfigExists(t *testing.T) {
+	dir := t.TempDir()
+	assert.False(t, LocalProjectConfigExists(dir))
+
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, ".bwsf"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, ".bwsf", "config.json"), []byte(`{}`), 0o600))
+	assert.True(t, LocalProjectConfigExists(dir))
 }
 
 func TestFindProjectConfigPaths(t *testing.T) {

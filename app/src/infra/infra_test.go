@@ -104,8 +104,35 @@ func TestUnlockError_ImplementsError(t *testing.T) {
 // NewBwClientFromConfig / ApiBwClient のテスト
 // =============================================================================
 
-// 正常系: nil / 未設定 config では API アダプタが選ばれる
-func TestNewBwClientFromConfig_DefaultAPI(t *testing.T) {
+// testConfig builds a minimal v2 global config with one default host.
+func testConfig(hostType, url, email, folder string) *config.Config {
+	t := config.HostTypeCloud
+	if hostType == "selfhosted" || hostType == config.HostTypeSelfhost {
+		t = config.HostTypeSelfhost
+	}
+	if url == "" && t == config.HostTypeCloud {
+		url = config.DefaultCloudURL
+	}
+	if folder == "" {
+		folder = config.DefaultFolderName
+	}
+	return &config.Config{
+		SchemaVersion: config.SchemaVersion1,
+		Settings: config.GlobalSettings{
+			Hosts: []config.Host{{
+				ID:            config.DefaultHostID,
+				Type:          t,
+				HostURL:       url,
+				Email:         email,
+				TargetSection: folder,
+				IsDefault:     true,
+			}},
+		},
+	}
+}
+
+// 正常系: factory は常に API アダプタを返す
+func TestNewBwClientFromConfig_AlwaysAPI(t *testing.T) {
 	client, err := NewBwClientFromConfig(nil)
 	assert.NoError(t, err)
 	assert.IsType(t, &ApiBwClient{}, client)
@@ -114,30 +141,15 @@ func TestNewBwClientFromConfig_DefaultAPI(t *testing.T) {
 	assert.NoError(t, err)
 	assert.IsType(t, &ApiBwClient{}, client)
 
-	client, err = NewBwClientFromConfig(&config.Config{Backend: config.BackendBW})
-	assert.NoError(t, err)
-	assert.IsType(t, &RealBwClient{}, client)
-}
-
-// 正常系: backend=api では API アダプタが選ばれる
-func TestNewBwClientFromConfig_API(t *testing.T) {
-	client, err := NewBwClientFromConfig(&config.Config{Backend: config.BackendAPI})
+	client, err = NewBwClientFromConfig(testConfig("cloud", "", "a@example.com", ""))
 	assert.NoError(t, err)
 	assert.IsType(t, &ApiBwClient{}, client)
-}
-
-// 異常系: 不明な backend はエラー
-func TestNewBwClientFromConfig_Unsupported(t *testing.T) {
-	client, err := NewBwClientFromConfig(&config.Config{Backend: "unknown"})
-	assert.Error(t, err)
-	assert.Nil(t, client)
-	assert.Contains(t, err.Error(), "unsupported backend")
 }
 
 // 異常系: 未認証では保管庫メソッドが auth エラーになる
 func TestApiBwClient_VaultRequiresAuth(t *testing.T) {
 	client := NewApiBwClientWithDeps(
-		&config.Config{Backend: config.BackendAPI},
+		testConfig("cloud", "", "", ""),
 		NewMemorySecretStore(),
 		NewIdentityClient(),
 		nil,
@@ -150,14 +162,13 @@ func TestApiBwClient_VaultRequiresAuth(t *testing.T) {
 	assert.ErrorIs(t, err, ErrAPINotAuthenticated)
 
 	assert.ErrorIs(t, client.Login("e", "p", ""), ErrAPINotAuthenticated)
-	assert.Contains(t, ErrAPINotImplemented.Error(), "bwsf auth")
+	assert.Contains(t, ErrAPINotImplemented.Error(), "bwsf auth login")
 }
 
 // 正常系: ApiBwClient が BwClient インターフェースを実装している
 func TestApiBwClient_ImplementsInterface(t *testing.T) {
 	var _ core.BwClient = NewApiBwClient(nil)
 }
-
 
 // =============================================================================
 // realFileInfo のテスト

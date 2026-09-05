@@ -1,7 +1,16 @@
 {
-  // cloud host without self-hosted URL
-  "host_type": "cloud",
-  /* unused for cloud */
-  "selfhosted_url": "",
-  "email": "user@example.com" // primary login
+  // cloud host fixture
+  "schemaVersion": 1,
+  "settings": {
+    "hosts": [
+      {
+        "id": "default",
+        "type": "bitwarden-cloud",
+        "host_url": "https://vault.bitwarden.com",
+        "email": "user@example.com",
+        "target_section": "dotenvs",
+        "is_default": true,
+      },
+    ],
+  },
 }

@@ -20,10 +20,22 @@ func UnmarshalJSONC(data []byte, dst any) error {
 	return json.Unmarshal(standardized, dst)
 }
 
-// UnmarshalConfigJSONC parses JSON or JSONC into Config.
+// standardizeJSONC returns strict JSON bytes from JSONC input.
+func standardizeJSONC(data []byte) ([]byte, error) {
+	return hujson.Standardize(data)
+}
+
+// UnmarshalConfigJSONC parses JSONC into Config and rejects banned keys.
 func UnmarshalConfigJSONC(data []byte, dst *Config) error {
 	if dst == nil {
 		return fmt.Errorf("config destination is nil")
 	}
-	return UnmarshalJSONC(data, dst)
+	if err := detectBannedKeys(data); err != nil {
+		return err
+	}
+	if err := UnmarshalJSONC(data, dst); err != nil {
+		return err
+	}
+	dst.Normalize()
+	return nil
 }

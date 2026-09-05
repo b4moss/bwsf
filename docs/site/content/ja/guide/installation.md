@@ -12,26 +12,12 @@
 
 ### 依存関係
 
-`bwsf`の利用とインストールには、以下が必要です。
+- Bitwarden アカウント（Cloud またはセルフホスト / Vaultwarden）
+- **Personal API Key**（アカウント設定 → セキュリティ → キー）
+- OS の秘密保管（**macOS Keychain** / **Linux secret service**）
+- **Homebrew**（bwsf 本体のインストール用）
 
-- **Bitwarden CLI (`bw`)**
-- **Homebrew**
-- Bitwardenのアカウント
-
-### Bitwarden CLIのインストール
-
-```bash
-# macOS
-brew install bitwarden-cli
-
-# Linux (Snap)
-sudo snap install bw
-
-# npm (クロスプラットフォーム)
-npm install -g @bitwarden/cli
-```
-
-その他のオプションについては、[公式 Bitwarden CLI ドキュメント](https://bitwarden.com/help/cli/#download-and-install)を参照してください。
+Bitwarden CLI（`bw`）は **不要** です（v0.20.0 で廃止）。
 
 ### Homebrewのセットアップ
 
@@ -44,16 +30,14 @@ npm install -g @bitwarden/cli
 
 Bitwardenには、2種類のホスティング形式があります
 
-- **[Bitwarden Cloud](https://bitwarden.com/)**: Bitwardenが、公式のホスティングしているSaaSサービスです
-- **Bitwardenセルフホスト**: BitwardenはOSSとして公開されており、セルフホストすることも可能です
+- **[Bitwarden Cloud](https://bitwarden.com/)**: Bitwardenが公式ホスティングしている SaaS
+- **Bitwardenセルフホスト**: OSS としてセルフホストも可能（Vaultwarden 含む）
 
 `bwsf`は、このどちらにも対応しています。
 
 [Bitwardenのアカウントの作り方は、こちらのドキュメント](https://bitwarden.com/help/create-bitwarden-account/)を参考にして下さい。
 
 ## bwsf のインストール
-
-さて、いよいよ`bwsf`のインストールです。
 
 ### macOS
 
@@ -73,32 +57,27 @@ Homebrew tap の versioned formula は、「現行 minor の全 patch」と「1�
 
 ```bash
 brew tap b4m-oss/tap
-brew install bwsf@0.17.3
+brew install bwsf@0.18.0
 ```
 
-versioned formula は keg-only のため、パスを通すか `brew link --force bwsf@0.17.3` が必要になる場合があります。
+versioned formula は keg-only のため、パスを通すか `brew link --force bwsf@0.18.0` が必要になる場合があります。
 
 ## インストールの確認
 
 ```bash
 bwsf -v
-# bwsf version x.x.x
+# bwsf version 0.20.0
 ```
 
 ## 初期設定
 
-インストール後、セットアップコマンドを実行して Bitwarden 接続を設定します。
-
 ```bash
-bwsf setup
+bwsf setup                 # ホスト（スキップ可）+ 任意の save_files / folder
+bwsf auth login             # Personal API Key を OS 秘密保管へ + unlock
 ```
 
-以下の入力を求められます：
-1. Bitwarden サーバー URL（Bitwarden Cloud の場合は空欄）
-2. Bitwarden のメールアドレス
-3. マスターパスワード
+`setup` はマスターパスワードでのログインを行いません。認証は `bwsf auth login` です（API Key 保存と vault unlock）。その後の `push` / `pull` / `list` は `vault_unlock` の restore、または再プロンプトになります。設定は `~/.config/bwsf/config.jsonc` に保存されます。
 
 ----
 
 以上で初期設定は終了です。お疲れ様でした！
-

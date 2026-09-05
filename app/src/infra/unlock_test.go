@@ -18,7 +18,7 @@ func TestApiBwClient_Unlock_SuccessAndClearSession(t *testing.T) {
 	withTempHome(t)
 
 	store := NewMemorySecretStore()
-	_ = SaveAPICredentials(store, APICredentials{ClientID: "user.cid", ClientSecret: "sec"})
+	_ = SaveAPICredentials(store, config.DefaultHostID, APICredentials{ClientID: "user.cid", ClientSecret: "sec"})
 	identity := &IdentityClient{
 		HTTPClient: &http.Client{
 			Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
@@ -33,7 +33,7 @@ func TestApiBwClient_Unlock_SuccessAndClearSession(t *testing.T) {
 	}
 	crypto := &MockCryptoSession{}
 	client := NewApiBwClientWithDeps(
-		&config.Config{HostType: "cloud", Email: "a@example.com", Backend: config.BackendAPI},
+		testConfig("cloud", "", "a@example.com", ""),
 		store,
 		identity,
 		crypto,
@@ -57,14 +57,14 @@ func TestApiBwClient_Unlock_SuccessAndClearSession(t *testing.T) {
 	assert.False(t, client.IsUnlocked())
 	assert.Contains(t, crypto.Calls, "Lock")
 
-	_ = SaveAPICredentials(store, APICredentials{ClientID: "user.cid", ClientSecret: "sec"})
+	_ = SaveAPICredentials(store, config.DefaultHostID, APICredentials{ClientID: "user.cid", ClientSecret: "sec"})
 	require.NoError(t, client.Authenticate(context.Background()))
 	assert.True(t, client.IsAuthenticated())
 }
 
 func TestApiBwClient_Unlock_EmptyPassword(t *testing.T) {
 	client := NewApiBwClientWithDeps(
-		&config.Config{HostType: "cloud", Email: "a@example.com"},
+		testConfig("cloud", "", "a@example.com", ""),
 		NewMemorySecretStore(),
 		NewIdentityClient(),
 		&MockCryptoSession{},
@@ -77,7 +77,7 @@ func TestApiBwClient_Unlock_EmptyPassword(t *testing.T) {
 func TestApiBwClient_Unlock_MissingEmail(t *testing.T) {
 	withTempHome(t)
 	store := NewMemorySecretStore()
-	_ = SaveAPICredentials(store, APICredentials{ClientID: "user.cid", ClientSecret: "sec"})
+	_ = SaveAPICredentials(store, config.DefaultHostID, APICredentials{ClientID: "user.cid", ClientSecret: "sec"})
 	identity := &IdentityClient{
 		HTTPClient: &http.Client{
 			Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
@@ -90,7 +90,7 @@ func TestApiBwClient_Unlock_MissingEmail(t *testing.T) {
 			}),
 		},
 	}
-	client := NewApiBwClientWithDeps(&config.Config{HostType: "cloud"}, store, identity, &MockCryptoSession{})
+	client := NewApiBwClientWithDeps(testConfig("cloud", "", "", ""), store, identity, &MockCryptoSession{})
 	require.NoError(t, client.Authenticate(context.Background()))
 	err := client.Unlock("mp")
 	assert.Error(t, err)
@@ -100,7 +100,7 @@ func TestApiBwClient_Unlock_MissingEmail(t *testing.T) {
 func TestApiBwClient_Unlock_CryptoFailure(t *testing.T) {
 	withTempHome(t)
 	store := NewMemorySecretStore()
-	_ = SaveAPICredentials(store, APICredentials{ClientID: "user.cid", ClientSecret: "sec"})
+	_ = SaveAPICredentials(store, config.DefaultHostID, APICredentials{ClientID: "user.cid", ClientSecret: "sec"})
 	identity := &IdentityClient{
 		HTTPClient: &http.Client{
 			Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
@@ -115,7 +115,7 @@ func TestApiBwClient_Unlock_CryptoFailure(t *testing.T) {
 	}
 	crypto := &MockCryptoSession{UnlockErr: fmt.Errorf("bad password")}
 	client := NewApiBwClientWithDeps(
-		&config.Config{HostType: "cloud", Email: "a@example.com"},
+		testConfig("cloud", "", "a@example.com", ""),
 		store,
 		identity,
 		crypto,

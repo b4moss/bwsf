@@ -9,6 +9,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var pullHost string
+
 var pullCmd = &cobra.Command{
 	Use:   "pull",
 	Short: "Pull .env file from Bitwarden",
@@ -18,21 +20,22 @@ var pullCmd = &cobra.Command{
 
 func init() {
 	pullCmd.Flags().String("output", ".", "Directory to save .env file")
+	pullCmd.Flags().StringVar(&pullHost, "host", "", "Host id from global config hosts[]")
 	rootCmd.AddCommand(pullCmd)
 }
 
 func runPull(cmd *cobra.Command, args []string) {
 	cfg := loadConfigOrEmpty()
-	requireBwCLIIfNeeded(cfg)
 
-	projectName, outputDir, _, err := resolveProjectAndFileDir(cmd, "output")
+	projectName, outputDir, _, projectHost, err := resolveProjectAndFileDir(cmd, "output")
 	if err != nil {
 		utils.Errorln("[ERROR] Failed to resolve project directory:", err)
 		exitFunc(1)
 		return
 	}
 
-	bw := newBwClientFromConfig(cfg)
+	host := resolveHostForCommand(cfg, pullHost, projectHost)
+	bw := newBwClientForHost(cfg, host)
 	defer clearAPISession(bw)
 	fs := newFileSystem()
 	logger := newLogger()

@@ -1,5 +1,7 @@
 # config: プロジェクトローカル `.bwsf/config.(json|jsonc)`（Issue #133 / v0.18.0）
 
+> **v0.20.0 / #177:** `not_save_files` 廃止・`save_files` の `!` 否定・グローバルとの完全オーバーライド・任意 `host` は [`save_files_bang.md`](./save_files_bang.md) / [`host_resolve.md`](./host_resolve.md) が優先。本文書の **探索・候補選択・`override_project_name`** は維持。
+
 対象パッケージ:
 
 - `app/src/config`（探索・スキーマ・JSONC パース・検証）
@@ -14,7 +16,7 @@ Issue: [#133](https://github.com/b4moss/bwsf/issues/133)
 
 - [#134](https://github.com/b4moss/bwsf/issues/134) / [`project/git_root.md`](../project/git_root.md) — git ルート・Name/Dir
 - [#155](https://github.com/b4moss/bwsf/issues/155) / [`config/jsonc_load.md`](./jsonc_load.md) — JSONC 読み込み
-- [#177](https://github.com/b4moss/bwsf/issues/177) — グローバル同系スキーマ（**本仕様の対象外**）
+- [#177](https://github.com/b4moss/bwsf/issues/177) — [`save_files_bang.md`](./save_files_bang.md) / [`host_resolve.md`](./host_resolve.md) / 製品仕様 [`../specs/v0.20.0-multi-host.md`](../specs/v0.20.0-multi-host.md)
 
 ---
 
@@ -28,11 +30,11 @@ Issue: [#133](https://github.com/b4moss/bwsf/issues/133)
 | P4 | 候補 **1** … それを採用（対話なし） |
 | P5 | 候補 **2 以上** … パス一覧を対話選択（`promptui.Select` 相当）。非 TTY / 選択不可時は **エラー**（ハングしない） |
 | P6 | 同一ディレクトリに `config.json` と `config.jsonc` が **両方**ある → **エラー** |
-| P7 | キーは `override_project_name` と、`save_files` / `not_save_files`（**どちらか一方のみ**。両方非空はロードエラー） |
+| P7 | キーは `override_project_name` と、`save_files` / `not_save_files`（**どちらか一方のみ**。両方非空はロードエラー）。**v0.20:** `not_save_files` 廃止 → [`save_files_bang.md`](./save_files_bang.md) |
 | P8 | 空文字の `override_project_name`、および空配列のみの `save_files`/`not_save_files` は **未設定**扱い |
 | P9 | ファイル選択は **基盤ルール**（`isManagedFileName` + `.example` 除外）の **後**に basename glob を適用する。基盤外ファイルを `save_files` で新規取り込みしない |
 | P10 | 読み込みは JSONC 可（#155 の hujson 経路）。本ファイル自体は管理対象に含めない（基盤パターン外） |
-| P11 | グローバル `~/.config/bwsf/config.json` の置き換えではない。グローバルの `save_files` 等は #177 |
+| P11 | グローバル `~/.config/bwsf/config.json` の置き換えではない。グローバルの `save_files` 等は #177 / [`global_v2.md`](./global_v2.md) |
 | P12 | 対象コマンドは **push / pull / clean**。`list` / `setup` / `config` はプロジェクト設定を読まない |
 
 ### スキーマ（初期）
@@ -172,7 +174,7 @@ Dir / Warn は [`project/git_root.md`](../project/git_root.md) から退行し�
 
 ## 7. 対象外（本仕様でテストしない）
 
-- グローバル設定への `save_files` / `not_save_files`（#177）
+- グローバル設定への `save_files` / `!` 否定・オーバーライド（#177 / [`save_files_bang.md`](./save_files_bang.md)）
 - 基盤ルール（`isManagedFileName`）自体の設定ファイル化
 - Vault Secure Note の JSONC 化
 - フック配置（#151）の実装（`.bwsf/` 集約は配置方針のみ）

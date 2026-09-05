@@ -13,9 +13,9 @@ bwsf (Bitwarden Secured Files) is a CLI tool that uses [Bitwarden](https://bitwa
 
 ## 🚨🚨 Important notice 🚨🚨
 
-Login to Bitwarden may fail on v0.17.0 and v0.17.1.
+**v0.20.0 breaking changes:** global config moves to `~/.config/bwsf/config.jsonc` (multi-host schema). Legacy flat `config.json` is migrated on first run (confirm or `--yes`). `not_save_files` is removed (use `save_files` with `!` prefixes). The `bw` CLI backend and `bwsf backend` are removed (API only).
 
-If you are on the v0.17 line, please upgrade to v0.17.2 (released 2026-09-03 JST) or later.
+Login to Bitwarden may fail on v0.17.0 and v0.17.1. If you are on the v0.17 line, please upgrade to v0.17.2 or later first.
 
 ## Overview
 
@@ -25,9 +25,9 @@ Simple usage below:
 
 | command | |
 |----|----|
-| bwsf setup | Configure Bitwarden host and account |
-| bwsf auth | Store Personal API Key and authenticate (`api` backend) |
-| bwsf backend | Show or set Bitwarden backend (`bw` CLI or `api`) |
+| bwsf setup | Configure hosts and global `save_files` (API only) |
+| bwsf auth login | Store API Key, verify Identity, unlock vault |
+| bwsf auth logout | Remove API Key and vault session |
 | bwsf config show | Show current local configuration |
 | bwsf push | Push managed files to your Bitwarden host |
 | bwsf pull | Pull managed files from your Bitwarden host |
@@ -42,21 +42,13 @@ This project migrates our hand-maded shell scripts to modern CLI command with Go
 
 ## Requirements
 
-### Default backend (`api`)
-
-No Bitwarden CLI (`bw`) install is required when using the default **API** backend.
+No Bitwarden CLI (`bw`) install is required. bwsf talks to Bitwarden over the **API**.
 
 You need:
 
 - A Bitwarden account (Cloud or self-hosted / Vaultwarden)
 - A **Personal API Key** (Account Settings → Security → Keys)
 - OS secret store access (**macOS Keychain** / **Linux secret service**) for storing the API key
-
-### Optional backend (`bw`)
-
-If you switch with `bwsf backend --set bw`, the **`bw`** CLI must be installed.
-
-[Install bw](https://bitwarden.com/help/cli/#download-and-install)
 
 ### Homebrew
 
@@ -82,14 +74,14 @@ current minor plus the latest patch of the previous minor (older formulas are
 pruned). Other releases remain on [GitHub Releases](https://github.com/b4moss/bwsf/releases).
 
 ```shell
-brew install bwsf@0.17.3
+brew install bwsf@0.18.0
 ```
 
 ## Verify installation
 
 ```shell
 bwsf -v
-# bwsf version 0.16.0
+# bwsf version 0.20.0
 ```
 
 ## Usage
@@ -100,15 +92,17 @@ bwsf -v
 bwsf setup
 ```
 
-Set up your Bitwarden host and your account information.
+Configure Bitwarden hosts (skippable) and optional global `save_files`. Settings are saved to `~/.config/bwsf/config.jsonc`.
 
-By default, notes are stored in a Bitwarden folder named `dotenvs`. To use a different folder name:
+By default, notes are stored in a Bitwarden folder named `dotenvs` (`target_section` on each host). To use a different folder name:
 
 ```shell
 bwsf setup --folder my-envs
 ```
 
-The folder name is saved in `~/.config/bwsf/config.json` and used by push / pull / list / clean. Changing the folder name does **not** move existing notes; move them manually in Bitwarden if needed.
+Changing the folder name does **not** move existing notes; move them manually in Bitwarden if needed.
+
+You can pass `--host <id>` on `push` / `pull` / `list` / `clean` when multiple hosts are configured.
 
 Check saved values with:
 
@@ -154,41 +148,27 @@ bwsf clean
 
 Removes local managed files after verifying the remote Bitwarden backup.
 
-### Show or set Bitwarden backend
+### Typical flow
 
 ```shell
-bwsf backend
-bwsf backend --set api
-bwsf backend --set bw
-```
-
-Default backend is **`api`** (Personal API Key + in-process vault unlock). The `bw` backend remains available for migration or preference.
-
-### API backend (recommended)
-
-Typical flow without installing the Bitwarden CLI:
-
-```shell
-bwsf setup                 # host type / URL / email (+ optional folder)
-bwsf auth                  # store Personal API Key; obtain Identity token
-bwsf push                  # prompts master password to unlock, then syncs
+bwsf setup                 # hosts + optional save_files (+ optional folder)
+bwsf auth login            # store Personal API Key; unlock vault (vault_unlock)
+bwsf push                  # restores vault_unlock when present, else prompts MP
 bwsf pull
 bwsf list
 ```
 
-`bwsf auth` prompts for `client_id` / `client_secret`, stores them in the OS secret store (**macOS Keychain** / **Linux secret service**), and obtains an Identity access token (kept in memory for the process). Use `bwsf auth --clear` to remove the stored key.
+`bwsf auth login` prompts for `client_id` / `client_secret`, stores them in the OS secret store (**macOS Keychain** / **Linux secret service**), verifies Identity, then unlocks the vault and persists `vault_unlock`. Use `bwsf auth logout` to remove the stored key and session (`bwsf lock` clears the session only). Bare `bwsf auth` prints help.
 
 Create a Personal API Key in the Bitwarden web vault under Account Settings → Security → Keys.
 
-On each `push` / `pull` / `list`, bwsf prompts for your **master password** to unlock vault keys in memory, then discards keys and tokens when the command exits.
+On each `push` / `pull` / `list`, bwsf restores `vault_unlock` when available, or prompts for your **master password**, then discards in-memory keys and tokens when the command exits.
 
 Caveat: unlock uses the Community SDK password-login path with config email + master password for key material. Identity Personal API Key tokens remain separate.
 
-If you previously relied on an unset `backend` field meaning `bw`, set it explicitly:
+### Upgrading from v0.19
 
-```shell
-bwsf backend --set bw
-```
+On first run, legacy `~/.config/bwsf/config.json` (flat schema) is detected and migrated after confirmation (or with `--yes`). A backup is written next to the original file. Project configs that still use `not_save_files` must be rewritten to `save_files` with `!` prefixes (load error otherwise).
 
 ## Uninstall
 
@@ -228,7 +208,7 @@ Your managed files are converted to JSON syntax. bwsf creates a Bitwarden Note i
 <details>
 <summary>Q. Where are my Bitwarden account info</summary>
 
-bwsf stores your config data at `~/.config/bwsf/`.
+bwsf stores your config data at `~/.config/bwsf/` (formal file: `config.jsonc`).
 
 But, secure information (ex. password) is never stored.
 

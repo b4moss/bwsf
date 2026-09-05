@@ -1,6 +1,16 @@
 {
-  // mixed JSONC features
-  "host_type": "cloud",
-  "selfhosted_url": "",
-  "email": "user@example.com", // trailing comma next
+  // comments + trailing commas
+  "schemaVersion": 1,
+  "settings": {
+    "hosts": [
+      {
+        "id": "default",
+        "type": "bitwarden-cloud",
+        "host_url": "https://vault.bitwarden.com",
+        "email": "user@example.com",
+        "target_section": "dotenvs",
+        "is_default": true,
+      },
+    ],
+  },
 }

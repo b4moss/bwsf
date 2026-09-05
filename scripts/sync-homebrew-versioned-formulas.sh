@@ -76,12 +76,11 @@ if git -C "${TAP_DIR}" diff --cached --quiet; then
   exit 0
 fi
 
-git -C "${TAP_DIR}" commit -m "$(cat <<'EOF'
-Sync retained bwsf versioned Homebrew formulas
+git -C "${TAP_DIR}" commit -m "Sync retained bwsf versioned Homebrew formulas"
 
-Keep current-minor patches and the previous minor's latest; prune the rest.
-EOF
-)"
-
+# Ensure git can push over HTTPS with GH_TOKEN / gh credentials.
+if command -v gh >/dev/null 2>&1; then
+  gh auth setup-git >/dev/null 2>&1 || true
+fi
 git -C "${TAP_DIR}" push origin HEAD
 echo "pushed versioned formulas to ${TAP_REPO}"

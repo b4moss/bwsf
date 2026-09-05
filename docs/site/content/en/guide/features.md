@@ -21,6 +21,8 @@ This command saves managed files in your project root to Bitwarden at once. Exam
 
 Files whose names contain `.example` (for example `.env.local.example` or `terraform.tfvars.example`) are **not** saved.
 
+Optional filters use `save_files` in global (`~/.config/bwsf/config.jsonc`) or project (`.bwsf/config.jsonc`) settings. Prefix a glob with `!` to exclude. A project `save_files` list fully overrides the global list.
+
 ## Applying Managed Files to Your Project
 
 ```bash
@@ -30,13 +32,27 @@ bwsf pull
 
 This pulls the managed files for the current project stored in Bitwarden and writes them to your project root. Existing local files are overwritten only after confirmation (per file).
 
+## API (only)
+
+From v0.20.0, bwsf uses the Bitwarden **API** only (Personal API Key). Typical flow:
+
+```bash
+bwsf setup
+bwsf auth login
+bwsf push   # prompts master password to unlock
+```
+
+## Multi-host
+
+Register multiple hosts under `settings.hosts` in the global config. Select with `--host <id>`, project `host`, or the host marked `is_default`.
+
 ## Inspecting Local Configuration
 
 ```bash
 bwsf config show
 ```
 
-Shows the values in `~/.config/bwsf/config.json` (host type, URL, email, effective folder name) without calling Bitwarden.
+Shows values in `~/.config/bwsf/config.jsonc` (hosts, `save_files`, metadata) without calling Bitwarden.
 
 ## Cleaning Local Managed Files
 
@@ -48,7 +64,7 @@ Removes local managed files after verifying that Bitwarden already has a matchin
 
 ## Multi-User Sharing via Bitwarden
 
-On the Bitwarden side, notes are saved in a configurable folder (default: `dotenvs`).
+On the Bitwarden side, notes are saved in a configurable folder per host (`target_section`, default: `dotenvs`).
 
 When you run `bwsf` in your project root, the name of that root folder becomes the project name.
 

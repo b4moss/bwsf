@@ -19,33 +19,41 @@ import (
 func TestMemorySecretStore_APICredentials(t *testing.T) {
 	store := NewMemorySecretStore()
 
-	_, err := LoadAPICredentials(store)
+	_, err := LoadAPICredentials(store, config.DefaultHostID)
 	assert.ErrorIs(t, err, ErrSecretNotFound)
 
-	err = SaveAPICredentials(store, APICredentials{
+	err = SaveAPICredentials(store, config.DefaultHostID, APICredentials{
 		ClientID:     "user.abc",
 		ClientSecret: "secret-value",
 	})
 	require.NoError(t, err)
 
-	creds, err := LoadAPICredentials(store)
+	creds, err := LoadAPICredentials(store, config.DefaultHostID)
 	require.NoError(t, err)
 	assert.Equal(t, "user.abc", creds.ClientID)
 	assert.Equal(t, "secret-value", creds.ClientSecret)
 
-	require.NoError(t, ClearAPICredentials(store))
-	_, err = LoadAPICredentials(store)
+	require.NoError(t, ClearAPICredentials(store, config.DefaultHostID))
+	_, err = LoadAPICredentials(store, config.DefaultHostID)
 	assert.ErrorIs(t, err, ErrSecretNotFound)
 }
 
 func TestResolveIdentityBase_Cloud(t *testing.T) {
-	base, err := ResolveIdentityBase("cloud", "")
+	base, err := ResolveIdentityBase(config.HostTypeCloud, config.DefaultCloudURL)
+	require.NoError(t, err)
+	assert.Equal(t, cloudIdentityUS, base)
+
+	base, err = ResolveIdentityBase("cloud", "")
 	require.NoError(t, err)
 	assert.Equal(t, cloudIdentityUS, base)
 }
 
 func TestResolveIdentityBase_SelfHosted(t *testing.T) {
-	base, err := ResolveIdentityBase("selfhosted", "https://vw.example.com/")
+	base, err := ResolveIdentityBase(config.HostTypeSelfhost, "https://vw.example.com/")
+	require.NoError(t, err)
+	assert.Equal(t, "https://vw.example.com/identity", base)
+
+	base, err = ResolveIdentityBase("selfhosted", "https://vw.example.com/")
 	require.NoError(t, err)
 	assert.Equal(t, "https://vw.example.com/identity", base)
 }
@@ -169,7 +177,7 @@ func TestApiBwClient_AuthenticateAndLogin(t *testing.T) {
 	withTempHome(t)
 
 	store := NewMemorySecretStore()
-	require.NoError(t, SaveAPICredentials(store, APICredentials{
+	require.NoError(t, SaveAPICredentials(store, config.DefaultHostID, APICredentials{
 		ClientID:     "user.cid",
 		ClientSecret: "csecret",
 	}))
@@ -187,7 +195,7 @@ func TestApiBwClient_AuthenticateAndLogin(t *testing.T) {
 		},
 	}
 
-	cfg := &config.Config{HostType: "cloud", Backend: config.BackendAPI}
+	cfg := testConfig("cloud", "", "a@example.com", "")
 	client := NewApiBwClientWithDeps(cfg, store, identity, nil)
 
 	require.NoError(t, client.Authenticate(context.Background()))
@@ -204,7 +212,7 @@ func TestApiBwClient_AuthenticateAndLogin(t *testing.T) {
 }
 
 func TestApiBwClient_Authenticate_MissingCredentials(t *testing.T) {
-	client := NewApiBwClientWithDeps(&config.Config{HostType: "cloud"}, NewMemorySecretStore(), NewIdentityClient(), nil)
+	client := NewApiBwClientWithDeps(testConfig("cloud", "", "", ""), NewMemorySecretStore(), NewIdentityClient(), nil)
 	err := client.Authenticate(context.Background())
 	assert.ErrorIs(t, err, ErrAPINotAuthenticated)
 }
@@ -233,8 +241,8 @@ func TestApiBwClient_EnsureAccessToken_Refresh(t *testing.T) {
 	}
 
 	store := NewMemorySecretStore()
-	_ = SaveAPICredentials(store, APICredentials{ClientID: "user.cid", ClientSecret: "sec"})
-	client := NewApiBwClientWithDeps(&config.Config{HostType: "cloud"}, store, identity, nil)
+	_ = SaveAPICredentials(store, config.DefaultHostID, APICredentials{ClientID: "user.cid", ClientSecret: "sec"})
+	client := NewApiBwClientWithDeps(testConfig("cloud", "", "", ""), store, identity, nil)
 	client.mu.Lock()
 	client.token = &TokenSet{
 		AccessToken:  "old",
@@ -258,4 +266,3 @@ func withTempHome(t *testing.T) {
 		_ = os.Setenv("HOME", orig)
 	})
 }
-

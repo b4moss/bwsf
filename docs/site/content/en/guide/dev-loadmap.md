@@ -1,10 +1,14 @@
 # Features in Development
 
-- [x] Ability to use folder names other than `dotenvs` (`bwsf setup --folder`)
+- [x] Ability to use folder names other than `dotenvs` (`bwsf setup --folder` / host `target_section`)
 - [x] `bwsf clean` command: remove local managed files after verifying Bitwarden backup
 - [x] Project root resolution via `.git` (#134)
-- `.bwsf/config.(json|jsonc)` project settings (#133)
-  - `override_project_name` and either `save_files` or `not_save_files`
+- [x] `.bwsf/config.(json|jsonc)` project settings (#133 / #177)
+  - `override_project_name`, optional `host`, `save_files` (with `!` exclusions; `not_save_files` removed)
+- [x] Global multi-host config v2 (#177) — `~/.config/bwsf/config.jsonc`
+- [ ] Per-host Keychain / unlock·lock (#153)
+- [x] `auth login` / `logout` (#174)
+- [ ] `bwsf init` (#193)
 
 # About Versioning
 

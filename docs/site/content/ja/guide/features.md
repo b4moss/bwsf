@@ -21,6 +21,8 @@ bwsf push
 
 名前に `.example` を含むファイル（例: `.env.local.example`、`terraform.tfvars.example`）は **保存されません**。
 
+任意のフィルタは、グローバル（`~/.config/bwsf/config.jsonc`）またはプロジェクト（`.bwsf/config.jsonc`）設定の `save_files` で指定します。glob に `!` 接頭辞を付けると除外になります。プロジェクトの `save_files` はグローバルを完全に上書きします。
+
 ## 管理対象ファイルのプロジェクトへの適用
 
 ```bash
@@ -30,13 +32,27 @@ bwsf pull
 
 Bitwarden 側に保存されている当該プロジェクトの管理対象ファイルを、プロジェクトルートへ書き戻します。ローカルに同名ファイルがある場合は、ファイル単位で上書き確認します。
 
+## API（のみ）
+
+v0.20.0 から、bwsf は Bitwarden **API** のみを使用します（Personal API Key）。典型フロー:
+
+```bash
+bwsf setup
+bwsf auth login
+bwsf push   # マスターパスワードで unlock
+```
+
+## マルチホスト
+
+グローバル設定の `settings.hosts` に複数ホストを登録できます。`--host <id>`、プロジェクトの `host`、または `is_default` が付いたホストで選択します。
+
 ## ローカル設定の確認
 
 ```bash
 bwsf config show
 ```
 
-`~/.config/bwsf/config.json` の値（ホスト種別、URL、メール、実効フォルダ名）を表示します。Bitwarden にはアクセスしません。
+`~/.config/bwsf/config.jsonc` の値（hosts、`save_files`、メタデータ）を表示します。Bitwarden にはアクセスしません。
 
 ## ローカル管理対象ファイルの削除
 
@@ -48,7 +64,7 @@ Bitwarden 側に一致するバックアップがあることを確認したう�
 
 ## Bitwarden を使ったマルチユーザー共有
 
-Bitwarden 側では、設定したフォルダ（デフォルト: `dotenvs`）にノートとして保存されます。
+Bitwarden 側では、ホストごとに設定可能なフォルダ（`target_section`、デフォルト: `dotenvs`）にノートとして保存されます。
 
 `bwsf` をプロジェクトルートで実行したとき、そのルートフォルダ名がプロジェクト名になります。
 

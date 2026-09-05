@@ -88,7 +88,7 @@ Step 4 の実装計画正本: [Issue #53 Step 4 実装計画](https://github.com
 |------|------|
 | [`config/project_local.md`](./config/project_local.md) | 探索・0/1/複数選択、`override_project_name`、`save_files`/`not_save_files`、core フィルタ |
 
-合意正本: [#133](https://github.com/b4moss/bwsf/issues/133)。キー命名は Issue コメントの決定。グローバル同系は [#177](https://github.com/b4moss/bwsf/issues/177)
+合意正本: [#133](https://github.com/b4moss/bwsf/issues/133)。グローバル同系（v0.20.0 多ホスト）および `save_files` / `!` は [#177](https://github.com/b4moss/bwsf/issues/177) / [`config/save_files_bang.md`](./config/save_files_bang.md) / 製品仕様 [`../specs/v0.20.0-multi-host.md`](../specs/v0.20.0-multi-host.md)
 
 ## Issue #160 / v0.18.0 — coverage 75%+（Phase 2: `bw` 実行差し替え）
 
@@ -97,3 +97,52 @@ Step 4 の実装計画正本: [Issue #53 Step 4 実装計画](https://github.com
 | [`utils/bw_exec_mock.md`](./utils/bw_exec_mock.md) | `runBw` 境界、ユニットで固定する分岐、e2e 委譲、モック非対象 |
 
 合意正本: [#160](https://github.com/b4moss/bwsf/issues/160)。Phase 1（cmd DI・input 等）は既存契約の実装漏れ埋めのため本ディレクトリへの追加なし。
+
+## Issue #177 / v0.20.0 — グローバル設定 v2 / 多ホスト（§2）
+
+製品正本: [`../specs/v0.20.0-multi-host.md`](../specs/v0.20.0-multi-host.md)。実装順は §2（本 Issue）→ #153 → #174 → #193。
+
+| 文書 | 内容 |
+|------|------|
+| [`config/global_v2.md`](./config/global_v2.md) | 新スキーマ I/O（`.json` XOR `.jsonc`）、hosts 検証、Save、`config show` v2 |
+| [`config/migrate_v2.md`](./config/migrate_v2.md) | 旧 flat 検出・確認／`--yes`・バックアップ・§2.6 写像（Keychain は #153） |
+| [`config/save_files_bang.md`](./config/save_files_bang.md) | `save_files` + `!` 否定、`not_save_files` 廃止、プロジェクト完全オーバーライド |
+| [`config/host_resolve.md`](./config/host_resolve.md) | §1.1 解決順、`push`/`pull`/`list`/`clean` の `--host` |
+| [`cmd/setup_v2.md`](./cmd/setup_v2.md) | setup の host スキップ／既存 host 操作／`save_files` 対話、bw setup 廃止 |
+
+## Issue #193 / v0.20.0 — `bwsf init`（§5）
+
+製品正本: [`../specs/v0.20.0-multi-host.md`](../specs/v0.20.0-multi-host.md) §5。前提は #177（グローバル設定ファイル。`hosts: []` 可）。
+
+| 文書 | 内容 |
+|------|------|
+| [`infra/secretstore_hosts.md`](./infra/secretstore_hosts.md) | Keychain キー `hosts/<id>/...`、旧 flat 読み替え／移行、`vault_unlock` |
+| [`cmd/unlock_lock.md`](./cmd/unlock_lock.md) | `bwsf unlock` / `lock` / `lock --all`、`--host`、auth との境界 |
+| [`core/vault_unlock_restore.md`](./core/vault_unlock_restore.md) | push/pull/list/clean の自動 restore、無効時破棄＋再プロンプト |
+| [`cmd/session_lifecycle.md`](./cmd/session_lifecycle.md) | 終了時はメモリのみ破棄。Keychain の `vault_unlock` は残す（§3 改訂） |
+
+## Issue #174 / v0.20.0 — auth login/logout（§4）
+
+製品正本: [`../specs/v0.20.0-multi-host.md`](../specs/v0.20.0-multi-host.md) §4（host 解決は §1.1）。前提は #177（§2）および #153（§3）。
+
+| 文書 | 内容 |
+|------|------|
+| [`cmd/auth_login_logout.md`](./cmd/auth_login_logout.md) | `auth login` / `logout` / `logout --all`、引数なしヘルプ、旧 `--clear` 削除、login→unlock 一気通貫 |
+
+### 旧テスト仕様との関係（#153）
+
+| 旧文書 | 扱い |
+|--------|------|
+| [`infra/apiclient_unlock.md`](./infra/apiclient_unlock.md) | メモリ上 Unlock / ClearSession は維持。**ClearSession は Keychain の `vault_unlock` を消さない**（secretstore_hosts / vault_unlock_restore が優先） |
+| [`core/unlock_retry_api.md`](./core/unlock_retry_api.md) | 認証切れ vs 未 unlock の分岐は維持。**restore 挿入は vault_unlock_restore が優先** |
+| [`config/host_resolve.md`](./config/host_resolve.md) | 解決順は維持。**unlock/lock の `--host` 登録は unlock_lock が優先**（H8 の #153 分）。**auth login/logout の `--host` は auth_login_logout が優先**（H8 の #174 分） |
+| [`config/migrate_v2.md`](./config/migrate_v2.md) | 設定ファイル写像は維持。**Keychain 移行は secretstore_hosts が優先**（M8） |
+
+### 旧テスト仕様との関係（v0.20 実装時）
+
+| 旧文書 | 扱い |
+|--------|------|
+| [`config/jsonc_load.md`](./config/jsonc_load.md) | 読み込み技術は維持。パス・Save 先・スキーマは **global_v2 が優先** |
+| [`config/project_local.md`](./config/project_local.md) | 探索・override・候補選択は維持。**フィルタ／`not_save_files` は save_files_bang が優先** |
+| [`cmd/setup_api.md`](./cmd/setup_api.md) / [`cmd/setup_api_folder.md`](./cmd/setup_api_folder.md) | api・Login 無しの精神は維持。**フロー全体は setup_v2 が優先**（bw 退行テストは廃止） |
+| [`cmd/config_show.md`](./cmd/config_show.md) | 登録形は維持。**表示フィールドは global_v2 §5 が優先** |

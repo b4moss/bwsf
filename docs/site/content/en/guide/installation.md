@@ -12,20 +12,12 @@
 
 ### Dependencies
 
-**Bitwarden CLI (`bw`)** is required. Install it first:
+- A Bitwarden account (Cloud or self-hosted / Vaultwarden)
+- A **Personal API Key** (Account Settings → Security → Keys)
+- OS secret store access (**macOS Keychain** / **Linux secret service**)
+- **Homebrew** (to install bwsf)
 
-```bash
-# macOS
-brew install bitwarden-cli
-
-# Linux (Snap)
-sudo snap install bw
-
-# npm (cross-platform)
-npm install -g @bitwarden/cli
-```
-
-See the [official Bitwarden CLI docs](https://bitwarden.com/help/cli/#download-and-install) for more options.
+The Bitwarden CLI (`bw`) is **not required** (removed in v0.20.0).
 
 ## Install bwsf
 
@@ -53,31 +45,27 @@ tap but remain on [GitHub Releases](https://github.com/b4moss/bwsf/releases).
 
 ```bash
 brew tap b4m-oss/tap
-brew install bwsf@0.17.3
+brew install bwsf@0.18.0
 ```
 
 Versioned formulas are keg-only, so you may need to adjust your `PATH` or run
-`brew link --force bwsf@0.17.3`.
+`brew link --force bwsf@0.18.0`.
 
 ## Verify Installation
 
 ```bash
 bwsf -v
-# bwsf version x.x.x
+# bwsf version 0.20.0
 ```
 
 ## Initial Setup
 
-After installation, run the setup command to configure your Bitwarden connection:
-
 ```bash
-bwsf setup
+bwsf setup                 # hosts (skippable) + optional save_files / folder
+bwsf auth login             # Personal API Key → OS secret store + unlock
 ```
 
-You'll be prompted to enter:
-1. Your Bitwarden server URL (leave blank for Bitwarden Cloud)
-2. Your Bitwarden email
-3. Your master password
+`setup` does **not** log in with a master password. Authentication is `bwsf auth login` (stores the API Key and unlocks the vault). Later `push` / `pull` / `list` can restore `vault_unlock` or prompt again. Settings are saved to `~/.config/bwsf/config.jsonc`.
 
 ## Uninstall
 
@@ -90,4 +78,3 @@ brew uninstall bwsf
 ```bash
 brew upgrade bwsf
 ```
-
