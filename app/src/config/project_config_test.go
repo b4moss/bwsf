@@ -10,22 +10,25 @@ import (
 )
 
 func TestParseProjectConfigJSONC_Variants(t *testing.T) {
-	t.Run("plain_override_and_not_save", func(t *testing.T) {
-		pc, err := ParseProjectConfigJSONC([]byte(`{
+	t.Run("not_save_files_rejected", func(t *testing.T) {
+		_, err := ParseProjectConfigJSONC([]byte(`{
 			"override_project_name": "my-api",
 			"not_save_files": [".env.local", "*.auto.tfvars"]
 		}`))
-		require.NoError(t, err)
-		assert.Equal(t, "my-api", pc.EffectiveOverride())
-		assert.Equal(t, []string{".env.local", "*.auto.tfvars"}, pc.EffectiveNotSaveFiles())
-		assert.Empty(t, pc.EffectiveSaveFiles())
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "not_save_files")
 	})
 
 	t.Run("save_files_only", func(t *testing.T) {
 		pc, err := ParseProjectConfigJSONC([]byte(`{"save_files":[".env",".env.production"]}`))
 		require.NoError(t, err)
 		assert.Equal(t, []string{".env", ".env.production"}, pc.EffectiveSaveFiles())
-		assert.Empty(t, pc.EffectiveNotSaveFiles())
+	})
+
+	t.Run("save_files_with_negation", func(t *testing.T) {
+		pc, err := ParseProjectConfigJSONC([]byte(`{"save_files":[".env*", "!.env.local"]}`))
+		require.NoError(t, err)
+		assert.Equal(t, []string{".env*", "!.env.local"}, pc.EffectiveSaveFiles())
 	})
 
 	t.Run("jsonc_comments", func(t *testing.T) {
@@ -48,6 +51,12 @@ func TestParseProjectConfigJSONC_Variants(t *testing.T) {
 		require.NoError(t, err)
 		assert.Empty(t, pc.EffectiveSaveFiles())
 	})
+
+	t.Run("host_field", func(t *testing.T) {
+		pc, err := ParseProjectConfigJSONC([]byte(`{"host":"work"}`))
+		require.NoError(t, err)
+		assert.Equal(t, "work", pc.EffectiveHost())
+	})
 }
 
 func TestParseProjectConfigJSONC_BothListsError(t *testing.T) {
@@ -56,7 +65,7 @@ func TestParseProjectConfigJSONC_BothListsError(t *testing.T) {
 		"not_save_files": [".env.local"]
 	}`))
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "save_files")
+	assert.Contains(t, err.Error(), "not_save_files")
 }
 
 func TestParseProjectConfigJSONC_Invalid(t *testing.T) {

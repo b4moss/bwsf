@@ -5,10 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"strings"
 	"time"
 
 	"bwsf/src/config"
+	"bwsf/src/core"
 	"bwsf/src/infra"
 	"bwsf/src/utils"
 
@@ -17,21 +17,22 @@ import (
 
 var (
 	authClear bool
+	authHost  string
 )
 
 var authCmd = &cobra.Command{
 	Use:   "auth",
-	Short: "Authenticate the API backend with a Personal API Key",
+	Short: "Authenticate with a Personal API Key",
 	Long: `Store a Bitwarden Personal API Key in the OS secret store (macOS Keychain /
 Linux secret service) and obtain an Identity access token.
 
-Used when backend is "api" (the default; see also bwsf backend --set api).
 After auth, push/pull/list prompt for your master password to unlock the vault.`,
 	Run: runAuth,
 }
 
 func init() {
 	authCmd.Flags().BoolVar(&authClear, "clear", false, "Remove stored Personal API Key from the OS secret store")
+	authCmd.Flags().StringVar(&authHost, "host", "", "Host id from global config hosts[]")
 	rootCmd.AddCommand(authCmd)
 }
 
@@ -49,12 +50,8 @@ func runAuth(cmd *cobra.Command, args []string) {
 		return
 	}
 
-	if cfg.GetBackend() != config.BackendAPI {
-		utils.Warningln("[WARN] Current backend is " + cfg.GetBackend() + ". API auth is intended for backend=api.")
-		utils.Infoln("[INFO] Switch with: bwsf backend --set api")
-	}
-
-	if err := ensureHostConfigForAPI(cfg); err != nil {
+	host, err := ensureHostConfigForAPI(cfg, authHost)
+	if err != nil {
 		utils.Errorln("[ERROR]", err)
 		os.Exit(1)
 	}
@@ -64,12 +61,13 @@ func runAuth(cmd *cobra.Command, args []string) {
 		utils.Errorln("[ERROR]", err)
 		os.Exit(1)
 	}
-	identityBase, err := infra.ResolveIdentityBase(cfg.HostType, cfg.SelfhostedURL)
+	identityBase, err := infra.ResolveIdentityBase(host.Type, host.HostURL)
 	if err != nil {
 		utils.Errorln("[ERROR]", err)
 		os.Exit(1)
 	}
 	utils.Infoln("[INFO] Using config: " + configPath)
+	utils.Infoln("[INFO] Host: " + host.ID)
 	utils.Infoln("[INFO] Identity URL: " + identityBase)
 
 	creds, err := promptAPICredentials(store)
@@ -78,7 +76,7 @@ func runAuth(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	client := infra.NewApiBwClientWithDeps(cfg, store, infra.NewIdentityClient(), nil)
+	client := infra.NewApiBwClientWithDepsForHost(cfg, host, store, infra.NewIdentityClient(), nil)
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
@@ -92,34 +90,41 @@ func runAuth(cmd *cobra.Command, args []string) {
 	utils.Infoln("[INFO] Next: run push/pull/list; you will be prompted for your master password to unlock the vault")
 }
 
-func ensureHostConfigForAPI(cfg *config.Config) error {
-	if cfg.HostType == "cloud" {
-		return nil
-	}
-	if cfg.HostType == "selfhosted" && strings.TrimSpace(cfg.SelfhostedURL) != "" {
-		return nil
+// ensureHostConfigForAPI resolves or interactively creates a host for API auth.
+func ensureHostConfigForAPI(cfg *config.Config, cliHost string) (*config.Host, error) {
+	if h, err := config.ResolveHost(cfg, cliHost, ""); err == nil {
+		return h, nil
+	} else if cliHost != "" {
+		return nil, err
 	}
 
-	// Missing host settings: prompt and save (does not require bw CLI).
+	// Missing host settings: prompt and save.
 	utils.Infoln("[INFO] Host configuration is required to resolve the Identity URL")
 	hostType, err := utils.SelectHostType()
 	if err != nil {
-		return fmt.Errorf("failed to select host type: %w", err)
+		return nil, fmt.Errorf("failed to select host type: %w", err)
 	}
-	cfg.HostType = hostType
-	if hostType == "selfhosted" {
-		url, err := utils.InputURL()
+	url := ""
+	if core.NormalizePromptHostType(hostType) == config.HostTypeSelfhost {
+		url, err = utils.InputURL()
 		if err != nil {
-			return fmt.Errorf("failed to get URL: %w", err)
+			return nil, fmt.Errorf("failed to get URL: %w", err)
 		}
-		cfg.SelfhostedURL = url
-	} else {
-		cfg.SelfhostedURL = ""
 	}
+	email := ""
+	if e, eerr := utils.InputEmail(); eerr == nil {
+		email = e
+	}
+
+	host, err := core.MapPromptHostToV2(hostType, url, email, config.DefaultFolderName)
+	if err != nil {
+		return nil, err
+	}
+	core.UpsertDefaultHost(cfg, host)
 	if err := config.SaveConfig(cfg); err != nil {
-		return fmt.Errorf("failed to save config: %w", err)
+		return nil, fmt.Errorf("failed to save config: %w", err)
 	}
-	return nil
+	return cfg.FindHost(host.ID), nil
 }
 
 func promptAPICredentials(store infra.SecretStore) (infra.APICredentials, error) {

@@ -1,5 +1,7 @@
 # cmd: setup（api）のフォルダ作成（Issue #53 Step 4）
 
+> **v0.20.0 / #177:** フォルダ名は host の `target_section`。setup フロー本体は [`setup_v2.md`](./setup_v2.md)。本文書の「未認証ならスキップ／`--yes` で作成」の精神は維持。
+
 対象パッケージ: `app/src/cmd` / `app/src/core`（`SetupAPIConfigCore` または後継）  
 合意: api でも setup から設定フォルダを作成する（Q27）。push/pull/list はフォルダ欠落時に自動作成しない（Q23）。
 

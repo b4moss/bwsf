@@ -1,23 +1,17 @@
 package infra
 
 import (
-	"fmt"
-
 	"bwsf/src/config"
 	"bwsf/src/core"
 )
 
-// NewBwClientFromConfig selects a BwClient implementation based on cfg.Backend.
-// When cfg is nil or Backend is unset, the API adapter is used (default backend).
+// NewBwClientFromConfig returns the API BwClient for cfg (v0.20+: API only).
+// When cfg is nil, an empty config is used; callers should resolve a host first.
 func NewBwClientFromConfig(cfg *config.Config) (core.BwClient, error) {
-	backend := cfg.GetBackend()
+	return NewApiBwClient(cfg), nil
+}
 
-	switch backend {
-	case config.BackendBW:
-		return NewBwClient(), nil
-	case config.BackendAPI:
-		return NewApiBwClient(cfg), nil
-	default:
-		return nil, fmt.Errorf("unsupported backend %q: use %q or %q", backend, config.BackendBW, config.BackendAPI)
-	}
+// NewBwClientForHost returns an API client bound to a specific host.
+func NewBwClientForHost(cfg *config.Config, host *config.Host) (core.BwClient, error) {
+	return NewApiBwClientForHost(cfg, host), nil
 }

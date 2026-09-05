@@ -188,16 +188,32 @@ func (c *IdentityClient) postToken(ctx context.Context, identityBase string, for
 	return token, nil
 }
 
-// ResolveIdentityBase returns the Identity base URL for cloud or self-hosted.
-func ResolveIdentityBase(hostType, selfhostedURL string) (string, error) {
-	if hostType == "selfhosted" || strings.TrimSpace(selfhostedURL) != "" {
-		normalized, err := normalizeServerURL(selfhostedURL)
+// ResolveIdentityBase returns the Identity base URL for a host type and URL.
+// Accepts config.HostTypeCloud / HostTypeSelfhost and legacy "cloud" / "selfhosted".
+// Any non-cloud type with a URL resolves to {hostURL}/identity.
+func ResolveIdentityBase(hostType, hostURL string) (string, error) {
+	ht := strings.TrimSpace(hostType)
+	url := strings.TrimSpace(hostURL)
+
+	switch ht {
+	case "bitwarden-cloud", "cloud", "":
+		return cloudIdentityUS, nil
+	case "bitwarden-selfhost", "selfhosted":
+		normalized, err := normalizeServerURL(url)
 		if err != nil {
 			return "", err
 		}
 		return strings.TrimRight(normalized, "/") + "/identity", nil
+	default:
+		if url != "" {
+			normalized, err := normalizeServerURL(url)
+			if err != nil {
+				return "", err
+			}
+			return strings.TrimRight(normalized, "/") + "/identity", nil
+		}
+		return "", fmt.Errorf("unsupported host type %q", ht)
 	}
-	return cloudIdentityUS, nil
 }
 
 func normalizeServerURL(raw string) (string, error) {

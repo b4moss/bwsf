@@ -11,21 +11,36 @@ import (
 )
 
 func expectedFixtureConfig() *Config {
-	return &Config{
-		HostType:      "cloud",
-		SelfhostedURL: "",
+	cfg := NewEmptyConfig()
+	cfg.Settings.Hosts = []Host{{
+		ID:            DefaultHostID,
+		Type:          HostTypeCloud,
+		HostURL:       DefaultCloudURL,
 		Email:         "user@example.com",
-	}
+		TargetSection: DefaultFolderName,
+		IsDefault:     true,
+	}}
+	return cfg
 }
 
 func assertConfigEqual(t *testing.T, got *Config) {
 	t.Helper()
 	want := expectedFixtureConfig()
 	require.NotNil(t, got)
-	assert.Equal(t, want.HostType, got.HostType)
-	assert.Equal(t, want.SelfhostedURL, got.SelfhostedURL)
-	assert.Equal(t, want.Email, got.Email)
-	assert.Equal(t, want.FolderName, got.FolderName)
+	h := got.DefaultHost()
+	require.NotNil(t, h)
+	wh := want.DefaultHost()
+	assert.Equal(t, wh.Type, h.Type)
+	assert.Equal(t, wh.HostURL, h.HostURL)
+	assert.Equal(t, wh.Email, h.Email)
+	assert.Equal(t, wh.TargetSection, h.TargetSection)
+}
+
+func assertNoJSONCComments(t *testing.T, text string) {
+	t.Helper()
+	assert.NotContains(t, text, "\n  //")
+	assert.NotContains(t, text, "/*")
+	assert.False(t, strings.Contains(text, ",\n}"), "trailing comma before closing brace")
 }
 
 func TestUnmarshalConfigJSONC_Fixtures(t *testing.T) {
@@ -51,7 +66,7 @@ func TestUnmarshalConfigJSONC_Fixtures(t *testing.T) {
 func TestUnmarshalConfigJSONC_Invalid(t *testing.T) {
 	t.Run("broken", func(t *testing.T) {
 		var cfg Config
-		err := UnmarshalConfigJSONC([]byte(`{"host_type":`), &cfg)
+		err := UnmarshalConfigJSONC([]byte(`{"schemaVersion":`), &cfg)
 		assert.Error(t, err)
 	})
 	t.Run("empty", func(t *testing.T) {
@@ -77,14 +92,14 @@ func TestLoadConfig_JSONCFixture(t *testing.T) {
 
 	configDir := filepath.Join(tmpDir, ".config", "bwsf")
 	require.NoError(t, os.MkdirAll(configDir, 0755))
-	require.NoError(t, os.WriteFile(filepath.Join(configDir, "config.json"), fixture, 0600))
+	require.NoError(t, os.WriteFile(filepath.Join(configDir, "config.jsonc"), fixture, 0600))
 
 	cfg, err := LoadConfig()
 	require.NoError(t, err)
 	assertConfigEqual(t, cfg)
 }
 
-func TestSaveConfig_StrictJSON(t *testing.T) {
+func TestSaveConfig_WritesJSONC(t *testing.T) {
 	origHome := os.Getenv("HOME")
 	tmpDir := t.TempDir()
 	require.NoError(t, os.Setenv("HOME", tmpDir))
@@ -92,13 +107,11 @@ func TestSaveConfig_StrictJSON(t *testing.T) {
 
 	require.NoError(t, SaveConfig(expectedFixtureConfig()))
 
-	content, err := os.ReadFile(filepath.Join(tmpDir, ".config", "bwsf", "config.json"))
+	content, err := os.ReadFile(filepath.Join(tmpDir, ".config", "bwsf", "config.jsonc"))
 	require.NoError(t, err)
 	text := string(content)
-	assert.NotContains(t, text, "//")
-	assert.NotContains(t, text, "/*")
-	assert.False(t, strings.Contains(text, ",\n}"), "trailing comma before closing brace")
-	assert.Contains(t, text, `"host_type": "cloud"`)
+	assertNoJSONCComments(t, text)
+	assert.Contains(t, text, `"type": "bitwarden-cloud"`)
 	assert.Contains(t, text, `"email": "user@example.com"`)
 }
 
@@ -113,7 +126,7 @@ func TestLoadConfig_JSONC_SaveConfig_RoundTrip(t *testing.T) {
 
 	configDir := filepath.Join(tmpDir, ".config", "bwsf")
 	require.NoError(t, os.MkdirAll(configDir, 0755))
-	configPath := filepath.Join(configDir, "config.json")
+	configPath := filepath.Join(configDir, "config.jsonc")
 	require.NoError(t, os.WriteFile(configPath, fixture, 0600))
 
 	loaded, err := LoadConfig()
@@ -124,10 +137,7 @@ func TestLoadConfig_JSONC_SaveConfig_RoundTrip(t *testing.T) {
 
 	saved, err := os.ReadFile(configPath)
 	require.NoError(t, err)
-	text := string(saved)
-	assert.NotContains(t, text, "//")
-	assert.NotContains(t, text, "/*")
-	assert.False(t, strings.Contains(text, ",\n}"))
+	assertNoJSONCComments(t, string(saved))
 
 	reloaded, err := LoadConfig()
 	require.NoError(t, err)

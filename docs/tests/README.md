@@ -88,7 +88,7 @@ Step 4 の実装計画正本: [Issue #53 Step 4 実装計画](https://github.com
 |------|------|
 | [`config/project_local.md`](./config/project_local.md) | 探索・0/1/複数選択、`override_project_name`、`save_files`/`not_save_files`、core フィルタ |
 
-合意正本: [#133](https://github.com/b4moss/bwsf/issues/133)。グローバル同系（v0.20.0 多ホスト）は製品仕様 [`../specs/v0.20.0-multi-host.md`](../specs/v0.20.0-multi-host.md)（[#177](https://github.com/b4moss/bwsf/issues/177)）
+合意正本: [#133](https://github.com/b4moss/bwsf/issues/133)。グローバル同系（v0.20.0 多ホスト）および `save_files` / `!` は [#177](https://github.com/b4moss/bwsf/issues/177) / [`config/save_files_bang.md`](./config/save_files_bang.md) / 製品仕様 [`../specs/v0.20.0-multi-host.md`](../specs/v0.20.0-multi-host.md)
 
 ## Issue #160 / v0.18.0 — coverage 75%+（Phase 2: `bw` 実行差し替え）
 
@@ -97,3 +97,24 @@ Step 4 の実装計画正本: [Issue #53 Step 4 実装計画](https://github.com
 | [`utils/bw_exec_mock.md`](./utils/bw_exec_mock.md) | `runBw` 境界、ユニットで固定する分岐、e2e 委譲、モック非対象 |
 
 合意正本: [#160](https://github.com/b4moss/bwsf/issues/160)。Phase 1（cmd DI・input 等）は既存契約の実装漏れ埋めのため本ディレクトリへの追加なし。
+
+## Issue #177 / v0.20.0 — グローバル設定 v2 / 多ホスト（§2）
+
+製品正本: [`../specs/v0.20.0-multi-host.md`](../specs/v0.20.0-multi-host.md)。実装順は §2（本 Issue）→ #153 → #174 → #193。
+
+| 文書 | 内容 |
+|------|------|
+| [`config/global_v2.md`](./config/global_v2.md) | 新スキーマ I/O（`.json` XOR `.jsonc`）、hosts 検証、Save、`config show` v2 |
+| [`config/migrate_v2.md`](./config/migrate_v2.md) | 旧 flat 検出・確認／`--yes`・バックアップ・§2.6 写像（Keychain は #153） |
+| [`config/save_files_bang.md`](./config/save_files_bang.md) | `save_files` + `!` 否定、`not_save_files` 廃止、プロジェクト完全オーバーライド |
+| [`config/host_resolve.md`](./config/host_resolve.md) | §1.1 解決順、`push`/`pull`/`list`/`clean` の `--host` |
+| [`cmd/setup_v2.md`](./cmd/setup_v2.md) | setup の host スキップ／既存 host 操作／`save_files` 対話、bw setup 廃止 |
+
+### 旧テスト仕様との関係（v0.20 実装時）
+
+| 旧文書 | 扱い |
+|--------|------|
+| [`config/jsonc_load.md`](./config/jsonc_load.md) | 読み込み技術は維持。パス・Save 先・スキーマは **global_v2 が優先** |
+| [`config/project_local.md`](./config/project_local.md) | 探索・override・候補選択は維持。**フィルタ／`not_save_files` は save_files_bang が優先** |
+| [`cmd/setup_api.md`](./cmd/setup_api.md) / [`cmd/setup_api_folder.md`](./cmd/setup_api_folder.md) | api・Login 無しの精神は維持。**フロー全体は setup_v2 が優先**（bw 退行テストは廃止） |
+| [`cmd/config_show.md`](./cmd/config_show.md) | 登録形は維持。**表示フィールドは global_v2 §5 が優先** |
