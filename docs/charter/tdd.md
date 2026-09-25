@@ -1,3 +1,10 @@
+---
+type: Rule
+title: TDD方針
+description: テスト駆動開発と氷山パターン、テスト仕様書の運用方針。
+tags: [charter, tdd, testing]
+timestamp: 2026-08-13T14:53:50Z
+---
 # TDD方針
 
 各プロジェクトでは、テストを以下の`TDD方針`にまとめ、開発においてはこれを基本とする。

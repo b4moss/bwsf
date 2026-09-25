@@ -1,3 +1,10 @@
+---
+type: Rule
+title: Git運用のルール
+description: リモート・ブランチ・PR・コミット・タグの運用ルール。
+tags: [charter, git]
+timestamp: 2026-08-25T02:54:35Z
+---
 # Git運用のルール
 
 ## リモート

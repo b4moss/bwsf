@@ -1,3 +1,10 @@
+---
+type: Rule
+title: バージョンの付け方
+description: SemVerベースのバージョン付けとGitタグの運用。
+tags: [charter, versioning, semver]
+timestamp: 2026-08-14T07:28:38Z
+---
 # バージョンの付け方
 
 原則として **SemVerベース** とする。

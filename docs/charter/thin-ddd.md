@@ -1,3 +1,10 @@
+---
+type: Rule
+title: 薄いDDD
+description: Controller / Service / Repository / Validation による軽量なドメイン駆動方針。
+tags: [charter, architecture, ddd]
+timestamp: 2026-08-13T14:53:50Z
+---
 # 薄いDDD
 
 `薄いDDD`とは、合同会社 知的・自転車で採用されている、軽量な開発方針である。

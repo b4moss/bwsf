@@ -1,3 +1,10 @@
+---
+type: Rule
+title: docs 整理ルール
+description: ドキュメントの置き場とライフサイクルの正本。
+tags: [charter, docs]
+timestamp: 2026-08-14T07:28:38Z
+---
 # docs 整理ルール
 
 ドキュメントの置き場とライフサイクルの正本。矛盾がある場合は本ファイルを優先する。

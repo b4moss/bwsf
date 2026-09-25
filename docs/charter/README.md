@@ -1,3 +1,10 @@
+---
+type: Charter
+title: 憲章（charter）
+description: 合同会社 知的・自転車の開発方針の最上位取り決め。
+tags: [charter]
+timestamp: 2026-08-13T14:53:50Z
+---
 # 憲章（charter）
 
 **憲章（charter）** は、合同会社 知的・自転車が開発するプロダクトの開発方針の最上位に位置付けられるもの取り決めです。
