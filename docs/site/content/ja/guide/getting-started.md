@@ -60,3 +60,4 @@ bwsf config show
 - [インストール](/ja/guide/installation) - お使いのプラットフォーム向けのインストール手順
 - [コマンド](/ja/guide/commands) - 利用可能なすべてのコマンドを学ぶ
 - [アップグレード](/ja/guide/upgrade) - 破壊的変更（v0.20.0 マルチホスト）
+- [OKF docs](https://github.com/b4moss/bwsf/blob/main/docs/index.md) - リポジトリの知識ハブ（pillar: `docs/README.md` · 製品仕様: `docs/specs/`）

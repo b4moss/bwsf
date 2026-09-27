@@ -74,7 +74,7 @@ Bitwardenには、機密情報の保存形式に、いくつかの独自形式�
 }
 ```
 
-`not_save_files` は v0.20.0 で削除されました。プロジェクトの `save_files` はグローバルを完全に上書きします（マージしません）。
+`not_save_files` は v0.20.0 で削除されました。プロジェクトの `save_files` はグローバルを完全に上書きします（マージしません）。仕様: [`docs/specs/config/save-files.md`](https://github.com/b4moss/bwsf/blob/main/docs/specs/config/save-files.md)。
 :::
 
 :::faq-item{question="Bitwardenのホスト上で、ファイルを編集することは可能ですか？"}

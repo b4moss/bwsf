@@ -2,7 +2,7 @@
 
 ## Overview
 
-Current product commands (v0.20.0). A compact inventory also lives in [`docs/COMMANDS.md`](https://github.com/b4moss/bwsf/blob/main/docs/COMMANDS.md).
+Current product commands (v0.20.0). Compact inventory (source of truth): [`docs/specs/cmd/commands.md`](https://github.com/b4moss/bwsf/blob/main/docs/specs/cmd/commands.md). Domain specs: [`docs/specs/`](https://github.com/b4moss/bwsf/blob/main/docs/specs/README.md). OKF hub: [`docs/index.md`](https://github.com/b4moss/bwsf/blob/main/docs/index.md) / pillar [`docs/README.md`](https://github.com/b4moss/bwsf/blob/main/docs/README.md).
 
 | Command | Description | Main flags |
 |---|---|---|

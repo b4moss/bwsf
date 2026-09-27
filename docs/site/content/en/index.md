@@ -9,6 +9,7 @@ Secure File Sync — manage `.env*` and Terraform tfvars with Bitwarden CLI.
 
 - [Get Started](/en/guide/getting-started)
 - [View on GitHub](https://github.com/b4moss/bwsf)
+- [OKF docs hub](https://github.com/b4moss/bwsf/blob/main/docs/index.md) · [pillar](https://github.com/b4moss/bwsf/blob/main/docs/README.md) · [specs](https://github.com/b4moss/bwsf/blob/main/docs/specs/README.md)
 
 ## Key Features
 

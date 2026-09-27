@@ -2,7 +2,7 @@
 
 ## 概要
 
-現行の製品コマンド一覧（v0.20.0）です。コンパクトな棚卸しは [`docs/COMMANDS.md`](https://github.com/b4moss/bwsf/blob/main/docs/COMMANDS.md) にもあります。
+現行の製品コマンド一覧（v0.20.0）です。コンパクトな棚卸しの正本は [`docs/specs/cmd/commands.md`](https://github.com/b4moss/bwsf/blob/main/docs/specs/cmd/commands.md)。ドメイン仕様: [`docs/specs/`](https://github.com/b4moss/bwsf/blob/main/docs/specs/README.md)。OKF 索引: [`docs/index.md`](https://github.com/b4moss/bwsf/blob/main/docs/index.md) / pillar [`docs/README.md`](https://github.com/b4moss/bwsf/blob/main/docs/README.md)。
 
 | コマンド | 説明 | 主なフラグ |
 |---|---|---|

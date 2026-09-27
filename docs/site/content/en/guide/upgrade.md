@@ -17,4 +17,9 @@ brew upgrade bwsf
 - Vault commands accept `--host <id>` (resolution: CLI → project `host` → `is_default`)
 - Flat `bwsf auth` / `auth --clear` removed — use `bwsf auth login` / `auth logout` (`logout` also clears `vault_unlock`)
 
-Product spec: [docs/specs/](https://github.com/b4moss/bwsf/blob/main/docs/specs/README.md)
+## Product specs (OKF)
+
+- OKF index: [`docs/index.md`](https://github.com/b4moss/bwsf/blob/main/docs/index.md)
+- Pillar: [`docs/README.md`](https://github.com/b4moss/bwsf/blob/main/docs/README.md)
+- Specs index: [`docs/specs/`](https://github.com/b4moss/bwsf/blob/main/docs/specs/README.md)
+- Multi-host domains: [`config/global-v2`](https://github.com/b4moss/bwsf/blob/main/docs/specs/config/global-v2.md), [`config/host-resolve`](https://github.com/b4moss/bwsf/blob/main/docs/specs/config/host-resolve.md), [`config/save-files`](https://github.com/b4moss/bwsf/blob/main/docs/specs/config/save-files.md), [`cmd/auth`](https://github.com/b4moss/bwsf/blob/main/docs/specs/cmd/auth.md), [`cmd/unlock-lock`](https://github.com/b4moss/bwsf/blob/main/docs/specs/cmd/unlock-lock.md), [`cmd/init`](https://github.com/b4moss/bwsf/blob/main/docs/specs/cmd/init.md)

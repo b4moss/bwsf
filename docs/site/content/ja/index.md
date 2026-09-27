@@ -9,6 +9,7 @@ description: Bitwarden CLI で .env* と Terraform tfvars を管理
 
 - [はじめる](/ja/guide/getting-started)
 - [GitHub で見る](https://github.com/b4moss/bwsf)
+- [OKF docs ハブ](https://github.com/b4moss/bwsf/blob/main/docs/index.md) · [pillar](https://github.com/b4moss/bwsf/blob/main/docs/README.md) · [specs](https://github.com/b4moss/bwsf/blob/main/docs/specs/README.md)
 
 ## 主な機能
 

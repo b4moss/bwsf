@@ -21,7 +21,7 @@ bwsf push
 
 名前に `.example` を含むファイル（例: `.env.local.example`、`terraform.tfvars.example`）は **保存されません**。
 
-任意のフィルタは、グローバル（`~/.config/bwsf/config.jsonc`）またはプロジェクト（`.bwsf/config.jsonc`）設定の `save_files` で指定します。glob に `!` 接頭辞を付けると除外になります。プロジェクトの `save_files` はグローバルを完全に上書きします。
+任意のフィルタは、グローバル（`~/.config/bwsf/config.jsonc`）またはプロジェクト（`.bwsf/config.jsonc`）設定の `save_files` で指定します。glob に `!` 接頭辞を付けると除外になります。プロジェクトの `save_files` はグローバルを完全に上書きします。仕様: [`docs/specs/config/save-files.md`](https://github.com/b4moss/bwsf/blob/main/docs/specs/config/save-files.md)。
 
 ## 管理対象ファイルのプロジェクトへの適用
 
@@ -44,7 +44,7 @@ bwsf push   # マスターパスワードで unlock
 
 ## マルチホスト
 
-グローバル設定の `settings.hosts` に複数ホストを登録できます。`--host <id>`、プロジェクトの `host`、または `is_default` が付いたホストで選択します。
+グローバル設定の `settings.hosts` に複数ホストを登録できます。`--host <id>`、プロジェクトの `host`、または `is_default` が付いたホストで選択します。仕様: [`config/global-v2`](https://github.com/b4moss/bwsf/blob/main/docs/specs/config/global-v2.md), [`config/host-resolve`](https://github.com/b4moss/bwsf/blob/main/docs/specs/config/host-resolve.md)。
 
 ## ローカル設定の確認
 

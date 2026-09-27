@@ -1,5 +1,7 @@
 # Features in Development
 
+Marketing-facing checklist. Repository plans / roadmap (OKF): [`docs/roadmap.md`](https://github.com/b4moss/bwsf/blob/main/docs/roadmap.md) · [`docs/plans/`](https://github.com/b4moss/bwsf/blob/main/docs/plans/README.md). Implemented product specs live under [`docs/specs/`](https://github.com/b4moss/bwsf/blob/main/docs/specs/README.md).
+
 - [x] Ability to use folder names other than `dotenvs` (`bwsf setup --folder` / host `target_section`)
 - [x] `bwsf clean` command: remove local managed files after verifying Bitwarden backup
 - [x] Project root resolution via `.git` (#134)

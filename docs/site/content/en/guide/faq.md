@@ -74,7 +74,7 @@ Or exclude-only (no positive globs — starts from all base managed files):
 }
 ```
 
-`not_save_files` was removed in v0.20.0. A project `save_files` list fully overrides the global one (no merge).
+`not_save_files` was removed in v0.20.0. A project `save_files` list fully overrides the global one (no merge). Spec: [`docs/specs/config/save-files.md`](https://github.com/b4moss/bwsf/blob/main/docs/specs/config/save-files.md).
 :::
 
 :::faq-item{question="Can I edit files on the Bitwarden host?"}

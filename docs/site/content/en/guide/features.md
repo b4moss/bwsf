@@ -21,7 +21,7 @@ This command saves managed files in your project root to Bitwarden at once. Exam
 
 Files whose names contain `.example` (for example `.env.local.example` or `terraform.tfvars.example`) are **not** saved.
 
-Optional filters use `save_files` in global (`~/.config/bwsf/config.jsonc`) or project (`.bwsf/config.jsonc`) settings. Prefix a glob with `!` to exclude. A project `save_files` list fully overrides the global list.
+Optional filters use `save_files` in global (`~/.config/bwsf/config.jsonc`) or project (`.bwsf/config.jsonc`) settings. Prefix a glob with `!` to exclude. A project `save_files` list fully overrides the global list. Spec: [`docs/specs/config/save-files.md`](https://github.com/b4moss/bwsf/blob/main/docs/specs/config/save-files.md).
 
 ## Applying Managed Files to Your Project
 
@@ -44,7 +44,7 @@ bwsf push   # prompts master password to unlock
 
 ## Multi-host
 
-Register multiple hosts under `settings.hosts` in the global config. Select with `--host <id>`, project `host`, or the host marked `is_default`.
+Register multiple hosts under `settings.hosts` in the global config. Select with `--host <id>`, project `host`, or the host marked `is_default`. Specs: [`config/global-v2`](https://github.com/b4moss/bwsf/blob/main/docs/specs/config/global-v2.md), [`config/host-resolve`](https://github.com/b4moss/bwsf/blob/main/docs/specs/config/host-resolve.md).
 
 ## Inspecting Local Configuration
 

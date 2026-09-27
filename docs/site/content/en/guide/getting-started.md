@@ -60,3 +60,4 @@ On each `push` / `pull` / `list`, bwsf prompts for your **master password** to u
 - [Install bwsf](/en/guide/installation) - Installation instructions for your platform
 - [Commands](/en/guide/commands) - Learn all available commands
 - [Upgrade](/en/guide/upgrade) - Breaking changes (v0.20.0 multi-host)
+- [OKF docs](https://github.com/b4moss/bwsf/blob/main/docs/index.md) - Repository knowledge hub (`docs/README.md` pillar · `docs/specs/` product specs)

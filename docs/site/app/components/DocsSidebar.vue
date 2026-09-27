@@ -20,19 +20,31 @@ function isActive(item: { to: string }) {
 <template>
   <aside class="sidebar" :class="{ open }" aria-label="Docs">
     <nav class="sidebar-nav">
-      <NuxtLink
-        v-for="item in items"
-        :key="item.key"
-        :to="item.to"
-        class="sidebar-link"
-        :class="{
-          'sidebar-link--child': Boolean(item.parent),
-          'router-link-exact-active': isActive(item),
-        }"
-        @click="close"
-      >
-        {{ item.label }}
-      </NuxtLink>
+      <template v-for="item in items" :key="item.key">
+        <a
+          v-if="item.external"
+          :href="item.to"
+          class="sidebar-link"
+          :class="{ 'sidebar-link--child': Boolean(item.parent) }"
+          target="_blank"
+          rel="noopener noreferrer"
+          @click="close"
+        >
+          {{ item.label }}
+        </a>
+        <NuxtLink
+          v-else
+          :to="item.to"
+          class="sidebar-link"
+          :class="{
+            'sidebar-link--child': Boolean(item.parent),
+            'router-link-exact-active': isActive(item),
+          }"
+          @click="close"
+        >
+          {{ item.label }}
+        </NuxtLink>
+      </template>
     </nav>
   </aside>
   <button
