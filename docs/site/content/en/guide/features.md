@@ -21,7 +21,7 @@ This command saves managed files in your project root to Bitwarden at once. Exam
 
 Files whose names contain `.example` (for example `.env.local.example` or `terraform.tfvars.example`) are **not** saved.
 
-Optional filters use `save_files` in global (`~/.config/bwsf/config.jsonc`) or project (`.bwsf/config.jsonc`) settings. Prefix a glob with `!` to exclude. A project `save_files` list fully overrides the global list. Spec: [`docs/specs/config/save-files.md`](https://github.com/b4moss/bwsf/blob/main/docs/specs/config/save-files.md).
+Optional filters use `save_files` in global (`~/.config/bwsf/config.jsonc`) or project (`.bwsf/config.jsonc`) settings. Prefix a glob with `!` to exclude. A **non-empty** project `save_files` list fully overrides the global list (empty falls through). Spec: [`docs/specs/config/save-files.md`](https://github.com/b4moss/bwsf/blob/main/docs/specs/config/save-files.md).
 
 ## Applying Managed Files to Your Project
 
@@ -39,12 +39,12 @@ From v0.20.0, bwsf uses the Bitwarden **API** only (Personal API Key). Typical f
 ```bash
 bwsf setup
 bwsf auth login
-bwsf push   # prompts master password to unlock
+bwsf push   # restores vault_unlock when possible; else prompts master password
 ```
 
 ## Multi-host
 
-Register multiple hosts under `settings.hosts` in the global config. Select with `--host <id>`, project `host`, or the host marked `is_default`. Specs: [`config/global-v2`](https://github.com/b4moss/bwsf/blob/main/docs/specs/config/global-v2.md), [`config/host-resolve`](https://github.com/b4moss/bwsf/blob/main/docs/specs/config/host-resolve.md).
+Register multiple hosts under `settings.hosts` in the global config. Select with `--host <id>`, project `host` (not used by `list`), or the host marked `is_default`. Specs: [`config/global-v2`](https://github.com/b4moss/bwsf/blob/main/docs/specs/config/global-v2.md), [`config/host-resolve`](https://github.com/b4moss/bwsf/blob/main/docs/specs/config/host-resolve.md).
 
 ## Inspecting Local Configuration
 
@@ -66,7 +66,7 @@ Removes local managed files after verifying that Bitwarden already has a matchin
 
 On the Bitwarden side, notes are saved in a configurable folder per host (`target_section`, default: `dotenvs`).
 
-When you run `bwsf` in your project root, the name of that root folder becomes the project name.
+Project name defaults to the git root basename (or cwd basename without `.git`), overridable via `override_project_name` in `.bwsf/config.jsonc`.
 
 By sharing that folder with other users on Bitwarden, you can share managed files among multiple team members.
 

@@ -13,8 +13,13 @@
 優先度（高い方から）:
 
 1. CLI `--host <id>`
-2. プロジェクト設定の `host`（任意。リポジトリ共有用）
+2. プロジェクト設定の `host`（任意。リポジトリ共有用）— **`list` を除く**
 3. グローバル `hosts[]` のうち `is_default: true`
+
+| コマンド | プロジェクト `host` |
+|----------|---------------------|
+| `push` / `pull` / `clean` / `unlock` / `lock` / `auth login` / `auth logout` | 使う（CLI が無ければ） |
+| `list` | **使わない**（CLI → `is_default` のみ。`app/src/cmd/list.go`） |
 
 | 状況 | 結果 |
 |------|------|

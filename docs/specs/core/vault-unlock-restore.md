@@ -10,7 +10,7 @@
 | 項目 | 決定 |
 |------|------|
 | 自動 restore | vault 系コマンド（push / pull / list / clean）で、解決 host の `vault_unlock` を利用 |
-| 無効時 | 破棄し再プロンプトまたは `unlock` へ |
+| 無効時 | Keychain 上の当該 `vault_unlock` を破棄し、**同一プロセス内でマスターパスワードを再プロンプト**して Unlock（`bwsf unlock` コマンドへの誘導はしない） |
 
 ## 関連
 

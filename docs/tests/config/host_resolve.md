@@ -16,7 +16,7 @@ Issue: [#177](https://github.com/b4moss/bwsf/issues/177)
 
 | # | 方針 |
 |---|------|
-| H1 | 優先度（高→低）: **CLI `--host <id>`** → **プロジェクト設定の `host`** → **グローバル `hosts[]` の `is_default: true`** |
+| H1 | 優先度（高→低）: **CLI `--host <id>`** → **プロジェクト設定の `host`** → **グローバル `hosts[]` の `is_default: true`**（ただし **`list` はプロジェクト `host` を渡さない** — CLI → `is_default` のみ。実装: `app/src/cmd/list.go`） |
 | H2 | 解決できた id の host オブジェクトを返す（接続情報はグローバル `hosts[]` 側） |
 | H3 | 指定 id が `hosts[]` に無い → エラー |
 | H4 | CLI / プロジェクトとも無く、`hosts` が空 → エラー（setup で host 追加、または CLI／プロジェクトで指定を促す） |

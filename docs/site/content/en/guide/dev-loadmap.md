@@ -8,9 +8,9 @@ Marketing-facing checklist. Repository plans / roadmap (OKF): [`docs/roadmap.md`
 - [x] `.bwsf/config.(json|jsonc)` project settings (#133 / #177)
   - `override_project_name`, optional `host`, `save_files` (with `!` exclusions; `not_save_files` removed)
 - [x] Global multi-host config v2 (#177) — `~/.config/bwsf/config.jsonc`
-- [ ] Per-host Keychain / unlock·lock (#153)
+- [x] Per-host Keychain / unlock·lock (#153)
 - [x] `auth login` / `logout` (#174)
-- [ ] `bwsf init` (#193)
+- [x] `bwsf init` (#193)
 
 # About Versioning
 

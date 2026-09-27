@@ -16,7 +16,7 @@ API のみ。`backend` フィールドは新スキーマに持たない。`bw` C
 | 正式パス | `~/.config/bwsf/config.jsonc` |
 | 読み込み | `.json` と `.jsonc` のいずれか一方。両方あるとエラー |
 | パーサー | `.json` → 厳密 JSON。`.jsonc` → JSONC |
-| 書き込み | 常に `.jsonc`。コメントは可能なら保持、不可なら pretty JSON |
+| 書き込み | 常に `.jsonc`。中身は `json.MarshalIndent` の **pretty JSON**（コメントは保持しない） |
 | `.json` のみから書き移すとき | `.jsonc` を書き、旧 `.json` は削除 |
 
 プロジェクト（`.bwsf/config.*`）も同じパーサー規則。新規生成は常に `.jsonc`。

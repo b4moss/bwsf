@@ -74,7 +74,7 @@ Bitwardenには、機密情報の保存形式に、いくつかの独自形式�
 }
 ```
 
-`not_save_files` は v0.20.0 で削除されました。プロジェクトの `save_files` はグローバルを完全に上書きします（マージしません）。仕様: [`docs/specs/config/save-files.md`](https://github.com/b4moss/bwsf/blob/main/docs/specs/config/save-files.md)。
+`not_save_files` は v0.20.0 で削除されました。プロジェクトの `save_files` が **1 件以上**あるときグローバルを完全に上書きします（空配列はグローバルへフォールスルー。マージしません）。仕様: [`docs/specs/config/save-files.md`](https://github.com/b4moss/bwsf/blob/main/docs/specs/config/save-files.md)。
 :::
 
 :::faq-item{question="Bitwardenのホスト上で、ファイルを編集することは可能ですか？"}
@@ -92,6 +92,6 @@ Bitwardenには、機密情報の保存形式に、いくつかの独自形式�
 :::
 
 :::faq-item{question="Bitwardenからのログアウトはどうしたらいいですか？"}
-`bw`コマンド側で行って下さい。`bwsf`自体には、ログイン・ログアウトの機能は備わっていません。
+`bwsf auth logout`（または `bwsf auth logout --all`）を使います。解決した host の Personal API Key と `vault_unlock` を削除します。`bwsf lock` は vault セッションのみです。`bw` CLI は不要です。
 :::
 ::

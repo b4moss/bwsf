@@ -18,12 +18,12 @@ Bitwarden CLI（`bw`）は **不要** です（v0.20.0 で削除）。
 
 ## bwsf の仕組み
 
-bwsf は管理対象ファイルを Bitwarden フォルダ（`target_section`、デフォルト名: `dotenvs`）内の **ノートアイテム** として保存します。構造のイメージは以下のとおりです：
+bwsf は管理対象ファイルを Bitwarden フォルダ（`target_section`、デフォルト名: `dotenvs`）内の **Secure Note** として保存します。構造のイメージは以下のとおりです：
 
 ```
 Bitwarden Vault
 └── dotenvs/                    # bwsf 用デフォルトフォルダ（ホストごとに変更可能）
-    ├── my-web-app              # プロジェクト名 = カレントディレクトリ名
+    ├── my-web-app              # プロジェクト名 = git ルートのベース名（無ければ cwd）。override_project_name で上書き可
     │   ├── .env
     │   ├── .env.staging
     │   ├── .env.production
@@ -53,7 +53,7 @@ bwsf auth login             # Personal API Key を保存し vault を unlock
 bwsf config show
 ```
 
-`push` / `pull` / `list` のたびに **マスターパスワード** の入力を求め、メモリ上で保管庫をアンロックし、コマンド終了時に鍵とトークンを破棄します。
+`push` / `pull` / `list` / `clean` では、まず OS 秘密保管の `vault_unlock` を restore します。失敗時のみ **マスターパスワード** を求め、プロセスメモリ上で unlock し、必要なら `vault_unlock` を更新します。コマンド終了時にメモリ上の鍵は破棄されますが、Keychain の `vault_unlock` は `lock` / `auth logout` まで残ります。
 
 ## 次のステップ
 
