@@ -1,5 +1,8 @@
 # bwsf
 
+プロダクトの意味的な pillar 正本（目的・スコープ・技術方針のハブ）。  
+OKF の版索引は [`index.md`](./index.md)（`okf_version: "0.1"`）。本文はここに書く。
+
 ## 概要
 
 Bitwardenを.envの管理に用いるCLIツール。
@@ -63,3 +66,18 @@ dotenvsディレクトリのログインアイテムのドメイン名に相当�
 ### bwsf list
 
 Bitwardenのdotenvs内にあるアイテムの一覧をリスト表示
+
+## 索引
+
+- [roadmap](./roadmap.md) — マイルストーン
+- [specs](./specs/) — 現行仕様（ドメイン別）
+- [plans](./plans/) — これからやる内容
+- [tests](./tests/) — テスト仕様（specs と同じドメイン切り）
+- [憲章](./charter/) — 開発ルール
+- [OKF v0.1](./charter/okf/) — 知識バンドルの版定義
+- [override-charter](./override-charter.md) — 憲章オーバーライド
+- [site](./site/) — 公開ドキュメントサイト（シェル）
+
+----
+
+以上

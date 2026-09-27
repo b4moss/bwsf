@@ -2,7 +2,7 @@
 
 対象パッケージ: `app/src/cmd`（必要なら `infra`）  
 Issue: [#174](https://github.com/b4moss/bwsf/issues/174)  
-製品正本: [`../specs/v0.20.0-multi-host.md`](../specs/v0.20.0-multi-host.md) §4、host 解決は §1.1
+製品正本: [`../specs/cmd/auth.md`](../specs/cmd/auth.md)、host 解決は [`../specs/config/host-resolve.md`](../specs/config/host-resolve.md)
 
 関連:
 

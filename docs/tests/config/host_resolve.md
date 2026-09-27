@@ -6,7 +6,7 @@
 - `app/src/cmd`（`push` / `pull` / `list` / `clean` の `--host` 配線）
 
 Issue: [#177](https://github.com/b4moss/bwsf/issues/177)  
-製品正本: [`../specs/v0.20.0-multi-host.md`](../specs/v0.20.0-multi-host.md) §1.1
+製品正本: [`../specs/config/host-resolve.md`](../specs/config/host-resolve.md)
 
 関連: [`global_v2.md`](./global_v2.md)、[`save_files_bang.md`](./save_files_bang.md)（プロジェクト `host` キー）
 

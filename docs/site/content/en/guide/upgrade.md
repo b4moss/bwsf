@@ -17,4 +17,4 @@ brew upgrade bwsf
 - Vault commands accept `--host <id>` (resolution: CLI → project `host` → `is_default`)
 - Flat `bwsf auth` / `auth --clear` removed — use `bwsf auth login` / `auth logout` (`logout` also clears `vault_unlock`)
 
-Product spec: [v0.20.0-multi-host.md](https://github.com/b4moss/bwsf/blob/main/docs/specs/v0.20.0-multi-host.md)
+Product spec: [docs/specs/](https://github.com/b4moss/bwsf/blob/main/docs/specs/README.md)

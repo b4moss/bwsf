@@ -16,7 +16,7 @@ Issue: [#133](https://github.com/b4moss/bwsf/issues/133)
 
 - [#134](https://github.com/b4moss/bwsf/issues/134) / [`project/git_root.md`](../project/git_root.md) — git ルート・Name/Dir
 - [#155](https://github.com/b4moss/bwsf/issues/155) / [`config/jsonc_load.md`](./jsonc_load.md) — JSONC 読み込み
-- [#177](https://github.com/b4moss/bwsf/issues/177) — [`save_files_bang.md`](./save_files_bang.md) / [`host_resolve.md`](./host_resolve.md) / 製品仕様 [`../specs/v0.20.0-multi-host.md`](../specs/v0.20.0-multi-host.md)
+- [#177](https://github.com/b4moss/bwsf/issues/177) — [`save_files_bang.md`](./save_files_bang.md) / [`host_resolve.md`](./host_resolve.md) / 製品仕様 [`../specs/README.md`](../specs/README.md)
 
 ---
 

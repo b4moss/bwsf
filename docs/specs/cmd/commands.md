@@ -3,7 +3,7 @@
 実装（`app/src/cmd/`）を正とした現状コマンドの棚卸しです。  
 詳細な説明・ワークフローはドキュメントサイトの [Commands](https://bwsf.oss.b4m.jp/en/guide/commands) / [コマンド](https://bwsf.oss.b4m.jp/ja/guide/commands) を参照してください。
 
-製品正本（多ホスト）: [`specs/v0.20.0-multi-host.md`](./specs/v0.20.0-multi-host.md)
+製品正本（ドメイン別）: [`../README.md`](../README.md)（索引） / [`setup.md`](./setup.md) / [`auth.md`](./auth.md) / [`unlock-lock.md`](./unlock-lock.md) / [`init.md`](./init.md) / [`../config/host-resolve.md`](../config/host-resolve.md)
 
 ## 本体コマンド
 

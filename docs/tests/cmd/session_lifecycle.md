@@ -1,7 +1,7 @@
 # cmd: api セッション寿命（Issue #53 Step 3 → Issue #153 / v0.20.0 §3）
 
 対象パッケージ: `app/src/cmd`  
-製品正本（v0.20）: [`../specs/v0.20.0-multi-host.md`](../specs/v0.20.0-multi-host.md) §3
+製品正本（v0.20）: [`../specs/cmd/unlock-lock.md`](../specs/cmd/unlock-lock.md) / [`../specs/infra/secretstore-hosts.md`](../specs/infra/secretstore-hosts.md) / [`../specs/core/vault-unlock-restore.md`](../specs/core/vault-unlock-restore.md)
 
 関連:
 
