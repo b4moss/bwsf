@@ -2,7 +2,7 @@
 
 対象パッケージ: `app/src/config`（必要なら表示整形も同パッケージ）  
 Issue: [#177](https://github.com/b4moss/bwsf/issues/177)  
-製品正本: [`../specs/v0.20.0-multi-host.md`](../specs/v0.20.0-multi-host.md) §2.1・§2.2・§2.4
+製品正本: [`../specs/config/global-v2.md`](../specs/config/global-v2.md)
 
 関連:
 
@@ -20,7 +20,7 @@ Issue: [#177](https://github.com/b4moss/bwsf/issues/177)
 |---|------|
 | G1 | 正式パスは **`~/.config/bwsf/config.jsonc`**。読み込みは `.json` と `.jsonc` の **いずれか一方**。両方あるとエラー |
 | G2 | `.json` → 厳密 JSON（コメント・末尾カンマ不可）。`.jsonc` → JSONC（hujson。コメント・末尾カンマ可） |
-| G3 | 書き込みは **常に `.jsonc`**。コメント保持は可能なら行い、不可なら pretty JSON でよい |
+| G3 | 書き込みは **常に `.jsonc`**。中身は `json.MarshalIndent` の pretty JSON（**コメントは保持しない**） |
 | G4 | `.json` のみから書き移すとき: `.jsonc` を書き、旧 `.json` を削除する |
 | G5 | トップレベルは `schemaVersion` / `created_at` / `updated_at` / `app_version` / `settings`。旧 flat キー（`host_type` 等）を新ファイルに残さない |
 | G6 | `schemaVersion` は `1`。未知・欠落・0 以下はロードエラー |

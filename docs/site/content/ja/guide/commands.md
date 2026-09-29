@@ -2,7 +2,7 @@
 
 ## 概要
 
-現行の製品コマンド一覧（v0.20.0）です。コンパクトな棚卸しは [`docs/COMMANDS.md`](https://github.com/b4moss/bwsf/blob/main/docs/COMMANDS.md) にもあります。
+現行の製品コマンド一覧（v0.20.0）です。コンパクトな棚卸しの正本は [`docs/specs/cmd/commands.md`](https://github.com/b4moss/bwsf/blob/main/docs/specs/cmd/commands.md)。ドメイン仕様: [`docs/specs/`](https://github.com/b4moss/bwsf/blob/main/docs/specs/README.md)。OKF 索引: [`docs/index.md`](https://github.com/b4moss/bwsf/blob/main/docs/index.md) / pillar [`docs/README.md`](https://github.com/b4moss/bwsf/blob/main/docs/README.md)。
 
 | コマンド | 説明 | 主なフラグ |
 |---|---|---|
@@ -11,6 +11,7 @@
 | `bwsf auth logout` | API Key と `vault_unlock` を削除 | `--host` `--all` |
 | `bwsf unlock` | vault セッションを Unlock し `vault_unlock` を保存 | `--host` |
 | `bwsf lock` | `vault_unlock` を削除（API Key は残す） | `--host` `--all` |
+| `bwsf init` | プロジェクト `.bwsf/config.jsonc` を生成 | `--host` `--skip-host` `--save-files` `--override-project-name` `--yes` |
 | `bwsf config show` | 現在のローカル設定を表示 | — |
 | `bwsf push` | 管理対象ファイル（`.env*` / `*.tfvars` / `*.tfvars.json`）を Bitwarden にプッシュ | `--from` `--host` |
 | `bwsf pull` | 管理対象ファイルを Bitwarden からプル | `--output` `--host` |
@@ -19,11 +20,11 @@
 
 付帯（cobra 標準）: `bwsf -v` / `--version`、`bwsf help`、`bwsf completion`。
 
-管理対象は、名前が `.env` で始まるファイル、または末尾が `.tfvars` / `.tfvars.json` のファイルです。名前に `.example` を含むものは除外されます。任意の `save_files` glob（`!` による除外）で、その後さらに絞り込みます。
+管理対象は、名前が `.env` で始まるファイル、または末尾が `.tfvars` / `.tfvars.json` のファイルです。名前に `.example` を含むものは除外されます。任意の `save_files` glob（`!` による除外）で、その後さらに絞り込みます。プロジェクトの `save_files` が **1 件以上**あるときのみグローバルを上書きします。
 
 bwsf は **API** のみを使用します。`bw` CLI バックエンドと `bwsf backend` は v0.20.0 で削除されました。
 
-保管庫コマンドのホスト解決順: `--host` → プロジェクトの `host` → グローバルの `is_default`。
+ホスト解決: 保管庫コマンドは `--host` → プロジェクトの `host` → グローバルの `is_default`。ただし **`list` はプロジェクト `host` を見ない**（CLI → `is_default` のみ）。
 
 ## bwsf setup
 
@@ -52,7 +53,7 @@ bwsf setup --folder my-envs
 | `--host-type` | `cloud` または `selfhosted`（`bitwarden-cloud` / `bitwarden-selfhost` に対応） |
 | `--url` | セルフホストのサーバー URL（`--host-type=selfhosted` のとき必須） |
 | `--email` | アカウントのメール |
-| `--skip-host` | `hosts: []` のままにする |
+| `--skip-host` | host 変更をスキップ（既存の `hosts` はそのまま。空なら空のまま） |
 | `--save-files` | グローバル `save_files` glob（`!` 接頭辞 = 除外） |
 | `--yes` | 確認をすべて yes とみなす（フォルダ作成、レガシー移行など） |
 | `--folder` | ホストの `target_section`（デフォルト: `dotenvs`） |

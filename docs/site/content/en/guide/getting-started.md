@@ -18,12 +18,12 @@ The Bitwarden CLI (`bw`) is **not** required (removed in v0.20.0).
 
 ## How bwsf Works
 
-bwsf stores managed files as **Note items** in a Bitwarden folder (`target_section`, default name: `dotenvs`). Here's how the structure looks:
+bwsf stores managed files as **Secure Note** items in a Bitwarden folder (`target_section`, default name: `dotenvs`). Here's how the structure looks:
 
 ```
 Bitwarden Vault
 └── dotenvs/                    # Default folder for bwsf (configurable per host)
-    ├── my-web-app              # Project name = current directory name
+    ├── my-web-app              # Project name = git root basename (or cwd); override_project_name wins
     │   ├── .env
     │   ├── .env.staging
     │   ├── .env.production
@@ -53,10 +53,11 @@ Check saved values any time with:
 bwsf config show
 ```
 
-On each `push` / `pull` / `list`, bwsf prompts for your **master password** to unlock vault keys in memory, then discards keys and tokens when the command exits.
+On `push` / `pull` / `list` / `clean`, bwsf first tries to restore `vault_unlock` from the OS secret store. If that fails, it prompts for the **master password**, unlocks in process memory, and may refresh `vault_unlock`. Process memory keys are cleared when the command exits; Keychain `vault_unlock` remains until `lock` / `auth logout`.
 
 ## Next Steps
 
 - [Install bwsf](/en/guide/installation) - Installation instructions for your platform
 - [Commands](/en/guide/commands) - Learn all available commands
 - [Upgrade](/en/guide/upgrade) - Breaking changes (v0.20.0 multi-host)
+- [OKF docs](https://github.com/b4moss/bwsf/blob/main/docs/index.md) - Repository knowledge hub (`docs/README.md` pillar · `docs/specs/` product specs)

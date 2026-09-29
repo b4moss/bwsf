@@ -1,7 +1,9 @@
 # infra: ApiBwClient Unlock（Issue #53 Step 3）
 
+> **現行**: vault CRUD は実装済み（[`apiclient_vault.md`](./apiclient_vault.md)）。本文書は Unlock / ClearSession / IsUnlocked のメモリ契約のみ。`vault_unlock` Keychain は [`secretstore_hosts.md`](./secretstore_hosts.md) / [`../core/vault_unlock_restore.md`](../core/vault_unlock_restore.md)。
+
 対象パッケージ: `app/src/infra`  
-前提: Personal API Key 認証（Step 2）済み。vault CRUD は未実装のまま。
+前提: Personal API Key 認証（Step 2）済み。
 
 v0.20.0 §3（[#153](https://github.com/b4moss/bwsf/issues/153)）との関係:
 

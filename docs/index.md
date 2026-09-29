@@ -2,21 +2,21 @@
 okf_version: "0.1"
 ---
 
-# Charter Bundle
+# Docs Hub（OKF v0.1）
 
-* [憲章（charter）](charter/) - 開発方針の最上位取り決めと個別ルール
-* [このプロジェクト独自のルール](override-charter.md) - 憲章をオーバーライドする範囲（現状は設定なし）
+OKF の版索引。プロダクトの目的・スコープ等の本文は [README.md](README.md)（pillar）へ。
+
+* [README.md](README.md) - プロダクト目的・スコープ・技術方針の pillar（正）
+* [OKF v0.1](charter/okf/) - 本バンドルの版定義と執筆サンプル
+* [憲章（charter）](charter/) - 開発方針の最上位取り決め
+* [このプロジェクト独自のルール](override-charter.md) - 憲章をオーバーライドする範囲
 
 # Project Docs
 
-* [main](main.md) - プロダクト目的・スコープ
-* [roadmap](roadmap.md) - SemVer・マイルストーン
-* [wishlist](wishlist.md) - POメモ
+* [roadmap.md](roadmap.md) - マイルストーン一覧
+* [wishlist.md](wishlist.md) - PO メモ（未整理）
 * [plans](plans/) - これからやる内容
-* [specs](specs/) - 現行機能の仕様正本
-* [憲章（charter）](charter/) - 開発方針の最上位取り決めと個別ルール
-* [override-charter](override-charter.md) - 憲章オーバーライド
-* [tests](tests/)
-* [site (docs app)](site/)
-* [_archived](_archived/)
-
+* [specs](specs/) - 現行機能の仕様正本（`tests/` と同じドメイン切り）
+* [tests](tests/) - テスト仕様
+* [site](site/) - 公開ドキュメントサイト（Nuxt。OKF バンドル外のシェル）
+* [_archived](_archived/) - 削除・置換された仕様や歴史資料

@@ -2,7 +2,7 @@
 
 ## Overview
 
-Current product commands (v0.20.0). A compact inventory also lives in [`docs/COMMANDS.md`](https://github.com/b4moss/bwsf/blob/main/docs/COMMANDS.md).
+Current product commands (v0.20.0). Compact inventory (source of truth): [`docs/specs/cmd/commands.md`](https://github.com/b4moss/bwsf/blob/main/docs/specs/cmd/commands.md). Domain specs: [`docs/specs/`](https://github.com/b4moss/bwsf/blob/main/docs/specs/README.md). OKF hub: [`docs/index.md`](https://github.com/b4moss/bwsf/blob/main/docs/index.md) / pillar [`docs/README.md`](https://github.com/b4moss/bwsf/blob/main/docs/README.md).
 
 | Command | Description | Main flags |
 |---|---|---|
@@ -11,6 +11,7 @@ Current product commands (v0.20.0). A compact inventory also lives in [`docs/COM
 | `bwsf auth logout` | Remove API Key and `vault_unlock` | `--host` `--all` |
 | `bwsf unlock` | Unlock vault session and persist `vault_unlock` | `--host` |
 | `bwsf lock` | Clear `vault_unlock` (keeps API Key) | `--host` `--all` |
+| `bwsf init` | Create project `.bwsf/config.jsonc` | `--host` `--skip-host` `--save-files` `--override-project-name` `--yes` |
 | `bwsf config show` | Show current local configuration | — |
 | `bwsf push` | Push managed files (`.env*`, `*.tfvars`, `*.tfvars.json`) to Bitwarden | `--from` `--host` |
 | `bwsf pull` | Pull managed files from Bitwarden | `--output` `--host` |
@@ -19,11 +20,11 @@ Current product commands (v0.20.0). A compact inventory also lives in [`docs/COM
 
 Built-in (cobra): `bwsf -v` / `--version`, `bwsf help`, `bwsf completion`.
 
-Managed files are directory entries whose names start with `.env`, or end with `.tfvars` / `.tfvars.json`. Names that contain `.example` are excluded. Optional `save_files` globs (with `!` exclusions) further filter after that.
+Managed files are directory entries whose names start with `.env`, or end with `.tfvars` / `.tfvars.json`. Names that contain `.example` are excluded. Optional `save_files` globs (with `!` exclusions) further filter after that. A **non-empty** project `save_files` list overrides the global list.
 
 bwsf uses the **API** only. The `bw` CLI backend and `bwsf backend` are removed in v0.20.0.
 
-Host resolution for vault commands: `--host` → project `host` → global `is_default`.
+Host resolution: `--host` → project `host` → global `is_default` for vault commands **except** `list` (CLI → `is_default` only; project `host` is not read).
 
 ## bwsf setup
 
@@ -52,7 +53,7 @@ Renaming does **not** migrate existing notes.
 | `--host-type` | `cloud` or `selfhosted` (maps to `bitwarden-cloud` / `bitwarden-selfhost`) |
 | `--url` | Self-hosted server URL (required when `--host-type=selfhosted`) |
 | `--email` | Account email |
-| `--skip-host` | Leave `hosts: []` |
+| `--skip-host` | Skip host changes; leave existing `hosts` as-is (may already be empty) |
 | `--save-files` | Global `save_files` globs (`!` prefix = exclude) |
 | `--yes` | Assume yes for confirmations (folder create, legacy migration) |
 | `--folder` | Host `target_section` (default: `dotenvs`) |

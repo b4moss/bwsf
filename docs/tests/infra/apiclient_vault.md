@@ -33,13 +33,13 @@
 
 ### GetDotenvsFolderID
 
-- 設定フォルダ名（`folder_name`、未設定時は `dotenvs`）に一致する **個人ボルト上の folder ID** を返す。
+- 設定フォルダ名（host の `target_section`、未設定時は `dotenvs`）に一致する **個人ボルト上の folder ID** を返す。
 - フォルダが存在しない場合はエラー（自動作成しない。Q23）。
 
 #### テスト：正常系
 
 - 設定名と一致する folder が 1 件あるとき、その ID を返す。
-- `folder_name` 未設定時は `dotenvs` を探す。
+- `target_section` 未設定時は `dotenvs` を探す。
 
 #### テスト: 異常系
 

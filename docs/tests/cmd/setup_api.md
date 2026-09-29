@@ -1,9 +1,9 @@
 # cmd: setup の api 分離（Issue #53 Step 3 前提 PR-B）
 
-> **v0.20.0 / #177:** setup 全体（host スキップ・`save_files`・bw 経路廃止）は [`setup_v2.md`](./setup_v2.md) が優先。本文書の「api 時は Login しない／auth は別コマンド」は setup_v2 でも維持。
+> **現行（v0.20+）**: `backend` フィールドと `bw` CLI 経路は廃止。setup 正本は [`setup_v2.md`](./setup_v2.md)。本文は歴史資料（「api 時は Login しない／auth は別」の精神のみ維持）。`backend=bw` 退行ケースは **現行製品の契約ではない**。
 
 対象パッケージ: `app/src/cmd` / 必要なら `app/src/core` の Setup  
-合意: `backend=api` のとき setup は設定のみ。認証は `bwsf auth login`。
+合意（現行）: setup は設定のみ。認証は `bwsf auth login`。
 
 ---
 
