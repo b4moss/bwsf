@@ -71,7 +71,7 @@ func NewApiBwClient(cfg *config.Config) *ApiBwClient {
 
 // NewApiBwClientForHost creates an ApiBwClient bound to a specific host.
 func NewApiBwClientForHost(cfg *config.Config, host *config.Host) *ApiBwClient {
-	return NewApiBwClientWithDepsForHost(cfg, host, NewKeyringStore(), NewIdentityClient(), NewSDKCryptoSession())
+	return NewApiBwClientWithDepsForHost(cfg, host, DefaultSecretStore(), NewIdentityClient(), NewSDKCryptoSession())
 }
 
 // NewApiBwClientWithDeps creates an ApiBwClient with injectable dependencies (tests).
@@ -96,7 +96,7 @@ func NewApiBwClientWithDepsForHost(
 		cfg = &config.Config{}
 	}
 	if store == nil {
-		store = NewKeyringStore()
+		store = DefaultSecretStore()
 	}
 	if identity == nil {
 		identity = NewIdentityClient()
