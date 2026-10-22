@@ -49,23 +49,23 @@ From containers on the compose network: `https://vaultwarden:80` (ROCKET_TLS lis
 Runs inside the golang container against Vaultwarden:
 
 1. Ensures VW is up / HTTPS ready  
-2. Creates `.smoke-tmp/<run-id>/` with isolated `HOME` and project dir (`bwsf-smoke`)  
-3. Registers a fixed smoke user (idempotent)  
-4. Runs non-interactive `bwsf setup` then `push` / `pull` / `list`  
+2. Creates `.smoke-tmp/<run-id>/` with isolated `HOME`, file secret store (`BWSF_SECRET_DIR`), and project dir (`bwsf-smoke`)  
+3. Registers a fixed smoke user via `/identity/accounts/register/finish` and mints a Personal API Key (idempotent)  
+4. Runs non-interactive `bwsf setup` → `bwsf auth login` → `setup` again (folder ensure) → `push` / `pull` / `list`  
 
 ```bash
 make build
-make smoke                      # full sequence
+make smoke                      # full sequence (BACKEND=api)
 make smoke CMD=setup
 make smoke CMD=push
-make smoke TARGET=vaultwarden BACKEND=bw
+make smoke TARGET=vaultwarden BACKEND=api
 ```
 
 | Variable | Default | Notes |
 |----------|---------|-------|
-| `CMD` | `all` | `setup` / `push` / `pull` / `list` / `all` |
+| `CMD` | `all` | `setup` / `auth` / `push` / `pull` / `list` / `all` |
 | `TARGET` | `vaultwarden` | OSS reserved for later |
-| `BACKEND` | `bw` | `api` reserved (errors for now) |
+| `BACKEND` | `api` | `bw` removed in v0.20 |
 | `BWSF_SMOKE_EMAIL` | `smoke@bwsf.local` | Fixed smoke account |
 | `BWSF_SMOKE_PASSWORD` | `SmokePassw0rd!` | Smoke-only weak secret (not production) |
 | `BWSF_SMOKE_KEEP_TMP` | `0` | Set `1` to keep tmp on success |
@@ -79,15 +79,21 @@ make smoke TARGET=vaultwarden BACKEND=bw
 
 `.smoke-tmp/` is gitignored.
 
-### Non-interactive setup
+### Non-interactive setup + auth (v0.20 API)
 
 ```bash
+export BWSF_SECRET_DIR=/tmp/bwsf-smoke-secrets   # file store when no OS keyring
+export BWSF_API_CLIENT_ID=user.<uuid>
+export BWSF_API_CLIENT_SECRET=<personal-api-key>
+export BWSF_PASSWORD='SmokePassw0rd!'
+
 bwsf setup \
   --host-type selfhosted \
   --url https://vaultwarden:80 \
   --email smoke@bwsf.local \
-  --password 'SmokePassw0rd!' \
   --yes
+
+bwsf auth login
 ```
 
-Unlock prompts elsewhere honor `BWSF_PASSWORD` when set (used by the smoke runner).
+Unlock prompts honor `BWSF_PASSWORD`. `auth login` honors `BWSF_API_CLIENT_ID` / `BWSF_API_CLIENT_SECRET` for smoke.
