@@ -41,7 +41,7 @@ Step 4 の実装計画正本: [Issue #53 Step 4 実装計画](https://github.com
 
 - `clean` の api 対応
 - 組織ボルト / SSO
-- `BACKEND=api` の `make smoke` 本実装
+- ~~`BACKEND=api` の `make smoke` 本実装~~ → [#208](https://github.com/b4moss/bwsf/issues/208) で API スモークへ移行済み（`scripts/run-smoke.sh`）
 
 ## Issue #53 Step 5
 

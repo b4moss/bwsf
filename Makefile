@@ -8,7 +8,7 @@ SHELL := /bin/bash
 # Smoke / real-server targets (Vaultwarden). CMD/TARGET/BACKEND は #110 で使用。
 CMD ?= all
 TARGET ?= vaultwarden
-BACKEND ?= bw
+BACKEND ?= api
 BWSF_SMOKE_EMAIL ?=
 BWSF_SMOKE_PASSWORD ?=
 BWSF_SMOKE_KEEP_TMP ?=

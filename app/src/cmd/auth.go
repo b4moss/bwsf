@@ -3,6 +3,8 @@ package cmd
 import (
 	"context"
 	"errors"
+	"os"
+	"strings"
 	"time"
 
 	"bwsf/src/config"
@@ -179,6 +181,12 @@ func logoutHost(store infra.SecretStore, hostID string) error {
 }
 
 func promptAPICredentials(store infra.SecretStore, hostID string) (infra.APICredentials, error) {
+	// Smoke / automation: BWSF_API_CLIENT_ID + BWSF_API_CLIENT_SECRET skip prompts.
+	if envCreds, ok := apiCredentialsFromEnv(); ok {
+		utils.Infoln("[INFO] Using Personal API Key from environment (client_id=" + maskSecret(envCreds.ClientID) + ")")
+		return envCreds, nil
+	}
+
 	existing, err := infra.LoadAPICredentials(store, hostID)
 	if err == nil && existing.ClientID != "" {
 		utils.Infoln("[INFO] Found Personal API Key in OS secret store (client_id=" + maskSecret(existing.ClientID) + ")")
@@ -203,6 +211,15 @@ func promptAPICredentials(store infra.SecretStore, hostID string) (infra.APICred
 		return infra.APICredentials{}, err
 	}
 	return infra.APICredentials{ClientID: clientID, ClientSecret: clientSecret}, nil
+}
+
+func apiCredentialsFromEnv() (infra.APICredentials, bool) {
+	id := strings.TrimSpace(os.Getenv("BWSF_API_CLIENT_ID"))
+	secret := strings.TrimSpace(os.Getenv("BWSF_API_CLIENT_SECRET"))
+	if id == "" || secret == "" {
+		return infra.APICredentials{}, false
+	}
+	return infra.APICredentials{ClientID: id, ClientSecret: secret}, true
 }
 
 func maskSecret(s string) string {

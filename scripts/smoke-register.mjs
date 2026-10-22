@@ -1,10 +1,15 @@
 #!/usr/bin/env node
 /**
- * Register a Vaultwarden / Bitwarden user via the public register API.
+ * Register a Vaultwarden / Bitwarden user via the public register API,
+ * then mint a Personal API Key for smoke (API backend).
  * Crypto matches Bitwarden clients (PBKDF2 + AES-CBC-256-HMAC-SHA256 + RSA-2048).
  *
  * Usage:
  *   node scripts/smoke-register.mjs <serverUrl> <email> <password> [name]
+ *
+ * On success prints (stdout):
+ *   BWSF_API_CLIENT_ID=user.<uuid>
+ *   BWSF_API_CLIENT_SECRET=<apiKey>
  *
  * Exit 0 if created or already exists; non-zero on hard failures.
  */
@@ -57,10 +62,19 @@ function encryptAes256Hmac(plaintext, encKey, macKey) {
   return `2.${iv.toString("base64")}|${ct.toString("base64")}|${mac.toString("base64")}`;
 }
 
-function makeRegistrationPayload(email, password, name) {
+function makeMasterPasswordHash(email, password) {
   const normalizedEmail = email.trim().toLowerCase();
   const masterKey = pbkdf2(password, normalizedEmail, KDF_ITERATIONS, 32);
-  const masterPasswordHash = pbkdf2(masterKey, password, 1, 32).toString("base64");
+  return {
+    normalizedEmail,
+    masterKey,
+    masterPasswordHash: pbkdf2(masterKey, password, 1, 32).toString("base64"),
+  };
+}
+
+function makeRegistrationPayload(email, password, name) {
+  const { normalizedEmail, masterKey, masterPasswordHash } =
+    makeMasterPasswordHash(email, password);
   const { encKey, macKey } = stretchMasterKey(masterKey);
 
   const symKey = crypto.randomBytes(64);
@@ -92,10 +106,15 @@ function makeRegistrationPayload(email, password, name) {
   };
 }
 
-function requestJson(method, urlString, body) {
+function request(method, urlString, { body, headers } = {}) {
   const url = new URL(urlString);
   const lib = url.protocol === "https:" ? https : http;
-  const payload = body == null ? null : JSON.stringify(body);
+  const payload =
+    body == null
+      ? null
+      : typeof body === "string"
+        ? body
+        : JSON.stringify(body);
 
   const opts = {
     method,
@@ -103,9 +122,15 @@ function requestJson(method, urlString, body) {
     port: url.port || (url.protocol === "https:" ? 443 : 80),
     path: `${url.pathname}${url.search}`,
     headers: {
-      "Content-Type": "application/json",
       Accept: "application/json",
-      ...(payload ? { "Content-Length": Buffer.byteLength(payload) } : {}),
+      ...(headers || {}),
+      ...(payload
+        ? {
+            "Content-Type":
+              headers?.["Content-Type"] || "application/json",
+            "Content-Length": Buffer.byteLength(payload),
+          }
+        : {}),
     },
     rejectUnauthorized: false, // smoke self-signed; CA is for bw/bwsf path
   };
@@ -118,6 +143,7 @@ function requestJson(method, urlString, body) {
         resolve({
           status: res.statusCode || 0,
           body: Buffer.concat(chunks).toString("utf8"),
+          headers: res.headers,
         });
       });
     });
@@ -127,39 +153,144 @@ function requestJson(method, urlString, body) {
   });
 }
 
-async function register(serverUrl, email, password, name) {
-  const base = serverUrl.replace(/\/+$/, "");
+function requestJson(method, urlString, body, headers) {
+  return request(method, urlString, { body, headers });
+}
+
+function isAlreadyExists(status, body) {
+  if (status !== 400 && status !== 409) return false;
+  const lower = body.toLowerCase();
+  return (
+    lower.includes("already") ||
+    lower.includes("exists") ||
+    lower.includes("taken") ||
+    lower.includes("duplicate")
+  );
+}
+
+async function registerAccount(base, email, password, name) {
   const payload = makeRegistrationPayload(email, password, name);
+  // Vaultwarden 1.37.4+ removed legacy /identity/accounts/register;
+  // current clients use register/finish.
   const endpoints = [
-    `${base}/api/accounts/register`,
+    `${base}/identity/accounts/register/finish`,
     `${base}/identity/accounts/register`,
+    `${base}/api/accounts/register`,
   ];
 
   let last = null;
   for (const endpoint of endpoints) {
     last = await requestJson("POST", endpoint, payload);
     if (last.status >= 200 && last.status < 300) {
-      console.log(`Registered ${email} via ${endpoint}`);
+      console.error(`Registered ${email} via ${endpoint}`);
       return;
     }
-    // Already exists / conflict → treat as success for idempotent bootstrap
-    if (last.status === 400 || last.status === 409) {
-      const lower = last.body.toLowerCase();
-      if (
-        lower.includes("already") ||
-        lower.includes("exists") ||
-        lower.includes("taken") ||
-        lower.includes("duplicate")
-      ) {
-        console.log(`User already exists: ${email}`);
-        return;
-      }
+    if (isAlreadyExists(last.status, last.body)) {
+      console.error(`User already exists: ${email}`);
+      return;
     }
   }
 
   throw new Error(
     `Register failed (last status ${last?.status}): ${last?.body || "no response"}`,
   );
+}
+
+function decodeJwtSub(accessToken) {
+  const parts = accessToken.split(".");
+  if (parts.length < 2) return null;
+  const json = Buffer.from(parts[1], "base64url").toString("utf8");
+  try {
+    const payload = JSON.parse(json);
+    return payload.sub || payload.Name || null;
+  } catch {
+    return null;
+  }
+}
+
+async function passwordLogin(base, email, masterPasswordHash) {
+  const form = new URLSearchParams({
+    grant_type: "password",
+    username: email.trim().toLowerCase(),
+    password: masterPasswordHash,
+    scope: "api offline_access",
+    client_id: "web",
+    deviceType: "8",
+    deviceIdentifier: crypto.randomUUID(),
+    deviceName: "bwsf-smoke",
+  });
+  const res = await request("POST", `${base}/identity/connect/token`, {
+    body: form.toString(),
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+  });
+  if (res.status < 200 || res.status >= 300) {
+    throw new Error(
+      `Password login failed (HTTP ${res.status}): ${res.body}`,
+    );
+  }
+  const parsed = JSON.parse(res.body);
+  if (!parsed.access_token) {
+    throw new Error("Password login missing access_token");
+  }
+  return parsed.access_token;
+}
+
+async function fetchApiKey(base, accessToken, masterPasswordHash) {
+  const res = await requestJson(
+    "POST",
+    `${base}/api/accounts/api-key`,
+    { masterPasswordHash },
+    { Authorization: `Bearer ${accessToken}` },
+  );
+  if (res.status < 200 || res.status >= 300) {
+    throw new Error(
+      `Create API key failed (HTTP ${res.status}): ${res.body}`,
+    );
+  }
+  const parsed = JSON.parse(res.body);
+  if (!parsed.apiKey) {
+    throw new Error("API key response missing apiKey");
+  }
+  return parsed.apiKey;
+}
+
+async function resolveUserId(base, accessToken, jwtSub) {
+  if (jwtSub && String(jwtSub).length > 0) {
+    return String(jwtSub);
+  }
+  const res = await request("GET", `${base}/api/accounts/profile`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (res.status < 200 || res.status >= 300) {
+    throw new Error(
+      `Profile fetch failed (HTTP ${res.status}): ${res.body}`,
+    );
+  }
+  const parsed = JSON.parse(res.body);
+  const id = parsed.id || parsed.Id;
+  if (!id) {
+    throw new Error("Profile response missing id");
+  }
+  return String(id);
+}
+
+async function bootstrap(serverUrl, email, password, name) {
+  const base = serverUrl.replace(/\/+$/, "");
+  await registerAccount(base, email, password, name);
+
+  const { masterPasswordHash } = makeMasterPasswordHash(email, password);
+  const accessToken = await passwordLogin(base, email, masterPasswordHash);
+  const userId = await resolveUserId(
+    base,
+    accessToken,
+    decodeJwtSub(accessToken),
+  );
+  const apiKey = await fetchApiKey(base, accessToken, masterPasswordHash);
+
+  const clientId = userId.startsWith("user.") ? userId : `user.${userId}`;
+  // Machine-readable for the smoke shell (stdout). Logs go to stderr.
+  console.log(`BWSF_API_CLIENT_ID=${clientId}`);
+  console.log(`BWSF_API_CLIENT_SECRET=${apiKey}`);
 }
 
 const [serverUrl, email, password, name] = process.argv.slice(2);
@@ -170,7 +301,7 @@ if (!serverUrl || !email || !password) {
   process.exit(2);
 }
 
-register(serverUrl, email, password, name).catch((err) => {
+bootstrap(serverUrl, email, password, name).catch((err) => {
   console.error(err.message || err);
   process.exit(1);
 });
