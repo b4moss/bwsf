@@ -25,6 +25,50 @@ func TestAuthLoginLogoutCmd_Registered(t *testing.T) {
 	assert.Contains(t, authLogoutCmd.Long, "vault_unlock")
 }
 
+func TestApiCredentialsFromEnv(t *testing.T) {
+	t.Setenv("BWSF_API_CLIENT_ID", "")
+	t.Setenv("BWSF_API_CLIENT_SECRET", "")
+	_, ok := apiCredentialsFromEnv()
+	assert.False(t, ok)
+
+	t.Setenv("BWSF_API_CLIENT_ID", "user.smoke")
+	t.Setenv("BWSF_API_CLIENT_SECRET", "secret-value")
+	creds, ok := apiCredentialsFromEnv()
+	require.True(t, ok)
+	assert.Equal(t, "user.smoke", creds.ClientID)
+	assert.Equal(t, "secret-value", creds.ClientSecret)
+}
+
+func TestRunAuthLogin_FromEnvOverridesPrompt(t *testing.T) {
+	withTempHome(t)
+	writeMinimalConfig(t)
+	store := infra.NewMemorySecretStore()
+	crypto := &infra.MockCryptoSession{ExportBlob: "v1:env-blob"}
+
+	t.Setenv("BWSF_API_CLIENT_ID", "user.from-env")
+	t.Setenv("BWSF_API_CLIENT_SECRET", "env-secret")
+
+	rec := stubCmdDeps(t, nil, nil)
+	newSecretStore = func() infra.SecretStore { return store }
+	inputAPIClientID = func() (string, error) {
+		t.Fatal("should not prompt for client_id when env is set")
+		return "", nil
+	}
+	newAuthClient = func(cfg *config.Config, host *config.Host, s infra.SecretStore) authClient {
+		return infra.NewApiBwClientWithDepsForHost(cfg, host, s, &infra.IdentityClient{
+			HTTPClient: &http.Client{Transport: roundTripOK()},
+		}, crypto)
+	}
+
+	runAuthLogin(authLoginCmd, nil)
+	assert.False(t, rec.called)
+
+	creds, err := infra.LoadAPICredentials(store, config.DefaultHostID)
+	require.NoError(t, err)
+	assert.Equal(t, "user.from-env", creds.ClientID)
+	assert.Equal(t, "env-secret", creds.ClientSecret)
+}
+
 func TestRunAuth_BareHelpOnly(t *testing.T) {
 	withTempHome(t)
 	writeMinimalConfig(t)
