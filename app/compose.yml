@@ -29,7 +29,8 @@ services:
 
   vaultwarden:
     profiles: ["smoke"]
-    image: vaultwarden/server:latest
+    # Pin for reproducible smoke; register/finish required since Vaultwarden 1.37.4.
+    image: vaultwarden/server:1.37.4
     container_name: bwsf-vaultwarden-smoke
     environment:
       # Match client URL (TLS on container port 80)
