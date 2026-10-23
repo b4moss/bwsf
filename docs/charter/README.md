@@ -3,7 +3,7 @@ type: Charter
 title: 憲章（charter）
 description: 合同会社 知的・自転車の開発方針の最上位取り決め。
 tags: [charter]
-timestamp: 2026-08-13T14:53:50Z
+timestamp: 2026-10-08
 ---
 # 憲章（charter）
 
@@ -42,7 +42,6 @@ timestamp: 2026-08-13T14:53:50Z
 
 | 文書 | 内容 |
 |------|------|
-| [okf/](./okf/) | OKF v0.1（知識バンドルの版定義・執筆サンプル） |
 | [tdd.md](./tdd.md) | TDD 方針（氷山パターン、テスト仕様書） |
 | [thin-ddd.md](./thin-ddd.md) | 薄い DDD（Controller / Service / Repository / Validation） |
 | [git-rule.md](./git-rule.md) | git の運用について |
@@ -51,6 +50,10 @@ timestamp: 2026-08-13T14:53:50Z
 | README.md | 本ドキュメント |
 
 プロダクト要件の正本は、各プロジェクトの `docs/README.md`（pillar）および `docs/specs/` とする。`docs/index.md` は OKF 索引のみ。憲章には詰め込まない。
+
+## 記述フォーマット
+
+当憲章を含め、 **OKF v0.1** をベースとした記述でドキュメントを記述します。
 
 ## 適用範囲
 
