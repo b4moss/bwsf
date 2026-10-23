@@ -1,9 +1,12 @@
 name: Release on tag
 
+# Lightweight GitHub Release for documentation tags only.
+# Product tags (vX.Y.Z) are handled by release.yml (GoReleaser) — do not overlap.
 on:
   push:
     tags:
-      - "**"
+      - "site-*-doc.*"
+      - "v*-doc.*"
 
 permissions:
   contents: write
@@ -25,12 +28,8 @@ jobs:
             echo "Release already exists: $TAG"
             exit 0
           fi
-          PRE=()
-          if [[ "$TAG" =~ (alpha|beta|rc|rev|doc|docs) ]]; then
-            PRE+=(--prerelease)
-          fi
           gh release create "$TAG" \
             --title "$TAG" \
             --generate-notes \
             --verify-tag \
-            "${PRE[@]}"
+            --prerelease

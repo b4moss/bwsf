@@ -17,7 +17,7 @@ var (
 	newFileSystem    = func() core.FileSystem { return infra.NewFileSystem() }
 	newLogger        = func() core.Logger { return infra.NewLogger() }
 	newSessionStore  = func() core.SessionStore { return infra.NewSessionStore() }
-	newSecretStore   = func() infra.SecretStore { return infra.NewKeyringStore() }
+	newSecretStore   = func() infra.SecretStore { return infra.DefaultSecretStore() }
 	newUnlockClient  = func(cfg *config.Config, host *config.Host, store infra.SecretStore) unlockClient {
 		return infra.NewApiBwClientWithDepsForHost(cfg, host, store, infra.NewIdentityClient(), infra.NewSDKCryptoSession())
 	}

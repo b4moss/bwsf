@@ -1,13 +1,21 @@
 name: Test
 
+# paths allowlist: docs-only (and other non-app) changes do not run this workflow.
 on:
   pull_request:
     paths:
-      - 'app/**'
+      - "app/**"
+      - ".github/workflows/test.yml"
   push:
     branches: [main]
     paths:
-      - 'app/**'
+      - "app/**"
+      - ".github/workflows/test.yml"
+
+# Cancel in-progress runs for the same PR; push uses commit SHA (no PR duplicate on main-only push).
+concurrency:
+  group: test-${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: true
 
 jobs:
   unit-test:
@@ -25,6 +33,7 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: "1.26"
+          cache-dependency-path: app/go.sum
 
       - name: Download dependencies
         working-directory: app
@@ -60,6 +69,7 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: "1.26"
+          cache-dependency-path: app/go.sum
 
       - name: Download dependencies
         working-directory: app

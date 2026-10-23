@@ -3,6 +3,8 @@ package infra
 import (
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/zalando/go-keyring"
@@ -41,6 +43,82 @@ type KeyringStore struct {
 // NewKeyringStore creates a SecretStore backed by zalando/go-keyring.
 func NewKeyringStore() *KeyringStore {
 	return &KeyringStore{service: keyringService}
+}
+
+// DefaultSecretStore returns a file-backed store when BWSF_SECRET_DIR is set
+// (headless / CI smoke), otherwise the OS keyring.
+func DefaultSecretStore() SecretStore {
+	if dir := strings.TrimSpace(os.Getenv("BWSF_SECRET_DIR")); dir != "" {
+		return NewFileSecretStore(dir)
+	}
+	return NewKeyringStore()
+}
+
+// FileSecretStore persists secrets as files under a directory (smoke / CI).
+// Not for production desktop use — prefer the OS keyring.
+type FileSecretStore struct {
+	dir string
+}
+
+// NewFileSecretStore creates a SecretStore under dir (created on first Set).
+func NewFileSecretStore(dir string) *FileSecretStore {
+	return &FileSecretStore{dir: dir}
+}
+
+func (s *FileSecretStore) pathFor(key string) (string, error) {
+	if s == nil || strings.TrimSpace(s.dir) == "" {
+		return "", fmt.Errorf("file secret store directory is empty")
+	}
+	if key == "" || strings.Contains(key, "..") {
+		return "", fmt.Errorf("invalid secret key %q", key)
+	}
+	// Encode path separators so host-scoped keys stay a single file name.
+	safe := strings.ReplaceAll(key, "/", "__")
+	return filepath.Join(s.dir, safe), nil
+}
+
+func (s *FileSecretStore) Set(key, value string) error {
+	path, err := s.pathFor(key)
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(s.dir, 0o700); err != nil {
+		return fmt.Errorf("file secret store mkdir: %w", err)
+	}
+	if err := os.WriteFile(path, []byte(value), 0o600); err != nil {
+		return fmt.Errorf("file secret store set %q: %w", key, err)
+	}
+	return nil
+}
+
+func (s *FileSecretStore) Get(key string) (string, error) {
+	path, err := s.pathFor(key)
+	if err != nil {
+		return "", err
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return "", ErrSecretNotFound
+		}
+		return "", fmt.Errorf("file secret store get %q: %w", key, err)
+	}
+	return string(data), nil
+}
+
+func (s *FileSecretStore) Delete(key string) error {
+	path, err := s.pathFor(key)
+	if err != nil {
+		return err
+	}
+	err = os.Remove(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return ErrSecretNotFound
+		}
+		return fmt.Errorf("file secret store delete %q: %w", key, err)
+	}
+	return nil
 }
 
 func (s *KeyringStore) Set(key, value string) error {

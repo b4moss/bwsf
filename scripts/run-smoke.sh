@@ -1,11 +1,12 @@
 #!/bin/sh
-# Orchestrate bwsf command smoke against Vaultwarden (issue #110).
+# Orchestrate bwsf command smoke against Vaultwarden (issue #110 / #208).
 # Intended to run inside the golang compose service.
+# Default BACKEND=api (v0.20+); Personal API Key bootstrap via smoke-register.mjs.
 set -eu
 
 CMD="${CMD:-all}"
 TARGET="${TARGET:-vaultwarden}"
-BACKEND="${BACKEND:-bw}"
+BACKEND="${BACKEND:-api}"
 
 SMOKE_SERVER_URL="${BWSF_SMOKE_VW_URL:-https://vaultwarden:80}"
 SMOKE_EMAIL="${BWSF_SMOKE_EMAIL:-smoke@bwsf.local}"
@@ -47,9 +48,9 @@ assert_target() {
 
 assert_backend() {
   case "${BACKEND}" in
-    bw) ;;
-    api) die "BACKEND=api is reserved (not implemented in #110)" ;;
-    *) die "unsupported BACKEND=${BACKEND}" ;;
+    api) ;;
+    bw) die "BACKEND=bw was removed in v0.20; use BACKEND=api" ;;
+    *) die "unsupported BACKEND=${BACKEND} (api only)" ;;
   esac
 }
 
@@ -59,29 +60,49 @@ prepare_tmp() {
   PROJECT_DIR="${SMOKE_ROOT}/${PROJECT_NAME}"
   HOME_DIR="${SMOKE_ROOT}/home"
   PULL_DIR="${SMOKE_ROOT}/pulled"
+  SECRET_DIR="${SMOKE_ROOT}/secrets"
 
-  mkdir -p "${PROJECT_DIR}" "${HOME_DIR}" "${PULL_DIR}"
+  mkdir -p "${PROJECT_DIR}" "${HOME_DIR}" "${PULL_DIR}" "${SECRET_DIR}"
   export HOME="${HOME_DIR}"
+  # Headless CI has no OS keyring; use file-backed secret store.
+  export BWSF_SECRET_DIR="${SECRET_DIR}"
 
   cp "${FIXTURE_ENV}" "${PROJECT_DIR}/.env"
   echo "smoke tmp: ${SMOKE_ROOT}"
 }
 
 bootstrap_user() {
-  echo "==> bootstrap Vaultwarden user (${SMOKE_EMAIL})"
-  node "${REPO_ROOT}/scripts/smoke-register.mjs" \
-    "${SMOKE_SERVER_URL}" "${SMOKE_EMAIL}" "${SMOKE_PASSWORD}" "${SMOKE_NAME}"
+  echo "==> bootstrap Vaultwarden user + Personal API Key (${SMOKE_EMAIL})"
+  # Capture only the KEY=value lines from stdout; logs go to stderr.
+  eval "$(
+    node "${REPO_ROOT}/scripts/smoke-register.mjs" \
+      "${SMOKE_SERVER_URL}" "${SMOKE_EMAIL}" "${SMOKE_PASSWORD}" "${SMOKE_NAME}"
+  )"
+  case "${BWSF_API_CLIENT_ID:-}" in
+    user.*) ;;
+    *) die "smoke-register did not export BWSF_API_CLIENT_ID" ;;
+  esac
+  case "${BWSF_API_CLIENT_SECRET:-}" in
+    "") die "smoke-register did not export BWSF_API_CLIENT_SECRET" ;;
+  esac
+  export BWSF_API_CLIENT_ID BWSF_API_CLIENT_SECRET
+  echo "API client_id=${BWSF_API_CLIENT_ID}"
 }
 
 step_setup() {
-  echo "==> setup"
+  echo "==> setup (host config)"
   cd "${PROJECT_DIR}"
   bwsf setup \
     --host-type selfhosted \
     --url "${SMOKE_SERVER_URL}" \
     --email "${SMOKE_EMAIL}" \
-    --password "${SMOKE_PASSWORD}" \
     --yes
+}
+
+step_auth_login() {
+  echo "==> auth login"
+  cd "${PROJECT_DIR}"
+  bwsf auth login
 }
 
 step_push() {
@@ -110,16 +131,20 @@ step_list() {
 run_cmd() {
   case "$1" in
     setup) step_setup ;;
+    auth) step_auth_login ;;
     push) step_push ;;
     pull) step_pull ;;
     list) step_list ;;
     all)
       step_setup
+      step_auth_login
+      # Re-run setup after auth so EnsureConfiguredFolder can create target_section.
+      step_setup
       step_push
       step_pull
       step_list
       ;;
-    *) die "unsupported CMD=${1} (setup|push|pull|list|all)" ;;
+    *) die "unsupported CMD=${1} (setup|auth|push|pull|list|all)" ;;
   esac
 }
 
@@ -143,10 +168,15 @@ main() {
   build_bwsf
   bootstrap_user
 
-  # For single-command runs that need auth state, always setup first except CMD=setup
+  # For single-command runs that need auth state, always setup+auth first except CMD=setup
   case "${CMD}" in
     all|setup) ;;
+    auth)
+      step_setup
+      ;;
     push|pull|list)
+      step_setup
+      step_auth_login
       step_setup
       ;;
   esac
