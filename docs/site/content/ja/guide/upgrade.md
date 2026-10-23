@@ -17,4 +17,9 @@ brew upgrade bwsf
 - 保管庫コマンドは `--host <id>` を受け付け（解決順: CLI → プロジェクトの `host` → `is_default`）
 - フラット `bwsf auth` / `auth --clear` を削除 — `bwsf auth login` / `auth logout` を使用（`logout` は `vault_unlock` も削除）
 
-製品仕様: [v0.20.0-multi-host.md](https://github.com/b4moss/bwsf/blob/main/docs/specs/v0.20.0-multi-host.md)
+## 製品仕様（OKF）
+
+- OKF 索引: [`docs/index.md`](https://github.com/b4moss/bwsf/blob/main/docs/index.md)
+- pillar: [`docs/README.md`](https://github.com/b4moss/bwsf/blob/main/docs/README.md)
+- 仕様索引: [`docs/specs/`](https://github.com/b4moss/bwsf/blob/main/docs/specs/README.md)
+- マルチホスト各ドメイン: [`config/global-v2`](https://github.com/b4moss/bwsf/blob/main/docs/specs/config/global-v2.md), [`config/host-resolve`](https://github.com/b4moss/bwsf/blob/main/docs/specs/config/host-resolve.md), [`config/save-files`](https://github.com/b4moss/bwsf/blob/main/docs/specs/config/save-files.md), [`cmd/auth`](https://github.com/b4moss/bwsf/blob/main/docs/specs/cmd/auth.md), [`cmd/unlock-lock`](https://github.com/b4moss/bwsf/blob/main/docs/specs/cmd/unlock-lock.md), [`cmd/init`](https://github.com/b4moss/bwsf/blob/main/docs/specs/cmd/init.md)

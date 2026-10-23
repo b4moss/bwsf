@@ -1,6 +1,12 @@
 export type DocsNavItem = {
   key: string;
-  path: string;
+  /**
+   * Internal docs path (locale-prefixed by useDocsNav).
+   * Omit when `externalHref` is set (off-site OKF / GitHub links).
+   */
+  path?: string;
+  /** Absolute URL for repository OKF hub / pillar / specs (opens in new tab). */
+  externalHref?: string;
   /** i18n key under `nav.*` (e.g. `home` → `nav.home`). */
   labelKey: string;
   /** When set, item is a child of this nav key (shown indented in sidebar). */
@@ -10,6 +16,7 @@ export type DocsNavItem = {
 /**
  * Edit this list to shape the docs sidebar / pager.
  * Labels come from `i18n/locales/{ja,en}.ts` → `nav.<labelKey>`.
+ * External items (`externalHref`) appear in the sidebar but are skipped by pager/sitemap.
  */
 export const docsNavItems: DocsNavItem[] = [
   { key: "home", path: "/", labelKey: "home" },
@@ -21,6 +28,24 @@ export const docsNavItems: DocsNavItem[] = [
   { key: "upgrade", path: "/guide/upgrade", labelKey: "upgrade", parent: "other" },
   { key: "uninstall", path: "/guide/uninstall", labelKey: "uninstall", parent: "other" },
   { key: "devLoadmap", path: "/guide/dev-loadmap", labelKey: "devLoadmap", parent: "other" },
+  {
+    key: "okfHub",
+    externalHref: "https://github.com/b4moss/bwsf/blob/main/docs/index.md",
+    labelKey: "okfHub",
+    parent: "other",
+  },
+  {
+    key: "okfPillar",
+    externalHref: "https://github.com/b4moss/bwsf/blob/main/docs/README.md",
+    labelKey: "okfPillar",
+    parent: "other",
+  },
+  {
+    key: "okfSpecs",
+    externalHref: "https://github.com/b4moss/bwsf/blob/main/docs/specs/README.md",
+    labelKey: "okfSpecs",
+    parent: "other",
+  },
   { key: "faq", path: "/guide/faq", labelKey: "faq" },
   { key: "license", path: "/guide/license", labelKey: "license" },
   { key: "licenseFaq", path: "/guide/license-faq", labelKey: "licenseFaq" },

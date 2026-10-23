@@ -454,7 +454,7 @@ The existence of the `bw` command was also significant.
 
 The `bw` command is Bitwarden's CLI, and while not all features are available, you can perform typical Bitwarden operations from the command line.
 
-`bwsf` currently depends on the `bw` command for features like login.
+`bwsf` currently uses the Bitwarden **API** (Personal API Key) for auth and vault operations. The `bw` CLI is not required.
 
 However, thanks to this, we were able to develop `bwsf` quickly.
 

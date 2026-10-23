@@ -2,7 +2,7 @@
 
 対象パッケージ: `app/src/core`（`WithUnlockRetry` 等）、`app/src/infra`（`ApiBwClient` / `CryptoSession`）  
 Issue: [#153](https://github.com/b4moss/bwsf/issues/153)  
-製品正本: [`../specs/v0.20.0-multi-host.md`](../specs/v0.20.0-multi-host.md) §3
+製品正本: [`../specs/cmd/unlock-lock.md`](../specs/cmd/unlock-lock.md) / [`../specs/infra/secretstore-hosts.md`](../specs/infra/secretstore-hosts.md) / [`../specs/core/vault-unlock-restore.md`](../specs/core/vault-unlock-restore.md)
 
 関連:
 

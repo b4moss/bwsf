@@ -74,7 +74,7 @@ Or exclude-only (no positive globs — starts from all base managed files):
 }
 ```
 
-`not_save_files` was removed in v0.20.0. A project `save_files` list fully overrides the global one (no merge).
+`not_save_files` was removed in v0.20.0. A **non-empty** project `save_files` list fully overrides the global one (no merge; empty falls through to global). Spec: [`docs/specs/config/save-files.md`](https://github.com/b4moss/bwsf/blob/main/docs/specs/config/save-files.md).
 :::
 
 :::faq-item{question="Can I edit files on the Bitwarden host?"}
@@ -92,6 +92,6 @@ Names that contain `.example` are excluded, just like `.env.example`.
 :::
 
 :::faq-item{question="How do I log out from Bitwarden?"}
-Please do this on the `bw` command side. `bwsf` itself does not have login/logout functionality.
+Use `bwsf auth logout` (or `bwsf auth logout --all`). That removes the stored Personal API Key and `vault_unlock` for the resolved host(s). `bwsf lock` clears only the vault session. The Bitwarden CLI (`bw`) is not required.
 :::
 ::

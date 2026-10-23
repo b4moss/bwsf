@@ -1,7 +1,9 @@
 # core: 認証切れ / 未 unlock 再試行（Issue #53 Step 3）
 
+> **現行（v0.20+）**: API のみ。`bw` CLI 経路は廃止。自動 restore は [`vault_unlock_restore.md`](./vault_unlock_restore.md) が優先。本文の「bw 退行」は歴史的文脈。
+
 対象パッケージ: `app/src/core`  
-既存の `WithUnlockRetry` / `IsLockedError` を、api backend でも使えるよう拡張する（bw 経路の退行なし）。
+既存の `WithUnlockRetry` / `IsLockedError` を API クライアントでも使えるよう拡張する。
 
 ---
 

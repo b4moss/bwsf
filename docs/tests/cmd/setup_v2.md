@@ -2,7 +2,7 @@
 
 対象パッケージ: `app/src/cmd` / `app/src/core`（Setup） / 必要なら `app/src/utils`（対話）  
 Issue: [#177](https://github.com/b4moss/bwsf/issues/177)  
-製品正本: [`../specs/v0.20.0-multi-host.md`](../specs/v0.20.0-multi-host.md) §2.5
+製品正本: [`../specs/cmd/setup.md`](../specs/cmd/setup.md)
 
 関連:
 

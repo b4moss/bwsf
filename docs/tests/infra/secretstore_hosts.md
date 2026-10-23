@@ -2,7 +2,7 @@
 
 対象パッケージ: `app/src/infra`（`SecretStore` および API 資格情報ヘルパ）  
 Issue: [#153](https://github.com/b4moss/bwsf/issues/153)  
-製品正本: [`../specs/v0.20.0-multi-host.md`](../specs/v0.20.0-multi-host.md) §3（Keychain 移行は §2.6 最終行）
+製品正本: [`../specs/infra/secretstore-hosts.md`](../specs/infra/secretstore-hosts.md)（Keychain 移行は [`../specs/config/global-v2.md`](../specs/config/global-v2.md)）
 
 関連:
 

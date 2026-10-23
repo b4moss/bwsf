@@ -29,6 +29,8 @@ bwsf は Bitwarden 上でプロジェクトファイル（`.env*` / `*.tfvars` /
 | bwsf setup | ホストとグローバル `save_files` の設定（API のみ） |
 | bwsf auth login | API Key 保存 → Identity 確認 → unlock |
 | bwsf auth logout | API Key と vault セッションを削除 |
+| bwsf unlock / lock | vault セッション（`vault_unlock`）の保存／削除 |
+| bwsf init | プロジェクト `.bwsf/config.jsonc` を生成 |
 | bwsf config show | 現在のローカル設定を表示 |
 | bwsf push | 管理対象ファイルを Bitwarden ホストにプッシュ |
 | bwsf pull | Bitwarden ホストから管理対象ファイルをプル |

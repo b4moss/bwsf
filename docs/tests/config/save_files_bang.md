@@ -7,7 +7,7 @@
 - `app/src/cmd`（push / pull / clean への実効リスト配線）
 
 Issue: [#177](https://github.com/b4moss/bwsf/issues/177)  
-製品正本: [`../specs/v0.20.0-multi-host.md`](../specs/v0.20.0-multi-host.md) §2.3
+製品正本: [`../specs/config/save-files.md`](../specs/config/save-files.md)
 
 関連:
 
