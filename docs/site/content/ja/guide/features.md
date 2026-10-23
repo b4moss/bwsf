@@ -21,7 +21,7 @@ bwsf push
 
 名前に `.example` を含むファイル（例: `.env.local.example`、`terraform.tfvars.example`）は **保存されません**。
 
-任意のフィルタは、グローバル（`~/.config/bwsf/config.jsonc`）またはプロジェクト（`.bwsf/config.jsonc`）設定の `save_files` で指定します。glob に `!` 接頭辞を付けると除外になります。プロジェクトの `save_files` はグローバルを完全に上書きします。
+任意のフィルタは、グローバル（`~/.config/bwsf/config.jsonc`）またはプロジェクト（`.bwsf/config.jsonc`）設定の `save_files` で指定します。glob に `!` 接頭辞を付けると除外になります。プロジェクトの `save_files` が **1 件以上**あるときグローバルを完全に上書きします（空はフォールスルー）。仕様: [`docs/specs/config/save-files.md`](https://github.com/b4moss/bwsf/blob/main/docs/specs/config/save-files.md)。
 
 ## 管理対象ファイルのプロジェクトへの適用
 
@@ -39,12 +39,12 @@ v0.20.0 から、bwsf は Bitwarden **API** のみを使用します（Personal 
 ```bash
 bwsf setup
 bwsf auth login
-bwsf push   # マスターパスワードで unlock
+bwsf push   # 可能なら vault_unlock を restore。なければマスターパスワード
 ```
 
 ## マルチホスト
 
-グローバル設定の `settings.hosts` に複数ホストを登録できます。`--host <id>`、プロジェクトの `host`、または `is_default` が付いたホストで選択します。
+グローバル設定の `settings.hosts` に複数ホストを登録できます。`--host <id>`、プロジェクトの `host`（`list` は見ない）、または `is_default` が付いたホストで選択します。仕様: [`config/global-v2`](https://github.com/b4moss/bwsf/blob/main/docs/specs/config/global-v2.md), [`config/host-resolve`](https://github.com/b4moss/bwsf/blob/main/docs/specs/config/host-resolve.md)。
 
 ## ローカル設定の確認
 
@@ -66,7 +66,7 @@ Bitwarden 側に一致するバックアップがあることを確認したう�
 
 Bitwarden 側では、ホストごとに設定可能なフォルダ（`target_section`、デフォルト: `dotenvs`）にノートとして保存されます。
 
-`bwsf` をプロジェクトルートで実行したとき、そのルートフォルダ名がプロジェクト名になります。
+プロジェクト名の既定は git ルートのベース名（無ければ cwd）。`.bwsf/config.jsonc` の `override_project_name` で上書きできます。
 
 そのフォルダを Bitwarden 上で他のユーザーと共有することで、管理対象ファイルを複数メンバーで共有できます。
 

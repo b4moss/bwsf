@@ -15,6 +15,7 @@ function escapeXml(value: string): string {
 
 /**
  * Build a urlset sitemap from docsNav + locales (hreflang alternates included).
+ * External nav items (OKF hub links) are omitted.
  */
 export function buildSitemapXml(
   siteUrl: string,
@@ -22,27 +23,29 @@ export function buildSitemapXml(
 ): string {
   const base = siteUrl.replace(/\/$/, "") || "https://example.com";
 
-  const urls = docsNavItems.map((item) => {
-    const path = item.path === "/" ? "" : item.path;
-    const locByLocale = Object.fromEntries(
-      sitemapLocales.map((locale) => [locale, `${base}/${locale}${path}`]),
-    ) as Record<SitemapLocale, string>;
+  const urls = docsNavItems
+    .filter((item): item is typeof item & { path: string } => Boolean(item.path))
+    .map((item) => {
+      const path = item.path === "/" ? "" : item.path;
+      const locByLocale = Object.fromEntries(
+        sitemapLocales.map((locale) => [locale, `${base}/${locale}${path}`]),
+      ) as Record<SitemapLocale, string>;
 
-    const loc = locByLocale[defaultLocale];
-    const alternates = sitemapLocales
-      .map(
-        (locale) =>
-          `    <xhtml:link rel="alternate" hreflang="${locale}" href="${escapeXml(locByLocale[locale])}" />`,
-      )
-      .join("\n");
-    const xDefault = `    <xhtml:link rel="alternate" hreflang="x-default" href="${escapeXml(locByLocale[defaultLocale])}" />`;
+      const loc = locByLocale[defaultLocale];
+      const alternates = sitemapLocales
+        .map(
+          (locale) =>
+            `    <xhtml:link rel="alternate" hreflang="${locale}" href="${escapeXml(locByLocale[locale])}" />`,
+        )
+        .join("\n");
+      const xDefault = `    <xhtml:link rel="alternate" hreflang="x-default" href="${escapeXml(locByLocale[defaultLocale])}" />`;
 
-    return `  <url>
+      return `  <url>
     <loc>${escapeXml(loc)}</loc>
 ${alternates}
 ${xDefault}
   </url>`;
-  });
+    });
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"

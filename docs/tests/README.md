@@ -3,6 +3,7 @@
 本ディレクトリは charter（TDD）に基づく **テスト仕様書** の置き場です。  
 実装前にここを FIX し、その後 Red → Green → Refactor で進めます。
 
+製品仕様の正本は [`../specs/`](../specs/)（**同じドメイン切り**。SemVer フォルダは使わない）。  
 既存の横断メモ: [`../TEST.md`](../TEST.md)（リファクタ当時の一括仕様。新規は本ディレクトリを優先）。
 
 ## 構成
@@ -88,7 +89,7 @@ Step 4 の実装計画正本: [Issue #53 Step 4 実装計画](https://github.com
 |------|------|
 | [`config/project_local.md`](./config/project_local.md) | 探索・0/1/複数選択、`override_project_name`、`save_files`/`not_save_files`、core フィルタ |
 
-合意正本: [#133](https://github.com/b4moss/bwsf/issues/133)。グローバル同系（v0.20.0 多ホスト）および `save_files` / `!` は [#177](https://github.com/b4moss/bwsf/issues/177) / [`config/save_files_bang.md`](./config/save_files_bang.md) / 製品仕様 [`../specs/v0.20.0-multi-host.md`](../specs/v0.20.0-multi-host.md)
+合意正本: [#133](https://github.com/b4moss/bwsf/issues/133)。グローバル同系（v0.20.0 多ホスト）および `save_files` / `!` は [#177](https://github.com/b4moss/bwsf/issues/177) / [`config/save_files_bang.md`](./config/save_files_bang.md) / 製品仕様 [`../specs/README.md`](../specs/README.md)
 
 ## Issue #160 / v0.18.0 — coverage 75%+（Phase 2: `bw` 実行差し替え）
 
@@ -100,7 +101,7 @@ Step 4 の実装計画正本: [Issue #53 Step 4 実装計画](https://github.com
 
 ## Issue #177 / v0.20.0 — グローバル設定 v2 / 多ホスト（§2）
 
-製品正本: [`../specs/v0.20.0-multi-host.md`](../specs/v0.20.0-multi-host.md)。実装順は §2（本 Issue）→ #153 → #174 → #193。
+製品正本: [`../specs/config/`](../specs/config/) / [`../specs/cmd/setup.md`](../specs/cmd/setup.md)。実装順は §2（本 Issue）→ #153 → #174 → #193。
 
 | 文書 | 内容 |
 |------|------|
@@ -112,7 +113,7 @@ Step 4 の実装計画正本: [Issue #53 Step 4 実装計画](https://github.com
 
 ## Issue #193 / v0.20.0 — `bwsf init`（§5）
 
-製品正本: [`../specs/v0.20.0-multi-host.md`](../specs/v0.20.0-multi-host.md) §5。前提は #177（グローバル設定ファイル。`hosts: []` 可）。
+製品正本: [`../specs/cmd/init.md`](../specs/cmd/init.md)。前提は #177（グローバル設定ファイル。`hosts: []` 可）。
 
 | 文書 | 内容 |
 |------|------|
@@ -123,7 +124,7 @@ Step 4 の実装計画正本: [Issue #53 Step 4 実装計画](https://github.com
 
 ## Issue #174 / v0.20.0 — auth login/logout（§4）
 
-製品正本: [`../specs/v0.20.0-multi-host.md`](../specs/v0.20.0-multi-host.md) §4（host 解決は §1.1）。前提は #177（§2）および #153（§3）。
+製品正本: [`../specs/cmd/auth.md`](../specs/cmd/auth.md)（host 解決は [`../specs/config/host-resolve.md`](../specs/config/host-resolve.md)）。前提は #177（§2）および #153（§3）。
 
 | 文書 | 内容 |
 |------|------|

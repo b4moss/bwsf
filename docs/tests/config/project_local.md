@@ -1,12 +1,12 @@
 # config: プロジェクトローカル `.bwsf/config.(json|jsonc)`（Issue #133 / v0.18.0）
 
-> **v0.20.0 / #177:** `not_save_files` 廃止・`save_files` の `!` 否定・グローバルとの完全オーバーライド・任意 `host` は [`save_files_bang.md`](./save_files_bang.md) / [`host_resolve.md`](./host_resolve.md) が優先。本文書の **探索・候補選択・`override_project_name`** は維持。
+> **現行（v0.20+ / #177）**: `not_save_files` は **スキーマエラー**（廃止）。`save_files` の `!` 否定・グローバルとのオーバーライド（**非空配列のときのみ**）・任意 `host` は [`save_files_bang.md`](./save_files_bang.md) / [`host_resolve.md`](./host_resolve.md) / [`../specs/config/save-files.md`](../specs/config/save-files.md) が優先。本文書の **探索・候補選択・`override_project_name`** は維持。本文中の `not_save_files` 稼働記述は歴史的。
 
 対象パッケージ:
 
 - `app/src/config`（探索・スキーマ・JSONC パース・検証）
 - `app/src/cmd`（`resolveProjectAndFileDir` への配線。対象コマンドは push / pull / clean）
-- `app/src/core`（管理対象検出後の `save_files` / `not_save_files` フィルタ）
+- `app/src/core`（管理対象検出後の `save_files` フィルタ。`not_save_files` は現行スキーマで禁止）
 - `app/src/utils`（複数候補時の `promptui.Select` 相当）
 - `app/src/project`（`Resolve` 第2引数 `overrideProjectName` — 既存スロット）
 
@@ -16,7 +16,7 @@ Issue: [#133](https://github.com/b4moss/bwsf/issues/133)
 
 - [#134](https://github.com/b4moss/bwsf/issues/134) / [`project/git_root.md`](../project/git_root.md) — git ルート・Name/Dir
 - [#155](https://github.com/b4moss/bwsf/issues/155) / [`config/jsonc_load.md`](./jsonc_load.md) — JSONC 読み込み
-- [#177](https://github.com/b4moss/bwsf/issues/177) — [`save_files_bang.md`](./save_files_bang.md) / [`host_resolve.md`](./host_resolve.md) / 製品仕様 [`../specs/v0.20.0-multi-host.md`](../specs/v0.20.0-multi-host.md)
+- [#177](https://github.com/b4moss/bwsf/issues/177) — [`save_files_bang.md`](./save_files_bang.md) / [`host_resolve.md`](./host_resolve.md) / 製品仕様 [`../specs/README.md`](../specs/README.md)
 
 ---
 

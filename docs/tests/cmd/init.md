@@ -2,7 +2,7 @@
 
 対象パッケージ: `app/src/cmd` / `app/src/config`（プロジェクト設定の書き込み）  
 Issue: [#193](https://github.com/b4moss/bwsf/issues/193)  
-製品正本: [`../specs/v0.20.0-multi-host.md`](../specs/v0.20.0-multi-host.md) §5
+製品正本: [`../specs/cmd/init.md`](../specs/cmd/init.md)
 
 関連:
 

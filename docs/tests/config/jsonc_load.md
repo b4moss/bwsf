@@ -1,14 +1,14 @@
 # config: JSONC 読み込み（Issue #155 / v0.18.0）
 
-> **v0.20.0 / #177:** グローバルのパス XOR・Save 先 `.jsonc`・新スキーマは [`global_v2.md`](./global_v2.md) が優先。本文書は hujson 正規化の技術契約（コメント・末尾カンマ）として残す。
+> **現行（v0.20+ / #177）**: グローバルの正式パスは **`~/.config/bwsf/config.jsonc`**（`.json` XOR `.jsonc`）。Save 先も常に `.jsonc`（pretty JSON、コメント非保持）。パス・スキーマの正本は [`global_v2.md`](./global_v2.md)。本文書は hujson 正規化の技術契約（コメント・末尾カンマの**読み**）として残す。J4 の「`.json` のみ」は **歴史的前提で現行ではない**。
 
 対象パッケージ: `app/src/config`（薄い JSONC 正規化ヘルパを同パッケージまたは共有 util に置く）  
 Issue: [#155](https://github.com/b4moss/bwsf/issues/155) — 設定ファイル読み込みの JSONC 対応（`github.com/tailscale/hujson`）
 
 関連:
 
-- 既存 `LoadConfig` / `SaveConfig` / `Config`（`~/.config/bwsf/config.json`）
-- 先送り: [#133](https://github.com/b4moss/bwsf/issues/133)（`.bwsf/config.(json|jsonc)` の探索・スキーマ）
+- 既存 `LoadConfig` / `SaveConfig` / `Config`（現行パスは [`global_v2.md`](./global_v2.md)）
+- プロジェクト: [#133](https://github.com/b4moss/bwsf/issues/133)（`.bwsf/config.(json|jsonc)`）
 - v0.20 グローバル: [`global_v2.md`](./global_v2.md)（[#177](https://github.com/b4moss/bwsf/issues/177)）
 
 ---

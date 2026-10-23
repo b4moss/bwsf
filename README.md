@@ -28,6 +28,8 @@ Simple usage below:
 | bwsf setup | Configure hosts and global `save_files` (API only) |
 | bwsf auth login | Store API Key, verify Identity, unlock vault |
 | bwsf auth logout | Remove API Key and vault session |
+| bwsf unlock / lock | Persist or clear vault session (`vault_unlock`) |
+| bwsf init | Create project `.bwsf/config.jsonc` |
 | bwsf config show | Show current local configuration |
 | bwsf push | Push managed files to your Bitwarden host |
 | bwsf pull | Pull managed files from your Bitwarden host |

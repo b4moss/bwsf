@@ -2,7 +2,7 @@
 
 対象パッケージ: `app/src/config`（確認対話の差し替え口は `cmd` / `utils` でも可）  
 Issue: [#177](https://github.com/b4moss/bwsf/issues/177)  
-製品正本: [`../specs/v0.20.0-multi-host.md`](../specs/v0.20.0-multi-host.md) §2.6
+製品正本: [`../specs/config/global-v2.md`](../specs/config/global-v2.md)#マイグレーション
 
 関連: [`global_v2.md`](./global_v2.md)
 
