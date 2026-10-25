@@ -7,8 +7,8 @@ okf_version: "0.1"
 OKF の版索引。プロダクトの目的・スコープ等の本文は [README.md](README.md)（pillar）へ。
 
 * [README.md](README.md) - プロダクト目的・スコープ・技術方針の pillar（正）
-* [OKF v0.1](charter/okf/) - 本バンドルの版定義と執筆サンプル
-* [憲章（charter）](charter/) - 開発方針の最上位取り決め
+* [OKF v0.1](https://github.com/b4moss/charter/tree/v1/docs/charter/okf) - 本バンドルの版定義と執筆サンプル（AGENTS.md の『開発憲章（charter）』節を参照）
+* [憲章（charter）](https://github.com/b4moss/charter/tree/v1/docs/charter) - 開発方針の最上位取り決め（AGENTS.md の『開発憲章（charter）』節を参照）
 * [このプロジェクト独自のルール](override-charter.md) - 憲章をオーバーライドする範囲
 
 # Project Docs
