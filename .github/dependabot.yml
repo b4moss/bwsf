@@ -1,5 +1,5 @@
 # Dependabot: keep docs/site npm, app Go modules, and Actions up to date.
-# target-branch is develop per docs/charter/git-rule.md (integration branch).
+# target-branch is develop per https://github.com/b4moss/charter/blob/v1/docs/charter/git-rule.md (integration branch).
 version: 2
 updates:
   - package-ecosystem: npm
