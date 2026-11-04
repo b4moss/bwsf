@@ -65,7 +65,7 @@ Bitwarden を用いてプロジェクトの管理対象ファイル（`.env*` / 
 
 - CLI: Go + cobra（実装は `app/src/`）
 - 設定: JSONC 読み込み、書き込みは pretty JSON の `.jsonc`
-- TDD / 薄い DDD: [`charter/`](./charter/)
+- TDD / 薄い DDD: [`charter/`](https://github.com/b4moss/charter/tree/v1/docs/charter)
 - 公開ガイド: [`site/`](./site/)（Nuxt。OKF バンドル外のシェル）
 
 ## 索引
@@ -74,8 +74,8 @@ Bitwarden を用いてプロジェクトの管理対象ファイル（`.env*` / 
 - [specs](./specs/) — 現行仕様（ドメイン別）
 - [plans](./plans/) — これからやる内容
 - [tests](./tests/) — テスト仕様（specs と同じドメイン切り）
-- [憲章](./charter/) — 開発ルール
-- [OKF v0.1](./charter/okf/) — 知識バンドルの版定義
+- [憲章](https://github.com/b4moss/charter/tree/v1/docs/charter) — 開発ルール
+- [OKF v0.1](https://github.com/b4moss/charter/blob/v1/docs/charter/doc-rule.md) — 知識バンドルの版定義
 - [override-charter](./override-charter.md) — 憲章オーバーライド
 - [site](./site/) — 公開ドキュメントサイト（シェル）
 
